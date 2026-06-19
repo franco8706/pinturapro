@@ -8,6 +8,17 @@ Este es un monorepo Turborepo con una aplicación Next.js 15 (App Router) para u
 - **Fase 2 (Pro Partners)**: Directorio de pintores verificados con perfiles, reseñas y mapa.
 - **Fase 3 (Marketplace)**: Clientes publican trabajos, pintores cotizan, pagos con comisión.
 
+## Estado del Proyecto (actualizar al avanzar)
+
+- **Repo:** https://github.com/franco8706/pinturapro (privado) · rama `main`.
+- **Build:** `tsc --noEmit` y `next build` pasan limpio (19 rutas).
+- **Fase 1 (marketing):** ✅ completa — home, obras, obras/[slug], simulador, cotizar, nosotros, contacto.
+- **Fase 2 (pro):** ✅ páginas creadas — pintores, pintor/[id], registro, mapa, dashboard. Con datos mock.
+- **Fase 3 (marketplace):** ✅ páginas creadas — publicar, trabajos, cotizaciones, checkout, **panel** (analítico), admin. Con datos mock.
+- **Componentes `features/`:** los 14 creados y en uso.
+- **Pendiente real:** reemplazar mocks de `lib/data.ts` por datos reales (ver puntos `// INTEGRACIÓN:`), assets en `public/images`, e integraciones (Supabase / pagos / mapa).
+- `hero-fluid` está implementado con **canvas 2D** (no React Three Fiber) por performance y reduced-motion; la versión WebGL queda como opción futura.
+
 ## Stack Tecnológico
 
 - Next.js 15 (App Router) + TypeScript
@@ -57,7 +68,7 @@ Este es un monorepo Turborepo con una aplicación Next.js 15 (App Router) para u
 │   │       │   └── page.tsx     # Cotizaciones/ofertas
 │   │       ├── checkout/
 │   │       │   └── page.tsx     # Checkout/pago
-│   │       ├── dashboard/
+│   │       ├── panel/          # ⚠️ era "dashboard": renombrado a /panel
 │   │       │   └── page.tsx     # Dashboard analítico
 │   │       └── admin/
 │   │           └── page.tsx     # Panel admin
@@ -84,14 +95,15 @@ Este es un monorepo Turborepo con una aplicación Next.js 15 (App Router) para u
 │   │   ├── use-mouse-position.ts
 │   │   └── use-media-query.ts
 │   ├── lib/
-│   │   ├── utils.ts
-│   │   ├── animations.ts
-│   │   └── data.ts
+│   │   ├── utils.ts             # cn() (clsx + tailwind-merge)
+│   │   ├── animations.ts        # tokens de easing/duración + helpers (stagger, reveal)
+│   │   └── data.ts              # mocks + tipos: Project, Painter, Job, Review, QuoteRequest
 │   ├── types/
 │   │   └── index.ts
 │   ├── public/
 │   │   └── images/
 │   ├── tailwind.config.ts
+│   ├── postcss.config.js        # tailwind + autoprefixer (necesario para que Tailwind procese)
 │   ├── next.config.js
 │   ├── tsconfig.json
 │   └── package.json
@@ -131,6 +143,7 @@ Este es un monorepo Turborepo con una aplicación Next.js 15 (App Router) para u
 3. **Componentes**: todos en `components/features/`, desacoplados y reutilizables.
 4. **Integraciones**: marcar con `// INTEGRACIÓN:` cada punto que conecta con Supabase / Stripe / Sanity / IA.
 5. **Copy**: en español rioplatense, tono sofisticado y seguro. Nada de lorem ipsum.
+6. **Rutas / route groups**: los grupos `(marketing)`, `(pro)`, `(marketplace)` **no agregan segmento de URL**. Dos páginas con el mismo nombre en grupos distintos colisionan y rompen el build. Por eso el dashboard analítico del marketplace vive en **`/panel`** (no `/dashboard`, que es el del pintor). Las carpetas con paréntesis/corchetes deben ir **entre comillas** en scripts bash (`cat > "app/(marketing)/..."`).
 
 ## Comandos Disponibles
 
@@ -143,7 +156,21 @@ pnpm lint             # ESLint
 # Turborepo
 pnpm turbo run build  # Build de todo el monorepo
 pnpm turbo run lint   # Lint de todo el monorepo
+
+# Typecheck rápido (desde apps/web)
+npx tsc --noEmit
 ```
+
+## Git / Push a GitHub
+
+El `GITHUB_TOKEN` que inyecta Codespaces **no tiene permiso de escritura** sobre este repo (da 403) y su credential helper se cuela antes que otros. Para pushear hay que usar un **PAT** del usuario (`franco8706`), limpiando la lista de helpers y pasando el token en la URL, sin guardarlo en `.git/config`:
+
+```bash
+git add . && git commit -m "..."
+git -c credential.helper= push https://franco8706:<PAT>@github.com/franco8706/pinturapro.git main
+```
+
+El remote `origin` debe quedar **sin token** (`https://github.com/franco8706/pinturapro.git`).
 
 ## Reglas Anti-Cliché
 
