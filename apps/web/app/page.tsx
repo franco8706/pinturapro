@@ -6,6 +6,7 @@ import { ProjectCard } from "@/components/features/project-card";
 import { ProcessStep } from "@/components/features/process-step";
 import { Reveal, SectionLabel } from "@/components/features/states";
 import { mockProjects } from "@/lib/data";
+import { brands } from "@/lib/brands";
 
 const steps = [
   { title: "Diagnóstico", description: "Visitamos la obra, medimos superficies y entendemos qué querés lograr. Sin compromiso." },
@@ -66,6 +67,43 @@ export default function HomePage() {
               <p className="font-body text-body-sm text-concrete mt-2">{stat.label}</p>
             </Reveal>
           ))}
+        </div>
+      </section>
+
+      {/* MARCAS Y COLORES */}
+      <section className="py-section">
+        <div className="container-asymmetric">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-12">
+            <div>
+              <SectionLabel className="mb-4">Trabajamos con las mejores marcas</SectionLabel>
+              <h2 className="font-display text-display-lg max-w-2xl text-balance">
+                Elegí tu color, de tu marca preferida.
+              </h2>
+            </div>
+            <MagneticButton href="/colores" variant="ghost">
+              Ver todas las cartas
+            </MagneticButton>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {brands.map((brand, i) => (
+              <Reveal key={brand.id} delay={i * 0.06}>
+                <a href="/colores" className="group block border border-concrete/15 hover:border-ink transition-colors duration-300">
+                  <div className="flex h-3">
+                    {brand.colors.slice(0, 8).map((c) => (
+                      <span key={c.name} className="flex-1" style={{ backgroundColor: c.hex }} />
+                    ))}
+                  </div>
+                  <div className="p-5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: brand.accent }} />
+                      <h3 className="font-display text-display-md leading-none">{brand.name}</h3>
+                    </div>
+                    <p className="font-body text-body-sm text-concrete">{brand.colors.length} colores disponibles</p>
+                  </div>
+                </a>
+              </Reveal>
+            ))}
+          </div>
         </div>
       </section>
 

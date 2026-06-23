@@ -12,7 +12,8 @@ const tipos = [
   { id: "ambos", label: "Ambos", desc: "Obra completa interior y exterior" },
 ];
 
-const ambientes = ["Living", "Comedor", "Cocina", "Dormitorios", "Baños", "Pasillos", "Exterior"];
+const ambientesInterior = ["Living", "Comedor", "Cocina", "Dormitorios", "Baños", "Pasillos"];
+const ambientesExterior = ["Frente", "Medianera", "Balcón / Terraza", "Rejas", "Galería", "Cochera"];
 
 export default function CotizarPage() {
   const [tipo, setTipo] = useState("");
@@ -21,8 +22,24 @@ export default function CotizarPage() {
   const [contact, setContact] = useState({ name: "", email: "", phone: "" });
   const [done, setDone] = useState(false);
 
+  // Ambientes según el tipo: exterior no muestra baño/dormitorio/etc. y viceversa.
+  const ambientes =
+    tipo === "exterior"
+      ? ambientesExterior
+      : tipo === "interior"
+        ? ambientesInterior
+        : [...ambientesInterior, ...ambientesExterior];
+
   const toggleRoom = (room: string) =>
     setRooms((prev) => (prev.includes(room) ? prev.filter((r) => r !== room) : [...prev, room]));
+
+  // Al cambiar el tipo, descartar ambientes que ya no aplican.
+  const selectTipo = (next: string) => {
+    setTipo(next);
+    const valid =
+      next === "exterior" ? ambientesExterior : next === "interior" ? ambientesInterior : [...ambientesInterior, ...ambientesExterior];
+    setRooms((prev) => prev.filter((r) => valid.includes(r)));
+  };
 
   const steps: FormStep[] = [
     {
@@ -36,7 +53,7 @@ export default function CotizarPage() {
             <button
               key={t.id}
               type="button"
-              onClick={() => setTipo(t.id)}
+              onClick={() => selectTipo(t.id)}
               className={cn(
                 "text-left p-6 border transition-colors duration-300",
                 tipo === t.id ? "border-ink bg-ink text-bone" : "border-concrete/30 hover:border-ink",

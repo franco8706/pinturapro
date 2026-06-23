@@ -10,10 +10,14 @@ export function PainterCard({ painter, index = 0 }: { painter: Painter; index?: 
       style={{ transitionDelay: `${index * 0.04}s` }}
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-mist">
-        {/* INTEGRACIÓN: foto real del pintor desde Supabase Storage */}
-        <div className="absolute inset-0 flex items-center justify-center bg-concrete/10">
-          <span className="font-mono text-mono-sm text-concrete">{painter.image}</span>
-        </div>
+        {painter.image && painter.image.startsWith("http") ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={painter.image} alt={painter.name} className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-concrete/10">
+            <span className="font-display text-display-lg text-concrete/60">{initials(painter.name)}</span>
+          </div>
+        )}
         <div className="absolute top-3 left-3">
           <LevelBadge level={painter.level} />
         </div>
@@ -39,4 +43,13 @@ export function PainterCard({ painter, index = 0 }: { painter: Painter; index?: 
       </div>
     </Link>
   );
+}
+
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
 }

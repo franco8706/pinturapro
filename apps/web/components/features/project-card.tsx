@@ -26,10 +26,18 @@ export function ProjectCard({ title, location, category, accentColor, imageSrc, 
       style={{ transitionDelay: `${index * 0.04}s` }}
     >
       <div className="relative aspect-[4/5] overflow-hidden bg-mist">
-        {/* INTEGRACIÓN: reemplazar placeholder por <Image> con asset real (Sanity/CDN) */}
-        <div className="absolute inset-0 flex items-center justify-center bg-concrete/10">
-          <span className="font-mono text-mono-sm text-concrete">{imageSrc}</span>
-        </div>
+        {imageSrc && imageSrc.startsWith("http") ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={imageSrc}
+            alt={title}
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-expo-out group-hover:scale-105"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-concrete/10">
+            <span className="font-mono text-mono-sm text-concrete">{imageSrc}</span>
+          </div>
+        )}
         <div
           className={cn(
             "absolute inset-0 mix-blend-multiply transition-opacity duration-500 ease-expo-out",

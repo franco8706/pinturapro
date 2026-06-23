@@ -4,8 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { AuthNav } from "./auth-nav";
 
 const links = [
+  { href: "/colores", label: "Colores" },
   { href: "/obras", label: "Obras" },
   { href: "/simulador", label: "Simulador" },
   { href: "/pintores", label: "Pintores" },
@@ -57,6 +59,7 @@ export function Navbar() {
               </Link>
             );
           })}
+          <AuthNav />
           <Link
             href="/cotizar"
             className="px-5 py-2.5 bg-ink text-bone font-body text-body-sm hover:bg-ink/90 transition-colors duration-300"
@@ -85,6 +88,7 @@ export function Navbar() {
                 {link.label}
               </Link>
             ))}
+            <AuthNav className="py-1 text-body-lg text-left" />
             <Link href="/cotizar" className="mt-2 px-5 py-3 bg-ink text-bone text-center font-body text-body-sm">
               Cotizar
             </Link>

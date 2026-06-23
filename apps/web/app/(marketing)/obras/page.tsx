@@ -2,13 +2,15 @@ import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { ProjectCard } from "@/components/features/project-card";
 import { MagneticButton } from "@/components/features/magnetic-button";
-import { mockProjects } from "@/lib/data";
+import { getProjects } from "@/lib/queries";
 
 const categories = ["Todas", "Residencial", "Comercial", "Industrial"];
 const colors = ["Todos", "Rojo", "Azul", "Verde", "Negro", "Blanco", "Tierra"];
 const zones = ["Todas", "CABA", "Zona Norte", "Zona Oeste", "Zona Sur"];
 
-export default function PortfolioPage() {
+export default async function PortfolioPage() {
+  const projects = await getProjects();
+
   return (
     <main>
       <Navbar />
@@ -32,7 +34,7 @@ export default function PortfolioPage() {
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-12">
-            {mockProjects.map((project, index) => (
+            {projects.map((project, index) => (
               <ProjectCard key={project.id} title={project.title} location={project.location} category={project.category} accentColor={project.accentColor} imageSrc={project.images[0]} slug={project.slug} index={index} />
             ))}
           </div>

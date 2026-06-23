@@ -49,6 +49,12 @@
   }
 }
 
+@keyframes shimmer {
+  100% {
+    transform: translateX(200%);
+  }
+}
+
 @layer components {
   .text-balance {
     text-wrap: balance;

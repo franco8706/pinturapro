@@ -10,14 +10,31 @@ Este es un monorepo Turborepo con una aplicación Next.js 15 (App Router) para u
 
 ## Estado del Proyecto (actualizar al avanzar)
 
-- **Repo:** https://github.com/franco8706/pinturapro (privado) · rama `main`.
-- **Build:** `tsc --noEmit` y `next build` pasan limpio (19 rutas).
-- **Fase 1 (marketing):** ✅ completa — home, obras, obras/[slug], simulador, cotizar, nosotros, contacto.
-- **Fase 2 (pro):** ✅ páginas creadas — pintores, pintor/[id], registro, mapa, dashboard. Con datos mock.
-- **Fase 3 (marketplace):** ✅ páginas creadas — publicar, trabajos, cotizaciones, checkout, **panel** (analítico), admin. Con datos mock.
-- **Componentes `features/`:** los 14 creados y en uso.
-- **Pendiente real:** reemplazar mocks de `lib/data.ts` por datos reales (ver puntos `// INTEGRACIÓN:`), assets en `public/images`, e integraciones (Supabase / pagos / mapa).
+- **Repo:** https://github.com/franco8706/pinturapro (privado) · rama `main`. Último push committeado: setup inicial + docs. Los cambios de "marcas + /colores + simulador SAM + filtro interior/exterior" están en el working tree, **falta commitear/pushear** (requiere PAT, ver [[pinturapro-git-push]]).
+- **Build:** `tsc --noEmit` y `next build` pasan limpio (20 rutas).
+- **Fase 1 (marketing):** ✅ home, obras, obras/[slug], simulador, **colores** (nuevo), cotizar, nosotros, contacto.
+- **Fase 2 (pro):** ✅ pintores, pintor/[id], registro, mapa, dashboard. Con datos mock.
+- **Fase 3 (marketplace):** ✅ publicar, trabajos, cotizaciones, checkout, **panel** (analítico), admin. Con datos mock.
+- **Componentes `features/`:** 14 + `brand-color-swatch` + `photo-simulator` (SAM).
+- **Marcas y colores:** `lib/brands.ts` con paleta **curada** de Alba, Sherwin Williams, Sinteplast, Plavicon (los sitios no exponen sus cartas). Página `/colores` + sección de marcas en la home. Scraper scaffold en `scripts/scrape-brands.mjs`. Ver [[pinturapro-brands]].
+- **Simulador con IA (arquitectura cliente-servidor):** subir foto → clic en la pared → el cliente envía foto + punto a **`POST /api/segment`** → el backend (`meta/sam-2`) segmenta TODA la foto en regiones y las devuelve como data URLs → el **cliente elige la región que contiene el punto del clic** (precisión por pared) → aplica **color transfer HSL** (newL = targetL + origL − avgL, con protección de extremos) + **feathering** + pincel manual. La IA en el cliente (SlimSAM/Transformers.js) se **retiró** por baja precisión/lag. Detalles en [[pinturapro-simulador-sam]].
+  - **Backend SAM**: `/api/segment` soporta **Replicate** (`REPLICATE_API_TOKEN` + `REPLICATE_VERSION` de `meta/sam-2`, `REPLICATE_POINTS_PER_SIDE=32`) o **proxy propio** (`SAM_BACKEND_URL`). Sin ninguno → 503 y solo anda el pincel. Ver `apps/web/.env.example`.
+  - **Velocidad:** cold start ~15-60s la 1ª vez. Para ~2s siempre, crear un **Deployment** en Replicate (`min_instances=1`) y setear `REPLICATE_DEPLOYMENT=owner/name` (prioridad sobre VERSION). Decisión del usuario: pagar por rapidez (deployment aún no creado).
+- **Filtro interior/exterior:** en `/cotizar` los ambientes dependen del tipo (exterior oculta baño/dormitorio/pasillo y viceversa); en `/simulador` el toggle filtra colores por `usage`.
+- **Supabase (backbone, EN INTEGRACIÓN):** SDK (`@supabase/ssr`), clientes browser/server en `lib/supabase/` (+ tipos), middleware de sesión (protegido si no hay env), esquema en `supabase/migrations/0001_init.sql` (profiles/projects/jobs/reviews + RLS + alta auto de profile). **Auth listo:** `/ingresar`, `/crear-cuenta` (rol cliente/pintor/empresa), `app/auth/callback` y `app/auth/signout`, estado en el navbar (`AuthNav`). Todo protegido: sin keys la app anda igual. **LIVE:** proyecto creado (`ojdtixmysrfywgvowqie`), keys en `.env.local`, migración corrida y BD **sembrada** con datos demo (`scripts/seed_supabase.py`: 1 empresa, 3 pintores, 2 clientes, 3 obras, 1 job, 1 reseña; login demo `*@pinturapro.demo` / `Demo1234!`). RLS verificada (anon ve pintores/obras, no ve jobs). **Páginas en datos reales:** `/pintores`, `/obras`, `/obras/[slug]` y `/pintor/[id]` leen de Supabase vía `lib/queries.ts` (`getPainters`, `getProjects`, `getProjectBySlug`, `getPainterById`, `getProjectsByOwner`, `getReviewsForPainter`), con **fallback a mocks** si falla. Cards renderizan imagen real (o iniciales). `/pintores` es Server Component + `pintores-client` (filtros). **Normalización (migración 0002 aplicada):** `profiles.rating`/`rating_count` ahora son **caché mantenido por trigger desde `reviews`** (fuente de verdad); `profiles.specialties text[]`; `projects.category`(enum)+`accent_color` persistidos. Seed v2 (`scripts/seed_supabase.py`) genera 20 reseñas → ratings calculados (Martín 4.9/9, Lucía 4.7/7, Diego 4.5/4). **Dashboard del pintor (`/dashboard`) wireado:** Server Component con gate de auth (sin sesión → redirect `/ingresar?next=/dashboard`); muestra métricas reales (trabajos completados/activos, obras, reseñas), rating, lista de trabajos (cliente+obra+monto via `getJobsForPainter`) y su portfolio. Login respeta `?next=`. **Pendiente:** crear/editar obras desde el dashboard (writes con RLS), registro de pintor real, y marketplace. Ver `docs/supabase-setup.md`. Terceros en `docs/terceros.md`.
+- **Pendiente real:** backend SAM (Replicate puente → Wizart, ver `docs/wizart-outreach.md`), reemplazar mocks de `lib/data.ts` y colores curados por datos reales (`// INTEGRACIÓN:`), assets en `public/images`, integraciones (ver Roadmap).
 - `hero-fluid` está implementado con **canvas 2D** (no React Three Fiber) por performance y reduced-motion; la versión WebGL queda como opción futura.
+
+## Roadmap e Integraciones (visión confirmada por el usuario)
+
+Stack objetivo (híbrido empresa → marketplace). Lo que **falta** necesita cuentas/claves del usuario:
+
+- **Fase 1 (actual):** sitio + portfolio + simulador + cotización. Integraciones pendientes: **Supabase** (auth/db/storage), **Sanity** (CMS), **Cloudinary** (imágenes), **Resend** (emails). Backend SAM para el simulador.
+- **Fase 2 (Pro Partners):** pintores verificados, perfiles, reseñas, **Mapbox** (mapa real, hoy es esquemático), **FastAPI ai-service** (SAM + matching) en Docker (Railway/Render).
+- **Fase 3 (Marketplace):** **Stripe Connect** (sub-cuentas por pintor, comisión 8–12%), dashboard analítico.
+- **Modelo de datos (Supabase, diseñar multi-tenant desde día 1):** `profiles(type: company|painter|client, verified, rating)`, `projects(owner_id, type: portfolio|service, location, budget)`, `jobs(client_id, painter_id, status, amount, commission)`, `reviews(job_id, rating, photos[])`.
+- **Deploy:** Vercel (web) + servicio Python en Railway/Render (solo cuando entre el ai-service).
+- Nota: `three`/`@react-three/fiber`/`gsap` están instalados pero **sin usar** todavía (WebGL/ScrollTrigger son mejoras de Fase 1/2). `shadcn/ui` figura en la visión pero el proyecto usa su **propio design system** con tokens.
 
 ## Stack Tecnológico
 
