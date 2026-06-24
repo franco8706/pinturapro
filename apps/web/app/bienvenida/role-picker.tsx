@@ -33,7 +33,8 @@ export function RolePicker({ userId }: { userId: string }) {
       setLoading(false);
       return;
     }
-    router.push("/mi-panel");
+    // El cliente va directo a su panel; pintor/empresa pasan a completar su perfil público.
+    router.push(selected === "client" ? "/mi-panel" : "/dashboard/perfil");
     router.refresh();
   }
 

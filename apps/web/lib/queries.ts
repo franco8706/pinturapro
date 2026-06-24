@@ -258,7 +258,9 @@ export interface ClientJobView {
   statusLabel: string;
   amount: number | null;
   painter: string | null;
+  painterId: string | null;
   project: string | null;
+  reviewed: boolean;
 }
 
 /** Trabajos del cliente, con el pintor y la obra resueltos (respeta RLS con sesión). */
@@ -292,13 +294,22 @@ export async function getJobsForClient(clientId: string): Promise<ClientJobView[
       const { data: pr } = await supabase.from("projects").select("id, title").in("id", projectIds);
       for (const p of (pr ?? []) as unknown as { id: string; title: string }[]) titles.set(p.id, p.title);
     }
+    // Qué trabajos ya tienen reseña de este cliente (para no ofrecer reseñar dos veces).
+    const reviewed = new Set<string>();
+    const jobIds = rows.map((r) => r.id);
+    if (jobIds.length) {
+      const { data: rv } = await supabase.from("reviews").select("job_id").eq("author_id", clientId).in("job_id", jobIds);
+      for (const r of (rv ?? []) as unknown as { job_id: string }[]) reviewed.add(r.job_id);
+    }
     return rows.map((r) => ({
       id: r.id,
       status: r.status,
       statusLabel: JOB_STATUS_LABEL[r.status] ?? r.status,
       amount: r.amount,
       painter: r.painter_id ? names.get(r.painter_id) ?? "Pintor" : null,
+      painterId: r.painter_id,
       project: r.project_id ? titles.get(r.project_id) ?? null : null,
+      reviewed: reviewed.has(r.id),
     }));
   } catch {
     return [];

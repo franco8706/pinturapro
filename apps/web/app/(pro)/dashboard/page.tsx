@@ -6,6 +6,7 @@ import { LevelBadge } from "@/components/features/level-badge";
 import { MagneticButton } from "@/components/features/magnetic-button";
 import { createClient } from "@/lib/supabase/server";
 import { PortfolioActions } from "./portfolio-actions";
+import { CompleteButton } from "./complete-button";
 import {
   getOwnProfile,
   isOnboarded,
@@ -123,20 +124,24 @@ export default async function PainterDashboardPage() {
           ) : (
             <div className="space-y-3 mb-16">
               {jobs.map((job) => (
-                <div
-                  key={job.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 border border-concrete/15"
-                >
-                  <div>
-                    <p className="font-display text-body-lg">{job.project ?? "Trabajo"}</p>
-                    <p className="font-body text-body-sm text-concrete mt-1">Cliente: {job.client}</p>
+                <div key={job.id} className="p-5 border border-concrete/15">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <p className="font-display text-body-lg">{job.project ?? "Trabajo"}</p>
+                      <p className="font-body text-body-sm text-concrete mt-1">Cliente: {job.client}</p>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <span className="font-mono text-mono-sm text-concrete uppercase tracking-widest">
+                        {job.statusLabel}
+                      </span>
+                      <span className="font-body text-body-md text-ink tabular-nums">{formatARS(job.amount)}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-6">
-                    <span className="font-mono text-mono-sm text-concrete uppercase tracking-widest">
-                      {job.statusLabel}
-                    </span>
-                    <span className="font-body text-body-md text-ink tabular-nums">{formatARS(job.amount)}</span>
-                  </div>
+                  {job.status === "accepted" && (
+                    <div className="mt-4">
+                      <CompleteButton jobId={job.id} />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

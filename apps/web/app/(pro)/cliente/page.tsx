@@ -5,6 +5,7 @@ import { Footer } from "@/components/features/footer";
 import { MagneticButton } from "@/components/features/magnetic-button";
 import { createClient } from "@/lib/supabase/server";
 import { getOwnProfile, isOnboarded, getJobsForClient, formatARS } from "@/lib/queries";
+import { ReviewForm } from "./review-form";
 
 const ACTIVE = ["published", "quoted", "accepted", "in_progress"];
 
@@ -92,22 +93,28 @@ export default async function ClientePanelPage() {
           ) : (
             <div className="space-y-3">
               {jobs.map((job) => (
-                <div
-                  key={job.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 border border-concrete/15"
-                >
-                  <div>
-                    <p className="font-display text-body-lg">{job.project ?? "Solicitud de trabajo"}</p>
-                    <p className="font-body text-body-sm text-concrete mt-1">
-                      {job.painter ? `Pintor: ${job.painter}` : "Esperando pintor"}
-                    </p>
+                <div key={job.id} className="p-5 border border-concrete/15">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <p className="font-display text-body-lg">{job.project ?? "Solicitud de trabajo"}</p>
+                      <p className="font-body text-body-sm text-concrete mt-1">
+                        {job.painter ? `Pintor: ${job.painter}` : "Esperando pintor"}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <span className="font-mono text-mono-sm text-concrete uppercase tracking-widest">
+                        {job.statusLabel}
+                      </span>
+                      <span className="font-body text-body-md text-ink tabular-nums">{formatARS(job.amount)}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-6">
-                    <span className="font-mono text-mono-sm text-concrete uppercase tracking-widest">
-                      {job.statusLabel}
-                    </span>
-                    <span className="font-body text-body-md text-ink tabular-nums">{formatARS(job.amount)}</span>
-                  </div>
+                  {job.status === "completed" && job.painterId && (
+                    job.reviewed ? (
+                      <p className="mt-3 font-body text-body-sm text-concrete">✓ Ya dejaste tu reseña.</p>
+                    ) : (
+                      <ReviewForm jobId={job.id} painterId={job.painterId} painter={job.painter ?? "el pintor"} />
+                    )
+                  )}
                 </div>
               ))}
             </div>
