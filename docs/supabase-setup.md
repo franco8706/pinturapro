@@ -99,5 +99,9 @@ La base ya tiene datos de prueba (script `scripts/seed_supabase.py`, reejecutabl
 - [x] **Perfil real del pintor:** `/dashboard/perfil` (bio, zona, especialidades, avatar →
       bucket `avatars`).
 - [x] **Marketplace:** publicar pedido (`/publicar`), cotizar (`/trabajos`), aceptar (`/cotizaciones`).
-- [ ] **Vos:** correr `0003_onboarding.sql`, `0004_marketplace.sql` + habilitar proveedores OAuth.
+- [x] **Migraciones `0003` + `0004` aplicadas** (vía Management API) y verificadas
+      (`profiles.onboarded`, `jobs.note`, policy `jobs_insert_painter_quote`).
+- [x] **OAuth LIVE — Google + Microsoft + Facebook**: los tres proveedores habilitados
+      (Azure tenant `common`), Site URL + Redirect URLs seteadas vía Management API.
+      Microsoft/Facebook en modo dev: solo entran admin/testers hasta verificar/publicar.
 - [ ] Notificaciones, reseñas post-trabajo y pagos (Stripe)
