@@ -5,8 +5,18 @@ import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { MultiStepForm, type FormStep } from "@/components/features/multi-step-form";
 import { cn } from "@/lib/utils";
+import { publicarTrabajo } from "../actions";
 
 const tipos = ["interior", "exterior", "ambos"];
+
+// Mapea el chip de presupuesto a un rango numérico (ARS).
+const BUDGETS: Record<string, [number | null, number | null]> = {
+  "Hasta $300k": [null, 300000],
+  "$300k – $500k": [300000, 500000],
+  "$500k – $800k": [500000, 800000],
+  "+$800k": [800000, null],
+  "A definir": [null, null],
+};
 
 export default function PublicarPage() {
   const [title, setTitle] = useState("");
@@ -15,6 +25,21 @@ export default function PublicarPage() {
   const [zone, setZone] = useState("");
   const [budget, setBudget] = useState("");
   const [done, setDone] = useState(false);
+  const [error, setError] = useState("");
+
+  async function onComplete() {
+    setError("");
+    const [bMin, bMax] = BUDGETS[budget] ?? [null, null];
+    const fd = new FormData();
+    fd.set("title", title);
+    fd.set("description", `Tipo: ${tipo}${surface ? ` · Superficie: ${surface} m²` : ""}`);
+    fd.set("location", zone);
+    if (bMin) fd.set("budget_min", String(bMin));
+    if (bMax) fd.set("budget_max", String(bMax));
+    const res = await publicarTrabajo(fd);
+    if (res?.error) setError(res.error);
+    else setDone(true);
+  }
 
   const steps: FormStep[] = [
     {
@@ -128,8 +153,8 @@ export default function PublicarPage() {
             <>
               <p className="font-mono text-mono-sm text-concrete uppercase tracking-widest mb-4">Publicar trabajo</p>
               <h1 className="font-display text-display-xl mb-12">Recibí cotizaciones de pintores verificados.</h1>
-              {/* INTEGRACIÓN: persistir trabajo en Supabase y notificar pintores de la zona */}
-              <MultiStepForm steps={steps} onComplete={() => setDone(true)} submitLabel="Publicar trabajo" />
+              <MultiStepForm steps={steps} onComplete={onComplete} submitLabel="Publicar trabajo" />
+              {error && <p className="mt-6 font-body text-body-sm text-[#C41E3A]">{error}</p>}
             </>
           )}
         </div>

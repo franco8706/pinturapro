@@ -5,8 +5,10 @@ import { Footer } from "@/components/features/footer";
 import { LevelBadge } from "@/components/features/level-badge";
 import { MagneticButton } from "@/components/features/magnetic-button";
 import { createClient } from "@/lib/supabase/server";
+import { PortfolioActions } from "./portfolio-actions";
 import {
-  getPainterById,
+  getOwnProfile,
+  isOnboarded,
   getProjectsByOwner,
   getReviewsForPainter,
   getJobsForPainter,
@@ -20,28 +22,16 @@ export default async function PainterDashboardPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/ingresar?next=/dashboard");
 
-  const painter = await getPainterById(user.id);
+  if (!(await isOnboarded(user.id))) redirect("/bienvenida");
 
-  // Cuenta logueada que no es pintor → no tiene dashboard de pintor.
-  if (!painter) {
-    return (
-      <main>
-        <Navbar />
-        <section className="pt-40 pb-section min-h-screen">
-          <div className="container-asymmetric max-w-xl">
-            <h1 className="font-display text-display-lg mb-4">Tu cuenta no es de pintor</h1>
-            <p className="font-body text-body-lg text-concrete mb-8">
-              Este panel es para profesionales. Si querés ofrecer tus servicios, registrate como pintor.
-            </p>
-            <MagneticButton href="/pintores" variant="primary">
-              Ver pintores
-            </MagneticButton>
-          </div>
-        </section>
-        <Footer />
-      </main>
-    );
-  }
+  const profile = await getOwnProfile(user.id);
+  if (!profile) redirect("/bienvenida");
+  // El cliente tiene su propio panel.
+  if (profile.type === "client") redirect("/cliente");
+
+  const isCompany = profile.type === "company";
+  const roleLabel = isCompany ? "Panel de empresa" : "Panel de pintor";
+  const painter = profile;
 
   const [projects, reviews, jobs] = await Promise.all([
     getProjectsByOwner(user.id),
@@ -59,7 +49,7 @@ export default async function PainterDashboardPage() {
     { label: "Reseñas", value: String(reviews.length) },
   ];
 
-  const firstName = painter.name.split(" ")[0];
+  const firstName = painter.name.split(" ")[0] || "👋";
 
   return (
     <main>
@@ -77,17 +67,29 @@ export default async function PainterDashboardPage() {
                 )}
               </div>
               <div>
-                <h1 className="font-display text-display-lg leading-none">Hola, {firstName}</h1>
+                <span className="font-mono text-mono-sm uppercase tracking-widest text-concrete">{roleLabel}</span>
+                <h1 className="font-display text-display-lg leading-none mt-1">Hola, {firstName}</h1>
                 <div className="mt-2 flex items-center gap-3">
-                  <LevelBadge level={painter.level} />
-                  <span className="font-mono text-mono-sm text-concrete">★ {painter.rating.toFixed(1)}</span>
+                  {isCompany ? (
+                    <span className="font-mono text-mono-sm uppercase tracking-widest text-concrete">Empresa</span>
+                  ) : (
+                    <>
+                      <LevelBadge level={painter.level} />
+                      <span className="font-mono text-mono-sm text-concrete">★ {painter.rating.toFixed(1)}</span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
             <div className="flex gap-3">
-              <MagneticButton href={`/pintor/${painter.id}`} variant="ghost">
-                Ver mi perfil
+              <MagneticButton href="/dashboard/perfil" variant="ghost">
+                Editar perfil
               </MagneticButton>
+              {!isCompany && (
+                <MagneticButton href={`/pintor/${painter.id}`} variant="ghost">
+                  Ver mi perfil
+                </MagneticButton>
+              )}
               <MagneticButton href="/trabajos" variant="primary">
                 Buscar trabajos
               </MagneticButton>
@@ -143,7 +145,15 @@ export default async function PainterDashboardPage() {
           {/* Portfolio */}
           <div className="flex items-center justify-between mb-6">
             <h2 className="font-display text-display-md">Tus obras</h2>
-            <span className="font-mono text-mono-sm text-concrete">{projects.length} publicadas</span>
+            <div className="flex items-center gap-4">
+              <span className="font-mono text-mono-sm text-concrete">{projects.length} publicadas</span>
+              <Link
+                href="/dashboard/nueva-obra"
+                className="px-4 py-2 bg-ink text-bone font-body text-body-sm hover:bg-ink/90 transition-colors"
+              >
+                + Nueva obra
+              </Link>
+            </div>
           </div>
           {projects.length === 0 ? (
             <p className="font-body text-body-md text-concrete">Todavía no publicaste obras en tu portfolio.</p>
@@ -152,22 +162,25 @@ export default async function PainterDashboardPage() {
               {projects.map((proj) => {
                 const cover = proj.images[0];
                 return (
-                  <Link key={proj.id} href={`/obras/${proj.slug}`} className="group block">
-                    <div className="relative aspect-[4/3] bg-mist overflow-hidden flex items-center justify-center">
-                      {cover?.startsWith("http") ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={cover}
-                          alt={proj.title}
-                          className="w-full h-full object-cover transition-transform duration-700 ease-expo-out group-hover:scale-105"
-                        />
-                      ) : (
-                        <span className="font-mono text-mono-sm text-concrete">{proj.title}</span>
-                      )}
-                    </div>
-                    <p className="font-display text-body-lg mt-3">{proj.title}</p>
-                    <p className="font-body text-body-sm text-concrete">{proj.location}</p>
-                  </Link>
+                  <div key={proj.id} className="group block">
+                    <Link href={`/obras/${proj.slug}`} className="block">
+                      <div className="relative aspect-[4/3] bg-mist overflow-hidden flex items-center justify-center">
+                        {cover?.startsWith("http") ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={cover}
+                            alt={proj.title}
+                            className="w-full h-full object-cover transition-transform duration-700 ease-expo-out group-hover:scale-105"
+                          />
+                        ) : (
+                          <span className="font-mono text-mono-sm text-concrete">{proj.title}</span>
+                        )}
+                      </div>
+                      <p className="font-display text-body-lg mt-3">{proj.title}</p>
+                      <p className="font-body text-body-sm text-concrete">{proj.location}</p>
+                    </Link>
+                    <PortfolioActions id={proj.id} slug={proj.slug} />
+                  </div>
                 );
               })}
             </div>

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { mockPainters, mockProjects, type Painter, type Project } from "@/lib/data";
+import type { ProfileType } from "@/lib/supabase/types";
 
 // Si no hay Supabase configurado (o falla una query), caemos a los mocks → la web nunca se rompe.
 const SUPA = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -180,6 +181,175 @@ export async function getProjectsByOwner(ownerId: string): Promise<Project[]> {
   }
 }
 
+export interface OwnProfile {
+  id: string;
+  type: ProfileType;
+  name: string;
+  image: string;
+  verified: boolean;
+  rating: number;
+  ratingCount: number;
+  level: Painter["level"];
+  bio: string;
+  specialty: string[];
+  zone: string;
+}
+
+/** Perfil de la cuenta logueada, sin filtrar por tipo (sirve para rutear al panel correcto). */
+export async function getOwnProfile(id: string): Promise<OwnProfile | null> {
+  if (!SUPA) return null;
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, type, full_name, avatar_url, location, bio, verified, rating, rating_count, specialties")
+      .eq("id", id)
+      .maybeSingle();
+    if (error || !data) return null;
+    const p = data as unknown as {
+      id: string;
+      type: ProfileType;
+      full_name: string | null;
+      avatar_url: string | null;
+      location: string | null;
+      bio: string | null;
+      verified: boolean;
+      rating: number;
+      rating_count: number;
+      specialties: string[] | null;
+    };
+    return {
+      id: p.id,
+      type: p.type,
+      name: p.full_name ?? "",
+      image: p.avatar_url ?? "",
+      verified: p.verified,
+      rating: Number(p.rating),
+      ratingCount: p.rating_count,
+      level: levelFromRating(Number(p.rating), p.verified),
+      bio: p.bio ?? "",
+      specialty: p.specialties ?? [],
+      zone: p.location ?? "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * ¿El usuario ya eligió su rol? Falla seguro: si la columna `onboarded` todavía no existe
+ * (migración 0003 sin correr) devuelve true para no bloquear a nadie.
+ */
+export async function isOnboarded(id: string): Promise<boolean> {
+  if (!SUPA) return true;
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.from("profiles").select("onboarded").eq("id", id).maybeSingle();
+    if (error || !data) return true;
+    return !!(data as unknown as { onboarded: boolean }).onboarded;
+  } catch {
+    return true;
+  }
+}
+
+export interface ClientJobView {
+  id: string;
+  status: string;
+  statusLabel: string;
+  amount: number | null;
+  painter: string | null;
+  project: string | null;
+}
+
+/** Trabajos del cliente, con el pintor y la obra resueltos (respeta RLS con sesión). */
+export async function getJobsForClient(clientId: string): Promise<ClientJobView[]> {
+  if (!SUPA) return [];
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("jobs")
+      .select("id, status, amount, painter_id, project_id, created_at")
+      .eq("client_id", clientId)
+      .order("created_at", { ascending: false });
+    if (error || !data) return [];
+    const rows = data as unknown as {
+      id: string;
+      status: string;
+      amount: number | null;
+      painter_id: string | null;
+      project_id: string | null;
+    }[];
+    const painterIds = [...new Set(rows.map((r) => r.painter_id).filter(Boolean))] as string[];
+    const projectIds = [...new Set(rows.map((r) => r.project_id).filter(Boolean))] as string[];
+    const names = new Map<string, string>();
+    const titles = new Map<string, string>();
+    if (painterIds.length) {
+      const { data: ps } = await supabase.from("profiles").select("id, full_name").in("id", painterIds);
+      for (const p of (ps ?? []) as unknown as { id: string; full_name: string | null }[])
+        names.set(p.id, p.full_name ?? "Pintor");
+    }
+    if (projectIds.length) {
+      const { data: pr } = await supabase.from("projects").select("id, title").in("id", projectIds);
+      for (const p of (pr ?? []) as unknown as { id: string; title: string }[]) titles.set(p.id, p.title);
+    }
+    return rows.map((r) => ({
+      id: r.id,
+      status: r.status,
+      statusLabel: JOB_STATUS_LABEL[r.status] ?? r.status,
+      amount: r.amount,
+      painter: r.painter_id ? names.get(r.painter_id) ?? "Pintor" : null,
+      project: r.project_id ? titles.get(r.project_id) ?? null : null,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export interface OwnedProjectForm {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  location: string;
+  accent: string;
+  cover: string;
+}
+
+/** Una obra propia por slug, con los campos crudos para precargar el form de edición. */
+export async function getOwnedProjectBySlug(ownerId: string, slug: string): Promise<OwnedProjectForm | null> {
+  if (!SUPA) return null;
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("projects")
+      .select("id, title, description, category, location, accent_color, cover_url")
+      .eq("owner_id", ownerId)
+      .eq("slug", slug)
+      .maybeSingle();
+    if (error || !data) return null;
+    const p = data as unknown as {
+      id: string;
+      title: string;
+      description: string | null;
+      category: string | null;
+      location: string | null;
+      accent_color: string | null;
+      cover_url: string | null;
+    };
+    return {
+      id: p.id,
+      title: p.title,
+      description: p.description ?? "",
+      category: p.category ?? "Residencial",
+      location: p.location ?? "",
+      accent: p.accent_color ?? "#3F3F46",
+      cover: p.cover_url ?? "",
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** Reseñas dirigidas a un pintor, con el nombre del autor resuelto. */
 export async function getReviewsForPainter(painterId: string): Promise<ReviewView[]> {
   if (!SUPA) return [];
@@ -282,6 +452,143 @@ export async function getJobsForPainter(painterId: string): Promise<JobView[]> {
       client: names.get(r.client_id) ?? "Cliente",
       project: r.project_id ? titles.get(r.project_id) ?? null : null,
     }));
+  } catch {
+    return [];
+  }
+}
+
+// ───────────────────────── Marketplace ─────────────────────────
+
+export interface ServiceRequest {
+  id: string;
+  title: string;
+  description: string;
+  location: string;
+  budgetMin: number | null;
+  budgetMax: number | null;
+  ownerId: string;
+  ownerName: string;
+  date: string;
+}
+
+/** Pedidos de trabajo abiertos (projects type=service, published) para que los pintores coticen. */
+export async function getOpenServiceRequests(): Promise<ServiceRequest[]> {
+  if (!SUPA) return [];
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("projects")
+      .select("id, title, description, location, budget_min, budget_max, owner_id, created_at")
+      .eq("type", "service")
+      .eq("published", true)
+      .order("created_at", { ascending: false });
+    if (error || !data) return [];
+    const rows = data as unknown as {
+      id: string;
+      title: string;
+      description: string | null;
+      location: string | null;
+      budget_min: number | null;
+      budget_max: number | null;
+      owner_id: string;
+      created_at: string;
+    }[];
+    const ownerIds = [...new Set(rows.map((r) => r.owner_id))];
+    const names = new Map<string, string>();
+    if (ownerIds.length) {
+      const { data: os } = await supabase.from("profiles").select("id, full_name").in("id", ownerIds);
+      for (const o of (os ?? []) as unknown as { id: string; full_name: string | null }[])
+        names.set(o.id, o.full_name ?? "Cliente");
+    }
+    return rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      description: r.description ?? "",
+      location: r.location ?? "",
+      budgetMin: r.budget_min,
+      budgetMax: r.budget_max,
+      ownerId: r.owner_id,
+      ownerName: names.get(r.owner_id) ?? "Cliente",
+      date: monthYear(r.created_at),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export interface QuoteView {
+  id: string;
+  amount: number | null;
+  note: string | null;
+  status: string;
+  statusLabel: string;
+  painterId: string;
+  painter: string;
+  painterLevel: Painter["level"];
+  painterRating: number;
+  request: string | null;
+}
+
+/** Cotizaciones recibidas por el cliente, con el pintor y el pedido resueltos. */
+export async function getQuotesForClient(clientId: string): Promise<QuoteView[]> {
+  if (!SUPA) return [];
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("jobs")
+      .select("id, amount, note, status, painter_id, project_id, created_at")
+      .eq("client_id", clientId)
+      .in("status", ["quoted", "accepted"])
+      .order("created_at", { ascending: false });
+    if (error || !data) return [];
+    const rows = data as unknown as {
+      id: string;
+      amount: number | null;
+      note: string | null;
+      status: string;
+      painter_id: string | null;
+      project_id: string | null;
+    }[];
+    const painterIds = [...new Set(rows.map((r) => r.painter_id).filter(Boolean))] as string[];
+    const projectIds = [...new Set(rows.map((r) => r.project_id).filter(Boolean))] as string[];
+    const painters = new Map<string, { name: string; level: Painter["level"]; rating: number }>();
+    const titles = new Map<string, string>();
+    if (painterIds.length) {
+      const { data: ps } = await supabase
+        .from("profiles")
+        .select("id, full_name, verified, rating")
+        .in("id", painterIds);
+      for (const p of (ps ?? []) as unknown as {
+        id: string;
+        full_name: string | null;
+        verified: boolean;
+        rating: number;
+      }[])
+        painters.set(p.id, {
+          name: p.full_name ?? "Pintor",
+          level: levelFromRating(Number(p.rating), p.verified),
+          rating: Number(p.rating),
+        });
+    }
+    if (projectIds.length) {
+      const { data: pr } = await supabase.from("projects").select("id, title").in("id", projectIds);
+      for (const p of (pr ?? []) as unknown as { id: string; title: string }[]) titles.set(p.id, p.title);
+    }
+    return rows.map((r) => {
+      const p = r.painter_id ? painters.get(r.painter_id) : undefined;
+      return {
+        id: r.id,
+        amount: r.amount,
+        note: r.note,
+        status: r.status,
+        statusLabel: JOB_STATUS_LABEL[r.status] ?? r.status,
+        painterId: r.painter_id ?? "",
+        painter: p?.name ?? "Pintor",
+        painterLevel: p?.level ?? "Silver",
+        painterRating: p?.rating ?? 0,
+        request: r.project_id ? titles.get(r.project_id) ?? null : null,
+      };
+    });
   } catch {
     return [];
   }

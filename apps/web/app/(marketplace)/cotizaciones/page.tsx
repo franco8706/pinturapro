@@ -1,122 +1,100 @@
-"use client";
-
-import { useState } from "react";
+import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { LevelBadge } from "@/components/features/level-badge";
-import { MagneticButton } from "@/components/features/magnetic-button";
-import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/server";
+import { getOwnProfile, getQuotesForClient, formatARS } from "@/lib/queries";
+import { AcceptButton } from "./accept-button";
 
-interface Quote {
-  id: string;
-  painter: string;
-  level: "Silver" | "Gold" | "Master";
-  rating: number;
-  amount: string;
-  days: number;
-  message: string;
-}
+export default async function CotizacionesPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/ingresar?next=/cotizaciones");
 
-const quotes: Quote[] = [
-  {
-    id: "q1",
-    painter: "Martín Rojas",
-    level: "Master",
-    rating: 4.9,
-    amount: "$320.000",
-    days: 4,
-    message: "Incluye materiales premium, dos manos y protección de pisos. Puedo arrancar la semana que viene.",
-  },
-  {
-    id: "q2",
-    painter: "Lucía Fernández",
-    level: "Gold",
-    rating: 4.7,
-    amount: "$298.000",
-    days: 5,
-    message: "Presupuesto cerrado con mano de obra y materiales. Garantía de 1 año sobre la terminación.",
-  },
-  {
-    id: "q3",
-    painter: "Diego Sosa",
-    level: "Silver",
-    rating: 4.5,
-    amount: "$275.000",
-    days: 6,
-    message: "Trabajo prolijo, referencias en la zona. Materiales a cargo del cliente o los coordino yo.",
-  },
-];
+  // Las cotizaciones que recibe son las del cliente. Un pintor ve las suyas en su panel.
+  const profile = await getOwnProfile(user.id);
+  if (profile && profile.type !== "client") redirect("/dashboard");
 
-export default function CotizacionesPage() {
-  const [accepted, setAccepted] = useState<string | null>(null);
+  const quotes = await getQuotesForClient(user.id);
+  const aceptada = quotes.some((q) => q.status === "accepted");
 
   return (
     <main>
       <Navbar />
       <section className="pt-32 sm:pt-40 pb-section min-h-screen">
         <div className="container-asymmetric max-w-4xl">
-          <p className="font-mono text-mono-sm text-concrete uppercase tracking-widest mb-4">Tus cotizaciones</p>
-          <h1 className="font-display text-display-xl mb-3">Pintura interior · 2 ambientes</h1>
-          <p className="font-body text-body-lg text-concrete mb-12">
-            Palermo, CABA · 55 m² · {quotes.length} cotizaciones recibidas
+          <span className="font-mono text-mono-sm uppercase tracking-widest text-concrete">Marketplace</span>
+          <h1 className="font-display text-display-xl mt-2 mb-3">Cotizaciones recibidas</h1>
+          <p className="font-body text-body-lg text-concrete mb-12 max-w-xl">
+            Compará a los pintores que cotizaron tus trabajos y elegí con quién avanzar.
           </p>
 
-          <div className="space-y-4">
-            {quotes.map((q) => {
-              const isAccepted = accepted === q.id;
-              return (
-                <div
-                  key={q.id}
-                  className={cn(
-                    "p-6 border transition-colors duration-300",
-                    isAccepted ? "border-ink bg-mist" : "border-concrete/15",
-                  )}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 rounded-full bg-mist flex items-center justify-center font-display text-body-lg shrink-0">
-                        {q.painter.charAt(0)}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-3">
-                          <h3 className="font-display text-display-md leading-none">{q.painter}</h3>
-                          <LevelBadge level={q.level} />
+          {quotes.length === 0 ? (
+            <div className="border border-concrete/15 p-8 sm:p-12 text-center">
+              <p className="font-display text-body-lg text-ink mb-2">Todavía no recibiste cotizaciones</p>
+              <p className="font-body text-body-md text-concrete mb-6 max-w-md mx-auto">
+                Publicá un trabajo y los pintores verificados de tu zona te van a enviar sus presupuestos.
+              </p>
+              <Link
+                href="/publicar"
+                className="px-5 py-3 bg-ink text-bone font-body text-body-sm hover:bg-ink/90 transition-colors inline-block"
+              >
+                Publicar un trabajo
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {quotes.map((q) => {
+                const accepted = q.status === "accepted";
+                return (
+                  <article
+                    key={q.id}
+                    className={`border p-6 sm:p-8 ${accepted ? "border-ink bg-mist" : "border-concrete/15"}`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-1">
+                          <Link
+                            href={`/pintor/${q.painterId}`}
+                            className="font-display text-display-md hover:underline underline-offset-2"
+                          >
+                            {q.painter}
+                          </Link>
+                          <LevelBadge level={q.painterLevel} />
+                          <span className="font-mono text-mono-sm text-concrete">★ {q.painterRating.toFixed(1)}</span>
                         </div>
-                        <p className="font-body text-body-sm text-concrete mt-1.5">
-                          ★ {q.rating.toFixed(1)} · Entrega en {q.days} días
-                        </p>
+                        {q.request && (
+                          <p className="font-mono text-mono-sm text-concrete uppercase tracking-widest mb-3">
+                            {q.request}
+                          </p>
+                        )}
+                        {q.note && <p className="font-body text-body-md text-concrete max-w-xl">{q.note}</p>}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="font-display text-display-md tabular-nums">{formatARS(q.amount)}</p>
                       </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="font-display text-display-md leading-none">{q.amount}</p>
+                    <div className="mt-5">
+                      {accepted ? (
+                        <span className="font-mono text-mono-sm uppercase tracking-widest text-[#2D5A3D]">
+                          ✓ Cotización aceptada
+                        </span>
+                      ) : aceptada ? (
+                        <span className="font-mono text-mono-sm uppercase tracking-widest text-concrete">
+                          Ya elegiste otra cotización
+                        </span>
+                      ) : (
+                        <AcceptButton jobId={q.id} />
+                      )}
                     </div>
-                  </div>
-
-                  <p className="font-body text-body-md text-concrete leading-relaxed mt-4 sm:pl-16">{q.message}</p>
-
-                  <div className="flex items-center gap-4 mt-6 sm:pl-16">
-                    {isAccepted ? (
-                      <MagneticButton href="/checkout" variant="primary">
-                        Ir al pago
-                      </MagneticButton>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => setAccepted(q.id)}
-                          className="px-6 py-3 bg-ink text-bone font-body text-body-sm hover:bg-ink/90 transition-colors"
-                        >
-                          Aceptar cotización
-                        </button>
-                        <button className="font-body text-body-sm text-concrete hover:text-ink transition-colors">
-                          Mensaje
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
       <Footer />

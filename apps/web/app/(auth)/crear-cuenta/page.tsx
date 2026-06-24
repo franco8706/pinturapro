@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { ProfileType } from "@/lib/supabase/types";
+import { SocialAuth, AuthDivider } from "@/components/features/social-auth";
 
 const READY = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -57,7 +58,7 @@ export default function CrearCuentaPage() {
       setLoading(false);
       return;
     }
-    router.push("/");
+    router.push("/mi-panel");
     router.refresh();
   }
 
@@ -80,6 +81,9 @@ export default function CrearCuentaPage() {
     <div>
       <h1 className="font-display text-display-sm text-ink mb-2">Crear cuenta</h1>
       <p className="font-body text-body-sm text-concrete mb-8">Sumate a Pintura Pro.</p>
+
+      <SocialAuth />
+      <AuthDivider />
 
       <form onSubmit={onSubmit} className="space-y-5">
         <div>

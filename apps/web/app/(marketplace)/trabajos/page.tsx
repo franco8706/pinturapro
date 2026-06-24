@@ -1,23 +1,30 @@
-"use client";
-
-import { useState } from "react";
 import Link from "next/link";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
-import { Reveal, SectionLabel, EmptyState } from "@/components/features/states";
-import { mockJobs } from "@/lib/data";
-import { cn } from "@/lib/utils";
+import { SectionLabel, EmptyState } from "@/components/features/states";
+import { createClient } from "@/lib/supabase/server";
+import { getOpenServiceRequests, formatARS } from "@/lib/queries";
+import { QuoteForm } from "./quote-form";
 
-const filters = ["Todos", "interior", "exterior", "ambos"];
+function budgetLabel(min: number | null, max: number | null): string {
+  if (min && max) return `${formatARS(min)} – ${formatARS(max)}`;
+  if (max) return `Hasta ${formatARS(max)}`;
+  if (min) return `Desde ${formatARS(min)}`;
+  return "A definir";
+}
 
-export default function TrabajosPage() {
-  const [filter, setFilter] = useState("Todos");
-  const jobs = mockJobs.filter((j) => filter === "Todos" || j.type === filter);
+export default async function TrabajosPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const requests = await getOpenServiceRequests();
 
   return (
     <main>
       <Navbar />
-      <section className="pt-32 sm:pt-40 pb-section">
+      <section className="pt-32 sm:pt-40 pb-section min-h-screen">
         <div className="container-asymmetric">
           <div className="mb-12">
             <SectionLabel className="mb-4">Marketplace</SectionLabel>
@@ -29,58 +36,41 @@ export default function TrabajosPage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2 mb-10">
-            {filters.map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={cn(
-                  "px-4 py-2 font-body text-body-sm border capitalize transition-colors duration-300",
-                  filter === f ? "border-ink bg-ink text-bone" : "border-concrete/30 hover:border-ink",
-                )}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-
-          {jobs.length === 0 ? (
-            <EmptyState title="Sin trabajos" description="No hay trabajos con ese filtro por ahora." />
+          {requests.length === 0 ? (
+            <EmptyState
+              title="Todavía no hay trabajos publicados"
+              description="Cuando un cliente publique un pedido, va a aparecer acá para que lo coticen."
+            />
           ) : (
-            <div className="space-y-4">
-              {jobs.map((job, i) => (
-                <Reveal key={job.id} delay={i * 0.05}>
-                  <Link
-                    href="/cotizaciones"
-                    className="group flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 border border-concrete/15 hover:border-ink transition-colors duration-300"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="font-mono text-mono-sm text-concrete uppercase tracking-widest capitalize">
-                          {job.type}
-                        </span>
-                        <span className="w-1 h-1 rounded-full bg-concrete/40" />
-                        <span className="font-mono text-mono-sm text-concrete">{job.postedAt}</span>
-                      </div>
-                      <h3 className="font-display text-display-md leading-tight">{job.title}</h3>
-                      <p className="font-body text-body-sm text-concrete mt-1">
-                        {job.zone} · {job.surface} m²
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-8">
-                      <div className="text-right">
-                        <p className="font-body text-body-md text-ink">{job.budget}</p>
-                        <p className="font-mono text-mono-sm text-concrete mt-1">{job.quotes} cotizaciones</p>
-                      </div>
-                      <span
-                        aria-hidden
-                        className="font-mono text-body-lg text-concrete group-hover:translate-x-1 group-hover:text-ink transition-all"
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {requests.map((r) => (
+                <article key={r.id} className="border border-concrete/15 p-6 sm:p-8 flex flex-col">
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <h2 className="font-display text-display-md leading-tight">{r.title}</h2>
+                    <span className="font-mono text-mono-sm text-concrete whitespace-nowrap">{r.date}</span>
+                  </div>
+                  {r.description && <p className="font-body text-body-md text-concrete mb-4">{r.description}</p>}
+                  <div className="flex flex-wrap gap-x-6 gap-y-1 font-body text-body-sm text-concrete mb-1">
+                    {r.location && <span>📍 {r.location}</span>}
+                    <span>💰 {budgetLabel(r.budgetMin, r.budgetMax)}</span>
+                    <span>Cliente: {r.ownerName}</span>
+                  </div>
+
+                  <div className="mt-auto">
+                    {!user ? (
+                      <Link
+                        href="/ingresar?next=/trabajos"
+                        className="mt-4 inline-block font-body text-body-sm text-ink underline underline-offset-2"
                       >
-                        →
-                      </span>
-                    </div>
-                  </Link>
-                </Reveal>
+                        Ingresá como pintor para cotizar →
+                      </Link>
+                    ) : user.id === r.ownerId ? (
+                      <p className="mt-4 font-body text-body-sm text-concrete">Este es tu pedido.</p>
+                    ) : (
+                      <QuoteForm projectId={r.id} clientId={r.ownerId} />
+                    )}
+                  </div>
+                </article>
               ))}
             </div>
           )}

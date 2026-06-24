@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { SocialAuth, AuthDivider } from "@/components/features/social-auth";
 
 const READY = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -29,8 +30,8 @@ export default function IngresarPage() {
       setLoading(false);
       return;
     }
-    const next = new URLSearchParams(window.location.search).get("next") || "/";
-    router.push(next.startsWith("/") ? next : "/");
+    const next = new URLSearchParams(window.location.search).get("next") || "/mi-panel";
+    router.push(next.startsWith("/") ? next : "/mi-panel");
     router.refresh();
   }
 
@@ -38,6 +39,9 @@ export default function IngresarPage() {
     <div>
       <h1 className="font-display text-display-sm text-ink mb-2">Ingresar</h1>
       <p className="font-body text-body-sm text-concrete mb-8">Entrá a tu cuenta de Pintura Pro.</p>
+
+      <SocialAuth />
+      <AuthDivider />
 
       <form onSubmit={onSubmit} className="space-y-5">
         <Field label="Email" type="email" value={email} onChange={setEmail} autoComplete="email" />

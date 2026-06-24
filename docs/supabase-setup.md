@@ -39,10 +39,14 @@ Con la BD creada, podés reemplazar los tipos escritos a mano por los reales:
 npx supabase gen types typescript --project-id <ref> > apps/web/lib/supabase/types.ts
 ```
 
-## 5. Storage (cuando subamos fotos)
+## 5. Storage (fotos)
 
-En **Storage** crear buckets: `avatars` (público), `projects` (público), `reviews` (público).
-Las políticas de acceso se agregan en una migración aparte cuando lleguemos a esa parte.
+- Bucket **`projects`** (público) ya creado vía API. Las fotos de obras se suben ahí.
+- **No usa políticas RLS de Storage**: la subida la hace el Server Action con la **service-role
+  key** (`lib/supabase/admin.ts`), después de validar la sesión. La lectura es pública (bucket
+  público). La foto se **redimensiona en el cliente** (~1600px JPG) antes de subir.
+- Bucket **`avatars`** (público) ya creado: foto de perfil del pintor (recorte cuadrado 512px en
+  cliente, subida service-role). Pendiente (a futuro): bucket `reviews` con el mismo patrón.
 
 ---
 
@@ -85,4 +89,15 @@ La base ya tiene datos de prueba (script `scripts/seed_supabase.py`, reejecutabl
       (y configurar si pedís confirmación por email o no).
 - [x] **Migración 0002** (normalización): rating por trigger desde reviews, `specialties`, `category`/`accent_color`.
 - [x] Páginas en datos reales: `/pintores`, `/obras`, `/obras/[slug]`, `/pintor/[id]` (vía `lib/queries.ts`).
-- [ ] Dashboard del pintor (con auth) y marketplace sobre datos reales
+- [x] **Dashboard del pintor** (`/dashboard`, con auth): métricas, trabajos y portfolio reales.
+- [x] **CRUD de obras del pintor:** crear (`/dashboard/nueva-obra`), editar (`/dashboard/editar/[slug]`)
+      y borrar (acciones inline en el panel). Server Actions `createObra`/`updateObra`/`deleteObra`
+      filtran por `owner_id`; RLS UPDATE/DELETE verificada (propio sí, ajeno 0 filas).
+- [x] **Login social + paneles por rol:** Google/Microsoft/Facebook (`social-auth.tsx`),
+      dispatcher `/mi-panel`, pantalla `/bienvenida` (elige rol), panel de cliente `/cliente`
+      y panel profesional `/dashboard` (pintor/empresa). Ver **`docs/auth-oauth.md`**.
+- [x] **Perfil real del pintor:** `/dashboard/perfil` (bio, zona, especialidades, avatar →
+      bucket `avatars`).
+- [x] **Marketplace:** publicar pedido (`/publicar`), cotizar (`/trabajos`), aceptar (`/cotizaciones`).
+- [ ] **Vos:** correr `0003_onboarding.sql`, `0004_marketplace.sql` + habilitar proveedores OAuth.
+- [ ] Notificaciones, reseñas post-trabajo y pagos (Stripe)
