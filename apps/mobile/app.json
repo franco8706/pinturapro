@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Pintura Pro",
+    "slug": "pinturapro",
+    "scheme": "pinturapro",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#EDEBE6",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "ar.pinturapro.app"
+    },
+    "android": {
+      "package": "ar.pinturapro.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#141414"
+      }
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
