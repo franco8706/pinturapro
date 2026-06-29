@@ -55,13 +55,26 @@ export function BeforeAfterSlider({ beforeImage, afterImage, accentColor = "#141
     >
       {/* Después (fondo completo) */}
       <div className="absolute inset-0 flex items-center justify-center bg-concrete/5">
-        <span className="font-mono text-mono-sm text-concrete">{afterImage}</span>
+        {afterImage.startsWith("http") ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={afterImage} alt="Después" className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <span className="font-mono text-mono-sm text-concrete">{afterImage}</span>
+        )}
         <span className="absolute bottom-4 right-4 font-mono text-mono-sm text-ink bg-bone/80 px-2 py-1">Después</span>
       </div>
 
       {/* Antes (recortado por clip) */}
-      <div className="absolute inset-0 flex items-center justify-center bg-concrete/15" style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}>
-        <span className="font-mono text-mono-sm text-concrete">{beforeImage}</span>
+      <div
+        className="absolute inset-0 flex items-center justify-center bg-concrete/15"
+        style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
+      >
+        {beforeImage.startsWith("http") ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={beforeImage} alt="Antes" className="absolute inset-0 w-full h-full object-cover grayscale" />
+        ) : (
+          <span className="font-mono text-mono-sm text-concrete">{beforeImage}</span>
+        )}
         <span className="absolute bottom-4 left-4 font-mono text-mono-sm text-ink bg-bone/80 px-2 py-1">Antes</span>
       </div>
 

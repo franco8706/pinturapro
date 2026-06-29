@@ -721,6 +721,57 @@ export async function getNews(): Promise<NewsItem[]> {
   }
 }
 
+export interface Testimonial {
+  id: string;
+  author: string;
+  rating: number;
+  comment: string;
+  painter: string;
+  painterId: string;
+}
+
+/** Reseñas recientes con comentario, para el carrusel de testimonios de la home. */
+export async function getRecentReviews(limit = 8): Promise<Testimonial[]> {
+  if (!SUPA) return [];
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("reviews")
+      .select("id, rating, comment, author_id, target_id, created_at")
+      .not("comment", "is", null)
+      .gte("rating", 4)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error || !data) return [];
+    const rows = data as unknown as {
+      id: string;
+      rating: number;
+      comment: string | null;
+      author_id: string;
+      target_id: string;
+    }[];
+    const ids = [...new Set([...rows.map((r) => r.author_id), ...rows.map((r) => r.target_id)])];
+    const names = new Map<string, string>();
+    if (ids.length) {
+      const { data: ps } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+      for (const p of (ps ?? []) as unknown as { id: string; full_name: string | null }[])
+        names.set(p.id, p.full_name ?? "");
+    }
+    return rows
+      .filter((r) => (r.comment ?? "").trim().length > 0)
+      .map((r) => ({
+        id: r.id,
+        author: names.get(r.author_id) || "Cliente",
+        rating: r.rating,
+        comment: (r.comment ?? "").trim(),
+        painter: names.get(r.target_id) || "un pintor",
+        painterId: r.target_id,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 /** Puntos a favor / a considerar del pintor. Fail-safe si las columnas no existen aún. */
 export async function getPainterExtras(id: string): Promise<{ pros: string[]; cons: string[] }> {
   if (!SUPA) return { pros: [], cons: [] };

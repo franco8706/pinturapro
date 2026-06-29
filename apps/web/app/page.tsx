@@ -6,11 +6,13 @@ import { ProjectCard } from "@/components/features/project-card";
 import { ProcessStep } from "@/components/features/process-step";
 import { Reveal, SectionLabel } from "@/components/features/states";
 import { NewsCarousel } from "@/components/features/news-carousel";
+import { TestimonialsCarousel } from "@/components/features/testimonials-carousel";
 import { Marquee } from "@/components/features/marquee";
 import { CountUp } from "@/components/features/count-up";
+import { HeroSpotlight } from "@/components/features/hero-spotlight";
 import { mockProjects } from "@/lib/data";
 import { brands } from "@/lib/brands";
-import { getNews } from "@/lib/queries";
+import { getNews, getRecentReviews } from "@/lib/queries";
 
 const services = [
   "Interior",
@@ -40,7 +42,7 @@ const stats = [
 ];
 
 export default async function HomePage() {
-  const news = await getNews();
+  const [news, testimonials] = await Promise.all([getNews(), getRecentReviews()]);
   return (
     <main>
       <Navbar />
@@ -50,6 +52,7 @@ export default async function HomePage() {
         <div className="absolute inset-0 -z-10 opacity-70">
           <HeroFluid />
         </div>
+        <HeroSpotlight />
         <div className="container-asymmetric w-full pt-32 pb-20">
           <p className="font-mono text-mono-sm text-concrete uppercase tracking-widest mb-6">
             Pintura profesional de obra · Buenos Aires
@@ -69,6 +72,12 @@ export default async function HomePage() {
               Ver obras
             </MagneticButton>
           </div>
+        </div>
+
+        {/* Indicador de scroll */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 hidden sm:flex flex-col items-center gap-2 text-concrete">
+          <span className="font-mono text-mono-sm uppercase tracking-widest">Scroll</span>
+          <span aria-hidden className="animate-bounce text-body-lg">↓</span>
         </div>
       </section>
 
@@ -198,6 +207,16 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* TESTIMONIOS */}
+      {testimonials.length > 0 && (
+        <section className="py-section bg-mist border-y border-concrete/15">
+          <div className="container-asymmetric">
+            <SectionLabel className="mb-10">Lo que dicen los clientes</SectionLabel>
+            <TestimonialsCarousel items={testimonials} />
+          </div>
+        </section>
+      )}
 
       {/* NOVEDADES */}
       {news.length > 0 && (

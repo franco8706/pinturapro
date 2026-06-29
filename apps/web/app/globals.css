@@ -70,6 +70,20 @@
   animation-iteration-count: infinite;
 }
 
+/* Transición de página: solo opacidad (sin transform, para no romper position:fixed). */
+@keyframes pageFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-page {
+  animation: pageFade 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 @layer components {
   .text-balance {
     text-wrap: balance;

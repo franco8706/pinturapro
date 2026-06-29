@@ -6,6 +6,9 @@ const columns = [
     links: [
       { href: "/obras", label: "Obras" },
       { href: "/simulador", label: "Simulador" },
+      { href: "/aprender", label: "Aprender" },
+      { href: "/asesoramiento", label: "Asesoramiento" },
+      { href: "/novedades", label: "Novedades" },
       { href: "/nosotros", label: "Nosotros" },
       { href: "/contacto", label: "Contacto" },
     ],
@@ -67,9 +70,25 @@ export function Footer() {
         <div className="mt-16 pt-8 border-t border-bone/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <p className="font-mono text-mono-sm text-bone/40">© {year} Pintura Pro · Buenos Aires, Argentina</p>
           <div className="flex gap-6 font-mono text-mono-sm text-bone/40">
-            <span>Instagram</span>
-            <span>WhatsApp</span>
-            <span>hola@pinturapro.ar</span>
+            <a
+              href="https://instagram.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-bone transition-colors duration-300"
+            >
+              Instagram
+            </a>
+            <a
+              href="https://wa.me/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-bone transition-colors duration-300"
+            >
+              WhatsApp
+            </a>
+            <a href="mailto:hola@pinturapro.ar" className="hover:text-bone transition-colors duration-300">
+              hola@pinturapro.ar
+            </a>
           </div>
         </div>
       </div>

@@ -48,13 +48,16 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
           </div>
         </div>
       </section>
-      {project.beforeAfter && (
+      {(project.beforeAfter || cover?.startsWith("http")) && (
         <section className="py-section bg-plaster">
           <div className="container-asymmetric">
-            <p className="font-mono text-mono-sm text-concrete uppercase tracking-widest mb-8">Antes / Después</p>
+            <p className="font-mono text-mono-sm text-concrete uppercase tracking-widest mb-3">Antes / Después</p>
+            <p className="font-body text-body-md text-concrete mb-8 max-w-xl">
+              Arrastrá el control para comparar. Probá con el teclado: flechas ← →.
+            </p>
             <BeforeAfterSlider
-              beforeImage={project.beforeAfter.before}
-              afterImage={project.beforeAfter.after}
+              beforeImage={project.beforeAfter?.before ?? cover}
+              afterImage={project.beforeAfter?.after ?? cover}
               accentColor={project.accentColor}
             />
           </div>
