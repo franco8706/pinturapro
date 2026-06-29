@@ -20,7 +20,7 @@ export function ProjectCard({ title, location, category, accentColor, imageSrc, 
   return (
     <Link
       href={`/obras/${slug}`}
-      className="group block"
+      className="group block transition-transform duration-500 ease-expo-out hover:-translate-y-1.5"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{ transitionDelay: `${index * 0.04}s` }}

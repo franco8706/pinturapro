@@ -52,11 +52,17 @@ export function Navbar() {
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "font-body text-body-sm transition-colors duration-300 hover:text-ink",
+                  "group relative font-body text-body-sm transition-colors duration-300 hover:text-ink",
                   active ? "text-ink" : "text-concrete",
                 )}
               >
                 {link.label}
+                <span
+                  className={cn(
+                    "absolute -bottom-1.5 left-0 h-px bg-ink transition-all duration-300 ease-expo-out",
+                    active ? "w-full" : "w-0 group-hover:w-full",
+                  )}
+                />
               </Link>
             );
           })}
@@ -82,15 +88,31 @@ export function Navbar() {
       </nav>
 
       {open && (
-        <div className="md:hidden bg-plaster border-t border-concrete/10">
-          <div className="container-asymmetric flex flex-col py-6 gap-4">
-            {links.map((link) => (
-              <Link key={link.href} href={link.href} className="font-body text-body-lg text-ink py-1">
-                {link.label}
-              </Link>
-            ))}
-            <AuthNav className="py-1 text-body-lg text-left" />
-            <Link href="/cotizar" className="mt-2 px-5 py-3 bg-ink text-bone text-center font-body text-body-sm">
+        <div className="md:hidden bg-plaster/95 backdrop-blur-md border-t border-concrete/10">
+          <div className="container-asymmetric flex flex-col py-6 gap-1">
+            {links.map((link, i) => {
+              const active = pathname === link.href;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  style={{ animation: `fadeIn 0.4s cubic-bezier(0.16,1,0.3,1) ${i * 0.05}s both` }}
+                  className={cn(
+                    "flex items-center justify-between font-body text-body-lg py-2.5 border-b border-concrete/10",
+                    active ? "text-ink" : "text-concrete",
+                  )}
+                >
+                  {link.label}
+                  <span aria-hidden className="font-mono text-concrete">→</span>
+                </Link>
+              );
+            })}
+            <AuthNav className="py-2 text-body-lg text-left" />
+            <Link
+              href="/cotizar"
+              style={{ animation: `fadeIn 0.4s cubic-bezier(0.16,1,0.3,1) ${links.length * 0.05}s both` }}
+              className="mt-3 px-5 py-3 bg-ink text-bone text-center font-body text-body-sm"
+            >
               Cotizar
             </Link>
           </div>

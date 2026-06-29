@@ -6,9 +6,24 @@ import { ProjectCard } from "@/components/features/project-card";
 import { ProcessStep } from "@/components/features/process-step";
 import { Reveal, SectionLabel } from "@/components/features/states";
 import { NewsCarousel } from "@/components/features/news-carousel";
+import { Marquee } from "@/components/features/marquee";
+import { CountUp } from "@/components/features/count-up";
 import { mockProjects } from "@/lib/data";
 import { brands } from "@/lib/brands";
 import { getNews } from "@/lib/queries";
+
+const services = [
+  "Interior",
+  "Exterior",
+  "Impermeabilización",
+  "Esmaltes al agua",
+  "Texturas",
+  "Frentes y medianeras",
+  "Obra nueva",
+  "Empapelado",
+  "Cielorrasos",
+  "Antihumedad",
+];
 
 const steps = [
   { title: "Diagnóstico", description: "Visitamos la obra, medimos superficies y entendemos qué querés lograr. Sin compromiso." },
@@ -18,10 +33,10 @@ const steps = [
 ];
 
 const stats = [
-  { value: "+340", label: "Obras entregadas" },
-  { value: "12", label: "Años de oficio" },
-  { value: "4.9★", label: "Promedio de clientes" },
-  { value: "100%", label: "Garantía escrita" },
+  { value: 340, prefix: "+", suffix: "", decimals: 0, label: "Obras entregadas" },
+  { value: 12, prefix: "", suffix: "", decimals: 0, label: "Años de oficio" },
+  { value: 4.9, prefix: "", suffix: "★", decimals: 1, label: "Promedio de clientes" },
+  { value: 100, prefix: "", suffix: "%", decimals: 0, label: "Garantía escrita" },
 ];
 
 export default async function HomePage() {
@@ -57,6 +72,18 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* CINTA DE SERVICIOS */}
+      <div className="bg-ink text-bone py-4 overflow-hidden">
+        <Marquee speed={36}>
+          {services.map((s) => (
+            <span key={s} className="flex items-center">
+              <span className="font-display text-display-md px-8 whitespace-nowrap">{s}</span>
+              <span className="text-bone/40">◆</span>
+            </span>
+          ))}
+        </Marquee>
+      </div>
+
       {/* STATS */}
       <section className="border-y border-concrete/15 bg-mist">
         <div className="container-asymmetric grid grid-cols-2 lg:grid-cols-4">
@@ -66,7 +93,9 @@ export default async function HomePage() {
               delay={i * 0.06}
               className="py-10 lg:py-14 px-2 border-r border-concrete/10 last:border-0"
             >
-              <p className="font-display text-display-lg leading-none">{stat.value}</p>
+              <p className="font-display text-display-lg leading-none">
+                <CountUp value={stat.value} prefix={stat.prefix} suffix={stat.suffix} decimals={stat.decimals} />
+              </p>
               <p className="font-body text-body-sm text-concrete mt-2">{stat.label}</p>
             </Reveal>
           ))}
