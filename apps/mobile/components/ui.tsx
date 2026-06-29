@@ -5,7 +5,9 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
+  type KeyboardTypeOptions,
   type StyleProp,
   type ViewStyle,
   type TextStyle,
@@ -56,6 +58,67 @@ export function Button({
 
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   return <View style={[styles.card, style]}>{children}</View>;
+}
+
+export function Field({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  multiline,
+  keyboardType,
+  autoCapitalize = "sentences",
+  hint,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (t: string) => void;
+  placeholder?: string;
+  multiline?: boolean;
+  keyboardType?: KeyboardTypeOptions;
+  autoCapitalize?: "none" | "sentences" | "words";
+  hint?: string;
+}) {
+  return (
+    <View style={{ gap: 6 }}>
+      <Text style={[type.mono, { color: colors.concrete }]}>{label}</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={colors.concrete}
+        multiline={multiline}
+        keyboardType={keyboardType}
+        autoCapitalize={autoCapitalize}
+        style={[
+          styles.input,
+          multiline && { height: 110, textAlignVertical: "top", paddingTop: space.sm },
+        ]}
+      />
+      {hint ? <Text style={[type.bodySm, { color: colors.concrete }]}>{hint}</Text> : null}
+    </View>
+  );
+}
+
+export function Note({ children, tone = "error" }: { children: ReactNode; tone?: "error" | "success" }) {
+  const c = tone === "error" ? colors.danger ?? "#B4332B" : colors.success;
+  return (
+    <View style={{ borderLeftWidth: 3, borderLeftColor: c, paddingLeft: space.sm, paddingVertical: 4 }}>
+      <Text style={[type.bodySm, { color: c }]}>{children}</Text>
+    </View>
+  );
+}
+
+export function StarPicker({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  return (
+    <View style={{ flexDirection: "row", gap: space.sm }}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Pressable key={n} onPress={() => onChange(n)} hitSlop={6}>
+          <Text style={{ fontSize: 30, color: n <= value ? colors.amber : colors.line }}>★</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
 }
 
 export function Badge({ children }: { children: ReactNode }) {
@@ -118,6 +181,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bone,
     borderWidth: 1,
     borderColor: colors.line,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.bone,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    color: colors.ink,
+    fontSize: 16,
   },
   badge: {
     alignSelf: "flex-start",

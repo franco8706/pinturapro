@@ -20,6 +20,10 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ title: "Ingresar", presentation: "modal" }} />
           <Stack.Screen name="pintor/[id]" options={{ title: "Pintor" }} />
+          <Stack.Screen name="publicar" options={{ title: "Publicar trabajo", presentation: "modal" }} />
+          <Stack.Screen name="cotizar/[id]" options={{ title: "Cotizar", presentation: "modal" }} />
+          <Stack.Screen name="resena/[jobId]" options={{ title: "Dejar reseña", presentation: "modal" }} />
+          <Stack.Screen name="perfil" options={{ title: "Editar perfil", presentation: "modal" }} />
           <Stack.Screen name="index" options={{ headerShown: false }} />
         </Stack>
       </AuthProvider>
