@@ -605,6 +605,136 @@ export async function getQuotesForClient(clientId: string): Promise<QuoteView[]>
   }
 }
 
+// ───────────────────────── Contenido dinámico ─────────────────────────
+
+export interface Faq {
+  id: string;
+  question: string;
+  answer: string;
+}
+
+/** Preguntas básicas antes de un presupuesto. Fail-safe si la tabla no existe aún. */
+export async function getFaqs(): Promise<Faq[]> {
+  if (!SUPA) return [];
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("faqs")
+      .select("id, question, answer")
+      .eq("published", true)
+      .order("sort_order", { ascending: true });
+    if (error || !data) return [];
+    return data as unknown as Faq[];
+  } catch {
+    return [];
+  }
+}
+
+export type ResourceKind = "guide" | "video" | "course" | "advice";
+export interface Resource {
+  id: string;
+  kind: ResourceKind;
+  title: string;
+  summary: string | null;
+  body: string | null;
+  mediaUrl: string | null;
+  coverUrl: string | null;
+  level: string | null;
+  duration: string | null;
+}
+
+/** Recursos (guías / videos / cursos / asesoramiento). Filtrable por tipo. */
+export async function getResources(kind?: ResourceKind): Promise<Resource[]> {
+  if (!SUPA) return [];
+  try {
+    const supabase = await createClient();
+    let q = supabase
+      .from("resources")
+      .select("id, kind, title, summary, body, media_url, cover_url, level, duration, sort_order")
+      .eq("published", true);
+    if (kind) q = q.eq("kind", kind);
+    const { data, error } = await q.order("sort_order", { ascending: true });
+    if (error || !data) return [];
+    return (data as unknown as {
+      id: string;
+      kind: ResourceKind;
+      title: string;
+      summary: string | null;
+      body: string | null;
+      media_url: string | null;
+      cover_url: string | null;
+      level: string | null;
+      duration: string | null;
+    }[]).map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      title: r.title,
+      summary: r.summary,
+      body: r.body,
+      mediaUrl: r.media_url,
+      coverUrl: r.cover_url,
+      level: r.level,
+      duration: r.duration,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export interface NewsItem {
+  id: string;
+  title: string;
+  excerpt: string | null;
+  coverUrl: string | null;
+  url: string | null;
+  date: string;
+}
+
+/** Noticias para el carrusel. */
+export async function getNews(): Promise<NewsItem[]> {
+  if (!SUPA) return [];
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("news")
+      .select("id, title, excerpt, cover_url, url, published_at")
+      .eq("published", true)
+      .order("published_at", { ascending: false });
+    if (error || !data) return [];
+    return (data as unknown as {
+      id: string;
+      title: string;
+      excerpt: string | null;
+      cover_url: string | null;
+      url: string | null;
+      published_at: string;
+    }[]).map((n) => ({
+      id: n.id,
+      title: n.title,
+      excerpt: n.excerpt,
+      coverUrl: n.cover_url,
+      url: n.url,
+      date: monthYear(n.published_at),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/** Puntos a favor / a considerar del pintor. Fail-safe si las columnas no existen aún. */
+export async function getPainterExtras(id: string): Promise<{ pros: string[]; cons: string[] }> {
+  if (!SUPA) return { pros: [], cons: [] };
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.from("profiles").select("pros, cons").eq("id", id).maybeSingle();
+    if (error || !data) return { pros: [], cons: [] };
+    const p = data as unknown as { pros: string[] | null; cons: string[] | null };
+    return { pros: p.pros ?? [], cons: p.cons ?? [] };
+  } catch {
+    return { pros: [], cons: [] };
+  }
+}
+
 export function formatARS(n: number | null): string {
   if (n == null) return "—";
   return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);

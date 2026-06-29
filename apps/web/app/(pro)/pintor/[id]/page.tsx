@@ -6,14 +6,18 @@ import { LevelBadge } from "@/components/features/level-badge";
 import { MagneticButton } from "@/components/features/magnetic-button";
 import { ReviewSystem } from "@/components/features/review-system";
 import { SectionLabel } from "@/components/features/states";
-import { getPainterById, getProjectsByOwner, getReviewsForPainter } from "@/lib/queries";
+import { getPainterById, getProjectsByOwner, getReviewsForPainter, getPainterExtras } from "@/lib/queries";
 
 export default async function PainterProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const painter = await getPainterById(id);
   if (!painter) notFound();
 
-  const [portfolio, reviews] = await Promise.all([getProjectsByOwner(id), getReviewsForPainter(id)]);
+  const [portfolio, reviews, extras] = await Promise.all([
+    getProjectsByOwner(id),
+    getReviewsForPainter(id),
+    getPainterExtras(id),
+  ]);
   const hasPhoto = painter.image?.startsWith("http");
 
   return (
@@ -95,6 +99,39 @@ export default async function PainterProfilePage({ params }: { params: Promise<{
                 );
               })}
             </div>
+          </div>
+        </section>
+      )}
+
+      {(extras.pros.length > 0 || extras.cons.length > 0) && (
+        <section className="py-section">
+          <div className="container-asymmetric grid grid-cols-1 md:grid-cols-2 gap-10">
+            {extras.pros.length > 0 && (
+              <div>
+                <SectionLabel className="mb-6">Puntos a favor</SectionLabel>
+                <ul className="space-y-3">
+                  {extras.pros.map((p) => (
+                    <li key={p} className="flex gap-3 font-body text-body-md text-ink">
+                      <span className="text-[#2D5A3D] shrink-0">✓</span>
+                      <span>{p}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {extras.cons.length > 0 && (
+              <div>
+                <SectionLabel className="mb-6">A tener en cuenta</SectionLabel>
+                <ul className="space-y-3">
+                  {extras.cons.map((c) => (
+                    <li key={c} className="flex gap-3 font-body text-body-md text-concrete">
+                      <span className="text-[#B45309] shrink-0">−</span>
+                      <span>{c}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         </section>
       )}

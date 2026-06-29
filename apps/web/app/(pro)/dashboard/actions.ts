@@ -253,6 +253,18 @@ export async function updateProfile(formData: FormData): Promise<{ error?: strin
   const { error } = await supabase.from("profiles").update(update as never).eq("id", user.id);
   if (error) return { error: error.message };
 
+  // Pros/cons en una escritura aparte: si las columnas todavía no existen (migración 0005
+  // sin aplicar), el error se ignora para no romper la edición del resto del perfil.
+  const toLines = (s: string) =>
+    s
+      .split("\n")
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .slice(0, 8);
+  const pros = toLines(String(formData.get("pros") ?? ""));
+  const cons = toLines(String(formData.get("cons") ?? ""));
+  await supabase.from("profiles").update({ pros, cons } as never).eq("id", user.id);
+
   revalidatePath("/dashboard");
   revalidatePath("/pintores");
   revalidatePath(`/pintor/${user.id}`);

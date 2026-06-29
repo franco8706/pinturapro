@@ -5,8 +5,10 @@ import { MagneticButton } from "@/components/features/magnetic-button";
 import { ProjectCard } from "@/components/features/project-card";
 import { ProcessStep } from "@/components/features/process-step";
 import { Reveal, SectionLabel } from "@/components/features/states";
+import { NewsCarousel } from "@/components/features/news-carousel";
 import { mockProjects } from "@/lib/data";
 import { brands } from "@/lib/brands";
+import { getNews } from "@/lib/queries";
 
 const steps = [
   { title: "Diagnóstico", description: "Visitamos la obra, medimos superficies y entendemos qué querés lograr. Sin compromiso." },
@@ -22,7 +24,8 @@ const stats = [
   { value: "100%", label: "Garantía escrita" },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const news = await getNews();
   return (
     <main>
       <Navbar />
@@ -166,6 +169,21 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* NOVEDADES */}
+      {news.length > 0 && (
+        <section className="py-section bg-mist border-y border-concrete/15">
+          <div className="container-asymmetric">
+            <div className="flex items-end justify-between mb-8">
+              <SectionLabel>Novedades</SectionLabel>
+              <a href="/novedades" className="font-body text-body-sm text-concrete hover:text-ink transition-colors">
+                Ver todas →
+              </a>
+            </div>
+            <NewsCarousel items={news} />
+          </div>
+        </section>
+      )}
 
       {/* CTA */}
       <section className="py-section">

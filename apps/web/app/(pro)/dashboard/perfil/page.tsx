@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { createClient } from "@/lib/supabase/server";
-import { getOwnProfile, isOnboarded } from "@/lib/queries";
+import { getOwnProfile, isOnboarded, getPainterExtras } from "@/lib/queries";
 import { PerfilForm } from "./perfil-form";
 
 export default async function PerfilPage() {
@@ -18,6 +18,8 @@ export default async function PerfilPage() {
   const profile = await getOwnProfile(user.id);
   if (!profile) redirect("/bienvenida");
   if (profile.type === "client") redirect("/cliente");
+
+  const extras = await getPainterExtras(user.id);
 
   return (
     <main>
@@ -39,6 +41,8 @@ export default async function PerfilPage() {
               zone: profile.zone,
               avatar: profile.image,
               specialty: profile.specialty,
+              pros: extras.pros,
+              cons: extras.cons,
             }}
           />
         </div>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { MultiStepForm, type FormStep } from "@/components/features/multi-step-form";
+import { FaqAccordion } from "@/components/features/faq-accordion";
 import { cn } from "@/lib/utils";
 
 const tipos = [
@@ -168,6 +169,9 @@ export default function CotizarPage() {
               <h1 className="font-display text-display-xl mb-12">Tu presupuesto en 4 pasos.</h1>
               {/* INTEGRACIÓN: enviar { tipo, superficie, rooms, contact } a Supabase + notificación */}
               <MultiStepForm steps={steps} onComplete={() => setDone(true)} submitLabel="Pedir presupuesto" />
+              <div className="mt-16">
+                <FaqAccordion />
+              </div>
             </>
           )}
         </div>

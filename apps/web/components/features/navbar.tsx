@@ -7,12 +7,13 @@ import { cn } from "@/lib/utils";
 import { AuthNav } from "./auth-nav";
 
 const links = [
-  { href: "/colores", label: "Colores" },
   { href: "/obras", label: "Obras" },
-  { href: "/simulador", label: "Simulador" },
   { href: "/pintores", label: "Pintores" },
+  { href: "/simulador", label: "Simulador" },
+  { href: "/aprender", label: "Aprender" },
+  { href: "/asesoramiento", label: "Asesoramiento" },
+  { href: "/colores", label: "Colores" },
   { href: "/nosotros", label: "Nosotros" },
-  { href: "/contacto", label: "Contacto" },
 ];
 
 export function Navbar() {

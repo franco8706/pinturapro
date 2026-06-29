@@ -21,6 +21,8 @@ interface Initial {
   zone: string;
   avatar: string;
   specialty: string[];
+  pros: string[];
+  cons: string[];
 }
 
 export function PerfilForm({ initial }: { initial: Initial }) {
@@ -121,6 +123,31 @@ export function PerfilForm({ initial }: { initial: Initial }) {
               {s}
             </button>
           ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div>
+          <Label>Puntos a favor</Label>
+          <p className="mt-1 font-body text-body-sm text-concrete">Uno por línea. Ej: “Materiales premium incluidos”.</p>
+          <textarea
+            name="pros"
+            rows={4}
+            defaultValue={initial.pros.join("\n")}
+            placeholder={"Puntualidad\nLimpieza al terminar\nGarantía escrita"}
+            className="mt-2 w-full border border-concrete/30 bg-plaster px-3 py-2.5 font-body text-body-md text-ink focus:border-ink outline-none transition-colors resize-y"
+          />
+        </div>
+        <div>
+          <Label>A tener en cuenta</Label>
+          <p className="mt-1 font-body text-body-sm text-concrete">Honestidad que genera confianza. Uno por línea.</p>
+          <textarea
+            name="cons"
+            rows={4}
+            defaultValue={initial.cons.join("\n")}
+            placeholder={"No trabajo fines de semana\nMínimo de obra: 20 m²"}
+            className="mt-2 w-full border border-concrete/30 bg-plaster px-3 py-2.5 font-body text-body-md text-ink focus:border-ink outline-none transition-colors resize-y"
+          />
         </div>
       </div>
 
