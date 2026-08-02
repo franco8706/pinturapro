@@ -21,6 +21,9 @@ export interface Painter {
   zone: string;
   image: string;
   portfolio: string[];
+  /** Coordenadas para el mapa. `null` si el pintor todavía no cargó su ubicación. */
+  lat?: number | null;
+  lng?: number | null;
 }
 
 export interface QuoteRequest {

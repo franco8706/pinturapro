@@ -26,7 +26,7 @@ export async function getPainters(): Promise<Painter[]> {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, avatar_url, location, verified, rating, rating_count, specialties")
+      .select("id, full_name, avatar_url, location, verified, rating, rating_count, specialties, lat, lng")
       .eq("type", "painter")
       .order("rating", { ascending: false });
     if (error || !data) return mockPainters;
@@ -39,6 +39,8 @@ export async function getPainters(): Promise<Painter[]> {
       rating: number;
       rating_count: number;
       specialties: string[] | null;
+      lat: number | null;
+      lng: number | null;
     }[];
     return rows.map((p) => ({
       id: p.id,
@@ -50,6 +52,8 @@ export async function getPainters(): Promise<Painter[]> {
       zone: p.location ?? "",
       image: p.avatar_url ?? "",
       portfolio: [],
+      lat: p.lat,
+      lng: p.lng,
     }));
   } catch {
     return mockPainters;
