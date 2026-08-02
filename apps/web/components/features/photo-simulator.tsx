@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { prepareWandImage, magicWand, type WandImage } from "@/lib/magic-wand";
 
 type Status = "empty" | "ready" | "segmenting" | "error";
 
@@ -42,6 +43,11 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
   const segmentedRef = useRef(false); // ¿ya segmentamos esta foto?
   const pendingAnalyzeRef = useRef(false); // disparar análisis tras montar la imagen
 
+  // ── Varita mágica (selección local, sin servidor) ──
+  const wandRef = useRef<WandImage | null>(null); // preproceso de la foto (se calcula una vez)
+  const lastClickRef = useRef<{ x: number; y: number } | null>(null); // para re-aplicar al mover el slider
+  const maskBeforeClickRef = useRef<Uint8Array | null>(null); // selección previa al último clic
+
   const [status, setStatus] = useState<Status>("empty");
   const [errorMsg, setErrorMsg] = useState("");
   const [brush, setBrush] = useState<"off" | "add" | "erase">("off");
@@ -49,6 +55,10 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
   const [strength, setStrength] = useState(0.9); // intensidad del color (0..1)
   const [hasSelection, setHasSelection] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [tolerance, setTolerance] = useState(26); // sensibilidad de la varita (0..100)
+  // Modo de selección. `wand` (default) resuelve en ~40 ms sin red; `ai` usa el backend
+  // remoto de segmentación, más lento pero a veces mejor en superficies muy texturadas.
+  const [useAI, setUseAI] = useState(false);
   const drawing = useRef(false);
 
   // ---- Cargar imagen ----
@@ -81,10 +91,16 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
       }
       lumaRef.current = luma;
 
-      // foto nueva → invalidar segmentación previa y disparar análisis (una sola vez)
+      // Preproceso de la varita: YCbCr + gradiente + percentiles (~25 ms). Se hace acá, una
+      // sola vez, para que después cada clic sea instantáneo.
+      wandRef.current = prepareWandImage(base);
+      lastClickRef.current = null;
+      maskBeforeClickRef.current = null;
+
+      // foto nueva → invalidar segmentación remota previa (queda como opción, no como default)
       maskBankRef.current = [];
       segmentedRef.current = false;
-      pendingAnalyzeRef.current = true;
+      pendingAnalyzeRef.current = false;
 
       setHasSelection(false);
       setErrorMsg("");
@@ -315,7 +331,8 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
     [recomputeMaskDerived, repaint],
   );
 
-  // Dispara el análisis (una vez) cuando la foto ya está montada.
+  // Dispara el análisis remoto (una vez) cuando la foto ya está montada. Sólo si alguien
+  // lo pide explícitamente: el default es la varita local.
   useEffect(() => {
     if (status === "ready" && pendingAnalyzeRef.current && !segmentedRef.current) {
       pendingAnalyzeRef.current = false;
@@ -323,7 +340,37 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
     }
   }, [status, analyzeImage]);
 
-  // ---- Clic en el canvas → suma la región del clic (analiza primero si hace falta) ----
+  // ---- Varita mágica: selección local instantánea ----
+  // Parte de la selección que había ANTES del último clic y le suma la región nueva. Guardar
+  // ese estado previo es lo que permite mover el slider de sensibilidad y ver el resultado
+  // recalcularse en vivo, sin perder los clics anteriores ni acumular basura.
+  const applyWand = useCallback(
+    (nx: number, ny: number, tol: number): boolean => {
+      const wand = wandRef.current;
+      const out = maskRef.current;
+      const { w, h } = dims.current;
+      if (!wand || !out) return false;
+
+      const region = magicWand(wand, nx * w, ny * h, { tolerance: tol });
+
+      // Un clic sobre un objeto pequeño y muy contrastado (un cuadro, un enchufe, una junta)
+      // queda encerrado entre bordes y devuelve una región mínima. Eso no le sirve a nadie:
+      // mejor no ensuciar la selección y decirle al usuario dónde tocar.
+      let area = 0;
+      for (let i = 0; i < region.length; i++) area += region[i];
+      if (area < region.length * 0.002) return false;
+
+      const prev = maskBeforeClickRef.current;
+      for (let i = 0; i < out.length; i++) out[i] = (prev?.[i] ?? 0) || region[i] ? 1 : 0;
+
+      recomputeMaskDerived(true);
+      repaint();
+      return true;
+    },
+    [recomputeMaskDerived, repaint],
+  );
+
+  // ---- Clic en el canvas → selecciona la superficie tocada ----
   const onCanvasClick = async (e: React.MouseEvent) => {
     if (brush !== "off" || status !== "ready") return;
     const canvas = viewRef.current;
@@ -332,13 +379,35 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
     const nx = (e.clientX - rect.left) / rect.width;
     const ny = (e.clientY - rect.top) / rect.height;
 
-    if (!segmentedRef.current) {
-      const ok = await analyzeImage();
-      if (!ok) return;
+    // Congelamos la selección actual como base: este clic SUMA sobre ella.
+    maskBeforeClickRef.current = maskRef.current ? new Uint8Array(maskRef.current) : null;
+    setErrorMsg("");
+
+    if (useAI) {
+      // Modo remoto: la primera vez hay que analizar la foto entera (lento).
+      lastClickRef.current = null; // la sensibilidad no aplica a las regiones del modelo
+      if (!segmentedRef.current) {
+        const ok = await analyzeImage();
+        if (!ok) return;
+      }
+      if (await pickAt(nx, ny)) setHasSelection(true);
+      else setErrorMsg("No detectamos una superficie ahí. Probá el modo Varita o el 🖌 Pincel.");
+      return;
     }
-    const picked = await pickAt(nx, ny);
-    if (picked) setHasSelection(true);
-    else setErrorMsg("No detectamos una superficie en ese punto. Hacé clic más al centro de la pared, o usá el 🖌 Pincel.");
+
+    lastClickRef.current = { x: nx, y: ny };
+    if (applyWand(nx, ny, tolerance)) setHasSelection(true);
+    else
+      setErrorMsg(
+        "Ahí no hay una superficie clara (puede ser un mueble, un cuadro o una junta). Tocá una zona más lisa de la pared, o subí la Sensibilidad.",
+      );
+  };
+
+  // Mover la sensibilidad recalcula el último clic en vivo (no hace falta volver a tocar).
+  const onToleranceChange = (value: number) => {
+    setTolerance(value);
+    const last = lastClickRef.current;
+    if (last && status === "ready") applyWand(last.x, last.y, value);
   };
 
   // ---- Pincel (ajuste manual) ----
@@ -362,6 +431,11 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
           mask[py * w + px] = val;
         }
       }
+      // Una pincelada es una edición manual: deja de haber un "último clic" que recalcular,
+      // así mover la sensibilidad después no se lleva puesto lo que el usuario ajustó a mano.
+      lastClickRef.current = null;
+      maskBeforeClickRef.current = null;
+
       recomputeMaskDerived(false);
       repaint();
       setHasSelection(true);
@@ -371,6 +445,8 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
 
   const clearSelection = () => {
     if (maskRef.current) maskRef.current.fill(0);
+    lastClickRef.current = null;
+    maskBeforeClickRef.current = null;
     recomputeMaskDerived(true);
     repaint();
     setHasSelection(false);
@@ -386,6 +462,9 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
     maskBankRef.current = [];
     segmentedRef.current = false;
     pendingAnalyzeRef.current = false;
+    wandRef.current = null;
+    lastClickRef.current = null;
+    maskBeforeClickRef.current = null;
     setHasSelection(false);
     setZoom(1);
     setStatus("empty");
@@ -478,6 +557,50 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
               </label>
             )}
 
+            {/* Modo de selección. La varita es el default: instantánea y sin depender del backend. */}
+            <div className="flex items-center border border-concrete/30">
+              <button
+                onClick={() => setUseAI(false)}
+                disabled={segmenting}
+                className={cn(
+                  "px-3 py-2 font-body text-body-sm transition-colors disabled:opacity-40",
+                  !useAI ? "bg-ink text-bone" : "hover:bg-mist",
+                )}
+                title="Selección instantánea en tu navegador"
+              >
+                ✨ Varita
+              </button>
+              <button
+                onClick={() => setUseAI(true)}
+                disabled={segmenting}
+                className={cn(
+                  "px-3 py-2 font-body text-body-sm border-l border-concrete/30 transition-colors disabled:opacity-40",
+                  useAI ? "bg-ink text-bone" : "hover:bg-mist",
+                )}
+                title="Segmentación en el servidor: más lenta, útil en superficies muy texturadas"
+              >
+                🤖 IA
+              </button>
+            </div>
+
+            {/* Sensibilidad de la varita: recalcula el último clic en vivo. */}
+            {brush === "off" && !useAI && (
+              <label
+                className="flex items-center gap-2 font-mono text-mono-sm text-concrete"
+                title="Cuánta superficie abarca cada clic. Bajala si se pasa a otras zonas; subila si quedó corto."
+              >
+                Sensibilidad
+                <input
+                  type="range"
+                  min={5}
+                  max={70}
+                  value={tolerance}
+                  onChange={(e) => onToleranceChange(Number(e.target.value))}
+                />
+                <span className="tabular-nums w-6">{tolerance}</span>
+              </label>
+            )}
+
             <div className="flex items-center border border-concrete/30">
               <button onClick={() => setZoom((z) => Math.max(1, +(z - 0.25).toFixed(2)))} className="px-3 py-2 font-body text-body-sm hover:bg-mist" aria-label="Alejar">
                 −
@@ -516,9 +639,10 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
             <p className="font-body text-body-sm text-[#C41E3A]">{errorMsg}</p>
           ) : status === "ready" && brush === "off" ? (
             <p className="font-body text-body-sm text-concrete">
-              <strong className="text-ink">Tocá la pared</strong> que querés pintar. Si quedó en partes (bloques, luces),
-              <strong className="text-ink"> sumá clics</strong> sobre el resto: se van acumulando al instante. Elegí un color
-              a la derecha y afiná los bordes con el 🖌 Pincel.
+              <strong className="text-ink">Tocá la pared</strong> que querés pintar. Si agarró de más o de menos, movés
+              <strong className="text-ink"> Sensibilidad</strong> y se recalcula al instante. Podés
+              <strong className="text-ink"> sumar clics</strong> para agregar otras paredes, y separar zonas del mismo color
+              (una pared de su techo, por ejemplo) con el 🖌 Pincel.
             </p>
           ) : null}
         </div>
