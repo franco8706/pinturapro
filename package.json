@@ -12,5 +12,12 @@
     "turbo": "^2.0.0",
     "typescript": "^5.4.0"
   },
-  "packageManager": "pnpm@9.0.0"
+  "packageManager": "pnpm@9.0.0",
+  "overridesReason": "Parches de seguridad sobre transitivas que el paquete padre todavía trae vulnerables (sharp/postcss llegan por next).",
+  "pnpm": {
+    "overrides": {
+      "sharp": "^0.35.3",
+      "postcss": "^8.5.25"
+    }
+  }
 }
