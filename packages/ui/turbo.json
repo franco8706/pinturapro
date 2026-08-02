@@ -1,0 +1,10 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    // Solo hace typecheck (noEmit): no genera artefactos que cachear.
+    "build": {
+      "outputs": []
+    }
+  }
+}
