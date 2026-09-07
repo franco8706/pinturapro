@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 
-const COMMISSION = 0.08;
+// Fuente única: acá se mostraba 8% mientras `cotizar()` guardaba 10% en la base.
+import { COMMISSION_RATE as COMMISSION } from "@/lib/utils";
 
 export default function CheckoutPage() {
   const [paid, setPaid] = useState(false);
