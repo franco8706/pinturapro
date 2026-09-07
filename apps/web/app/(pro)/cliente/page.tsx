@@ -4,7 +4,7 @@ import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { MagneticButton } from "@/components/features/magnetic-button";
 import { createClient } from "@/lib/supabase/server";
-import { getOwnProfile, isOnboarded, getJobsForClient, formatARS } from "@/lib/queries";
+import { getOwnProfile, getJobsForClient, formatARS } from "@/lib/queries";
 import { ReviewForm } from "./review-form";
 
 const ACTIVE = ["published", "quoted", "accepted", "in_progress"];
@@ -16,10 +16,8 @@ export default async function ClientePanelPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/ingresar?next=/cliente");
 
-  if (!(await isOnboarded(user.id))) redirect("/bienvenida");
-
   const profile = await getOwnProfile(user.id);
-  if (!profile) redirect("/bienvenida");
+  if (!profile || !profile.onboarded) redirect("/bienvenida");
   // Pintores y empresas tienen su propio panel profesional.
   if (profile.type !== "client") redirect("/dashboard");
 

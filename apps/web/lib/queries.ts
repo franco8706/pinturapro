@@ -1,6 +1,51 @@
+import { unstable_rethrow } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { mockPainters, mockProjects, type Painter, type Project } from "@/lib/data";
-import type { ProfileType } from "@/lib/supabase/types";
+
+
+import type { ProfileType, LeadKind, LeadStatus } from "@/lib/supabase/types";
+
+/**
+ * Un fallo de base no puede ser invisible.
+ *
+ * Antes cada catch de este archivo estaba vacío y varias funciones caían a los mocks sin
+ * registrar nada. Con el proyecto de Supabase caído, el sitio devolvía 200 y mostraba
+ * pintores de mentira: no había forma de enterarse de que la base no respondía.
+ */
+function dbError(fn: string, e: unknown): void {
+  // Next señaliza con excepciones: redirect(), notFound(), la detección de render dinámico.
+  // Los catch de este archivo se las estaban tragando. `unstable_rethrow` las relanza todas
+  // —incluso envueltas en `cause`— y es la lista que mantiene Next, no una nuestra a mano:
+  // la versión anterior chequeaba "NEXT_NOT_FOUND", un digest que ya no existe en Next 15.5.
+  unstable_rethrow(e);
+
+  // Los errores de PostgREST no son `Error`: son objetos { message, code, details, hint }.
+  // Sin este desarmado el log terminaba siendo "[object Object]", que no sirve para nada.
+  // `details` trae el stack completo en varias líneas; nos quedamos con la causa raíz
+  // (la línea "Caused by:") para que el log sea una sola línea y siga siendo accionable.
+  const firstLine = (v: unknown) => String(v).split("\n").find((l) => l.trim()) ?? "";
+  const cause = (v: unknown) =>
+    String(v)
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => l.startsWith("Caused by:"));
+
+  let msg: string;
+  if (e instanceof Error) {
+    msg = e.message;
+  } else if (e && typeof e === "object") {
+    const o = e as { message?: unknown; code?: unknown; details?: unknown };
+    const parts = [
+      o.message ? firstLine(o.message) : "",
+      o.code ? `code=${o.code}` : "",
+      o.details ? cause(o.details) ?? "" : "",
+    ].filter(Boolean);
+    msg = [...new Set(parts)].join(" · ") || JSON.stringify(e);
+  } else {
+    msg = String(e);
+  }
+  console.error(`[db] ${fn} falló: ${msg}`);
+}
 
 // Si no hay Supabase configurado (o falla una query), caemos a los mocks → la web nunca se rompe.
 const SUPA = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -28,8 +73,12 @@ export async function getPainters(): Promise<Painter[]> {
       .from("profiles")
       .select("id, full_name, avatar_url, location, verified, rating, rating_count, specialties, lat, lng")
       .eq("type", "painter")
-      .order("rating", { ascending: false });
-    if (error || !data) return mockPainters;
+      .order("rating", { ascending: false })
+      .limit(60); // tope: el directorio se sirve entero a un Client Component
+    if (error || !data) {
+      if (error) dbError("getPainters", error);
+      return mockPainters;
+    }
     const rows = data as unknown as {
       id: string;
       full_name: string | null;
@@ -55,7 +104,8 @@ export async function getPainters(): Promise<Painter[]> {
       lat: p.lat,
       lng: p.lng,
     }));
-  } catch {
+  } catch (e) {
+    dbError("getPainters", e);
     return mockPainters;
   }
 }
@@ -70,10 +120,15 @@ export async function getProjects(): Promise<Project[]> {
       .select("id, slug, title, description, cover_url, images, location, created_at, category, accent_color")
       .eq("type", "portfolio")
       .eq("published", true)
-      .order("created_at", { ascending: false });
-    if (error || !data) return mockProjects;
+      .order("created_at", { ascending: false })
+      .limit(60); // tope: el portfolio se sirve entero
+    if (error || !data) {
+      if (error) dbError("getProjects", error);
+      return mockProjects;
+    }
     return (data as unknown as ProjectRow[]).map(mapProject);
-  } catch {
+  } catch (e) {
+    dbError("getProjects", e);
     return mockProjects;
   }
 }
@@ -105,9 +160,33 @@ function mapProject(p: ProjectRow): Project {
   };
 }
 
+/**
+ * Una obra por su slug.
+ *
+ * Consulta por la clave en vez de bajar el portfolio entero y filtrar en memoria: `slug`
+ * tiene índice UNIQUE desde 0001. Con el filtrado en JS, una obra que quedara fuera del
+ * tope de filas de PostgREST (1000 por defecto) daba 404 aunque existiera y estuviera
+ * publicada — y con la base caída servía una obra falsa con 200.
+ */
 export async function getProjectBySlug(slug: string): Promise<Project | null> {
-  const all = await getProjects();
-  return all.find((p) => p.slug === slug) ?? null;
+  if (!SUPA) return mockProjects.find((p) => p.slug === slug) ?? null;
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("projects")
+      .select("id, slug, title, description, cover_url, images, location, created_at, category, accent_color")
+      .eq("slug", slug)
+      .eq("published", true)
+      .maybeSingle();
+    if (error || !data) {
+      if (error) dbError("getProjectBySlug", error);
+      return null;
+    }
+    return mapProject(data as unknown as ProjectRow);
+  } catch (e) {
+    dbError("getProjectBySlug", e);
+    return null;
+  }
 }
 
 export interface PainterDetail extends Painter {
@@ -135,9 +214,12 @@ export async function getPainterById(id: string): Promise<PainterDetail | null> 
       .from("profiles")
       .select("id, full_name, avatar_url, location, bio, verified, rating, rating_count, specialties")
       .eq("id", id)
-      .eq("type", "painter")
+      .in("type", ["painter", "company"])
       .maybeSingle();
-    if (error || !data) return null;
+    if (error || !data) {
+      if (error) dbError("getPainterById", error);
+      return null;
+    }
     const p = data as unknown as {
       id: string;
       full_name: string | null;
@@ -161,7 +243,8 @@ export async function getPainterById(id: string): Promise<PainterDetail | null> 
       portfolio: [],
       bio: p.bio ?? "",
     };
-  } catch {
+  } catch (e) {
+    dbError("getPainterById", e);
     return null;
   }
 }
@@ -177,10 +260,15 @@ export async function getProjectsByOwner(ownerId: string): Promise<Project[]> {
       .eq("type", "portfolio")
       .eq("published", true)
       .eq("owner_id", ownerId)
-      .order("created_at", { ascending: false });
-    if (error || !data) return [];
+      .order("created_at", { ascending: false })
+      .limit(24); // tope: portfolio de un pintor
+    if (error || !data) {
+      if (error) dbError("getProjectsByOwner", error);
+      return [];
+    }
     return (data as unknown as ProjectRow[]).map(mapProject);
-  } catch {
+  } catch (e) {
+    dbError("getProjectsByOwner", e);
     return [];
   }
 }
@@ -188,6 +276,8 @@ export async function getProjectsByOwner(ownerId: string): Promise<Project[]> {
 export interface OwnProfile {
   id: string;
   type: ProfileType;
+  /** false = llegó por OAuth y todavía no eligió rol (va a /bienvenida). */
+  onboarded: boolean;
   name: string;
   image: string;
   verified: boolean;
@@ -206,13 +296,17 @@ export async function getOwnProfile(id: string): Promise<OwnProfile | null> {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, type, full_name, avatar_url, location, bio, verified, rating, rating_count, specialties")
+      .select("id, type, onboarded, full_name, avatar_url, location, bio, verified, rating, rating_count, specialties")
       .eq("id", id)
       .maybeSingle();
-    if (error || !data) return null;
+    if (error || !data) {
+      if (error) dbError("getOwnProfile", error);
+      return null;
+    }
     const p = data as unknown as {
       id: string;
       type: ProfileType;
+      onboarded: boolean | null;
       full_name: string | null;
       avatar_url: string | null;
       location: string | null;
@@ -225,6 +319,9 @@ export async function getOwnProfile(id: string): Promise<OwnProfile | null> {
     return {
       id: p.id,
       type: p.type,
+      // Si la columna todavía no existe (migración 0003 sin correr) asumimos onboarded:
+      // es preferible dejar entrar que trabar a todos en /bienvenida.
+      onboarded: p.onboarded ?? true,
       name: p.full_name ?? "",
       image: p.avatar_url ?? "",
       verified: p.verified,
@@ -235,25 +332,25 @@ export async function getOwnProfile(id: string): Promise<OwnProfile | null> {
       specialty: p.specialties ?? [],
       zone: p.location ?? "",
     };
-  } catch {
+  } catch (e) {
+    dbError("getOwnProfile", e);
     return null;
   }
 }
 
 /**
- * ¿El usuario ya eligió su rol? Falla seguro: si la columna `onboarded` todavía no existe
- * (migración 0003 sin correr) devuelve true para no bloquear a nadie.
+ * ¿El usuario ya eligió su rol?
+ *
+ * Lee el MISMO perfil que `getOwnProfile` a propósito. Antes eran dos consultas separadas
+ * que resolvían el fallo en direcciones opuestas: `isOnboarded` fallaba-abierto (devolvía
+ * true) y `getOwnProfile` fallaba-cerrado (devolvía null). Si no se podía leer `profiles`,
+ * /mi-panel pasaba el primer chequeo, fallaba el segundo y redirigía a /bienvenida, que
+ * volvía a pasar el primero y redirigía a /mi-panel: bucle infinito de redirects.
  */
 export async function isOnboarded(id: string): Promise<boolean> {
-  if (!SUPA) return true;
-  try {
-    const supabase = await createClient();
-    const { data, error } = await supabase.from("profiles").select("onboarded").eq("id", id).maybeSingle();
-    if (error || !data) return true;
-    return !!(data as unknown as { onboarded: boolean }).onboarded;
-  } catch {
-    return true;
-  }
+  const perfil = await getOwnProfile(id);
+  // Sin perfil legible no hay rol que elegir: que decida el llamador con getOwnProfile.
+  return perfil ? perfil.onboarded : true;
 }
 
 export interface ClientJobView {
@@ -276,8 +373,12 @@ export async function getJobsForClient(clientId: string): Promise<ClientJobView[
       .from("jobs")
       .select("id, status, amount, painter_id, project_id, created_at")
       .eq("client_id", clientId)
-      .order("created_at", { ascending: false });
-    if (error || !data) return [];
+      .order("created_at", { ascending: false })
+      .limit(50); // tope: los ids alimentan .in() derivados
+    if (error || !data) {
+      if (error) dbError("getJobsForClient", error);
+      return [];
+    }
     const rows = data as unknown as {
       id: string;
       status: string;
@@ -287,24 +388,32 @@ export async function getJobsForClient(clientId: string): Promise<ClientJobView[
     }[];
     const painterIds = [...new Set(rows.map((r) => r.painter_id).filter(Boolean))] as string[];
     const projectIds = [...new Set(rows.map((r) => r.project_id).filter(Boolean))] as string[];
+    const jobIds = rows.map((r) => r.id);
+
+    // Las tres consultas derivadas dependen sólo de `rows`, no entre sí: iban encadenadas
+    // con await y pagaban 4 idas y vueltas donde alcanzan 2.
+    const [ps, pr, rv] = await Promise.all([
+      painterIds.length
+        ? supabase.from("profiles").select("id, full_name").in("id", painterIds)
+        : Promise.resolve({ data: [], error: null }),
+      projectIds.length
+        ? supabase.from("projects").select("id, title").in("id", projectIds)
+        : Promise.resolve({ data: [], error: null }),
+      jobIds.length
+        ? supabase.from("reviews").select("job_id").eq("author_id", clientId).in("job_id", jobIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
     const names = new Map<string, string>();
+    for (const p of (ps.data ?? []) as unknown as { id: string; full_name: string | null }[])
+      names.set(p.id, p.full_name ?? "Pintor");
+
     const titles = new Map<string, string>();
-    if (painterIds.length) {
-      const { data: ps } = await supabase.from("profiles").select("id, full_name").in("id", painterIds);
-      for (const p of (ps ?? []) as unknown as { id: string; full_name: string | null }[])
-        names.set(p.id, p.full_name ?? "Pintor");
-    }
-    if (projectIds.length) {
-      const { data: pr } = await supabase.from("projects").select("id, title").in("id", projectIds);
-      for (const p of (pr ?? []) as unknown as { id: string; title: string }[]) titles.set(p.id, p.title);
-    }
+    for (const p of (pr.data ?? []) as unknown as { id: string; title: string }[]) titles.set(p.id, p.title);
+
     // Qué trabajos ya tienen reseña de este cliente (para no ofrecer reseñar dos veces).
     const reviewed = new Set<string>();
-    const jobIds = rows.map((r) => r.id);
-    if (jobIds.length) {
-      const { data: rv } = await supabase.from("reviews").select("job_id").eq("author_id", clientId).in("job_id", jobIds);
-      for (const r of (rv ?? []) as unknown as { job_id: string }[]) reviewed.add(r.job_id);
-    }
+    for (const r of (rv.data ?? []) as unknown as { job_id: string }[]) reviewed.add(r.job_id);
     return rows.map((r) => ({
       id: r.id,
       status: r.status,
@@ -315,7 +424,8 @@ export async function getJobsForClient(clientId: string): Promise<ClientJobView[
       project: r.project_id ? titles.get(r.project_id) ?? null : null,
       reviewed: reviewed.has(r.id),
     }));
-  } catch {
+  } catch (e) {
+    dbError("getJobsForClient", e);
     return [];
   }
 }
@@ -341,7 +451,10 @@ export async function getOwnedProjectBySlug(ownerId: string, slug: string): Prom
       .eq("owner_id", ownerId)
       .eq("slug", slug)
       .maybeSingle();
-    if (error || !data) return null;
+    if (error || !data) {
+      if (error) dbError("getOwnedProjectBySlug", error);
+      return null;
+    }
     const p = data as unknown as {
       id: string;
       title: string;
@@ -360,7 +473,8 @@ export async function getOwnedProjectBySlug(ownerId: string, slug: string): Prom
       accent: p.accent_color ?? "#3F3F46",
       cover: p.cover_url ?? "",
     };
-  } catch {
+  } catch (e) {
+    dbError("getOwnedProjectBySlug", e);
     return null;
   }
 }
@@ -374,8 +488,12 @@ export async function getReviewsForPainter(painterId: string): Promise<ReviewVie
       .from("reviews")
       .select("id, rating, comment, created_at, author_id")
       .eq("target_id", painterId)
-      .order("created_at", { ascending: false });
-    if (error || !data) return [];
+      .order("created_at", { ascending: false })
+      .limit(30); // tope: reseñas de un perfil
+    if (error || !data) {
+      if (error) dbError("getReviewsForPainter", error);
+      return [];
+    }
     const rows = data as unknown as {
       id: string;
       rating: number;
@@ -398,7 +516,8 @@ export async function getReviewsForPainter(painterId: string): Promise<ReviewVie
       date: monthYear(r.created_at),
       comment: r.comment ?? "",
     }));
-  } catch {
+  } catch (e) {
+    dbError("getReviewsForPainter", e);
     return [];
   }
 }
@@ -437,8 +556,12 @@ export async function getJobsForPainter(painterId: string): Promise<JobView[]> {
       .from("jobs")
       .select("id, status, amount, client_id, project_id, created_at")
       .eq("painter_id", painterId)
-      .order("created_at", { ascending: false });
-    if (error || !data) return [];
+      .order("created_at", { ascending: false })
+      .limit(50); // tope: los ids alimentan .in() derivados
+    if (error || !data) {
+      if (error) dbError("getJobsForPainter", error);
+      return [];
+    }
     const rows = data as unknown as {
       id: string;
       status: string;
@@ -467,7 +590,8 @@ export async function getJobsForPainter(painterId: string): Promise<JobView[]> {
       client: names.get(r.client_id) ?? "Cliente",
       project: r.project_id ? titles.get(r.project_id) ?? null : null,
     }));
-  } catch {
+  } catch (e) {
+    dbError("getJobsForPainter", e);
     return [];
   }
 }
@@ -496,8 +620,12 @@ export async function getOpenServiceRequests(): Promise<ServiceRequest[]> {
       .select("id, title, description, location, budget_min, budget_max, owner_id, created_at")
       .eq("type", "service")
       .eq("published", true)
-      .order("created_at", { ascending: false });
-    if (error || !data) return [];
+      .order("created_at", { ascending: false })
+      .limit(50); // tope: tablero de trabajos
+    if (error || !data) {
+      if (error) dbError("getOpenServiceRequests", error);
+      return [];
+    }
     const rows = data as unknown as {
       id: string;
       title: string;
@@ -526,7 +654,8 @@ export async function getOpenServiceRequests(): Promise<ServiceRequest[]> {
       ownerName: names.get(r.owner_id) ?? "Cliente",
       date: monthYear(r.created_at),
     }));
-  } catch {
+  } catch (e) {
+    dbError("getOpenServiceRequests", e);
     return [];
   }
 }
@@ -554,8 +683,12 @@ export async function getQuotesForClient(clientId: string): Promise<QuoteView[]>
       .select("id, amount, note, status, painter_id, project_id, created_at")
       .eq("client_id", clientId)
       .in("status", ["quoted", "accepted"])
-      .order("created_at", { ascending: false });
-    if (error || !data) return [];
+      .order("created_at", { ascending: false })
+      .limit(50); // tope: los ids alimentan .in() derivados
+    if (error || !data) {
+      if (error) dbError("getQuotesForClient", error);
+      return [];
+    }
     const rows = data as unknown as {
       id: string;
       amount: number | null;
@@ -604,7 +737,8 @@ export async function getQuotesForClient(clientId: string): Promise<QuoteView[]>
         request: r.project_id ? titles.get(r.project_id) ?? null : null,
       };
     });
-  } catch {
+  } catch (e) {
+    dbError("getQuotesForClient", e);
     return [];
   }
 }
@@ -626,10 +760,15 @@ export async function getFaqs(): Promise<Faq[]> {
       .from("faqs")
       .select("id, question, answer")
       .eq("published", true)
-      .order("sort_order", { ascending: true });
-    if (error || !data) return [];
+      .order("sort_order", { ascending: true })
+      .limit(50); // tope: faqs
+    if (error || !data) {
+      if (error) dbError("getFaqs", error);
+      return [];
+    }
     return data as unknown as Faq[];
-  } catch {
+  } catch (e) {
+    dbError("getFaqs", e);
     return [];
   }
 }
@@ -657,8 +796,11 @@ export async function getResources(kind?: ResourceKind): Promise<Resource[]> {
       .select("id, kind, title, summary, body, media_url, cover_url, level, duration, sort_order")
       .eq("published", true);
     if (kind) q = q.eq("kind", kind);
-    const { data, error } = await q.order("sort_order", { ascending: true });
-    if (error || !data) return [];
+    const { data, error } = await q.order("sort_order", { ascending: true }).limit(60);
+    if (error || !data) {
+      if (error) dbError("getResources", error);
+      return [];
+    }
     return (data as unknown as {
       id: string;
       kind: ResourceKind;
@@ -680,7 +822,8 @@ export async function getResources(kind?: ResourceKind): Promise<Resource[]> {
       level: r.level,
       duration: r.duration,
     }));
-  } catch {
+  } catch (e) {
+    dbError("getResources", e);
     return [];
   }
 }
@@ -703,8 +846,12 @@ export async function getNews(): Promise<NewsItem[]> {
       .from("news")
       .select("id, title, excerpt, cover_url, url, published_at")
       .eq("published", true)
-      .order("published_at", { ascending: false });
-    if (error || !data) return [];
+      .order("published_at", { ascending: false })
+      .limit(30); // tope: carrusel de novedades
+    if (error || !data) {
+      if (error) dbError("getNews", error);
+      return [];
+    }
     return (data as unknown as {
       id: string;
       title: string;
@@ -720,7 +867,8 @@ export async function getNews(): Promise<NewsItem[]> {
       url: n.url,
       date: monthYear(n.published_at),
     }));
-  } catch {
+  } catch (e) {
+    dbError("getNews", e);
     return [];
   }
 }
@@ -746,7 +894,10 @@ export async function getRecentReviews(limit = 8): Promise<Testimonial[]> {
       .gte("rating", 4)
       .order("created_at", { ascending: false })
       .limit(limit);
-    if (error || !data) return [];
+    if (error || !data) {
+      if (error) dbError("getRecentReviews", error);
+      return [];
+    }
     const rows = data as unknown as {
       id: string;
       rating: number;
@@ -771,7 +922,8 @@ export async function getRecentReviews(limit = 8): Promise<Testimonial[]> {
         painter: names.get(r.target_id) || "un pintor",
         painterId: r.target_id,
       }));
-  } catch {
+  } catch (e) {
+    dbError("getRecentReviews", e);
     return [];
   }
 }
@@ -782,10 +934,14 @@ export async function getPainterExtras(id: string): Promise<{ pros: string[]; co
   try {
     const supabase = await createClient();
     const { data, error } = await supabase.from("profiles").select("pros, cons").eq("id", id).maybeSingle();
-    if (error || !data) return { pros: [], cons: [] };
+    if (error || !data) {
+      if (error) dbError("getPainterExtras", error);
+      return { pros: [], cons: [] };
+    }
     const p = data as unknown as { pros: string[] | null; cons: string[] | null };
     return { pros: p.pros ?? [], cons: p.cons ?? [] };
-  } catch {
+  } catch (e) {
+    dbError("getPainterExtras", e);
     return { pros: [], cons: [] };
   }
 }
@@ -793,4 +949,72 @@ export async function getPainterExtras(id: string): Promise<{ pros: string[]; co
 export function formatARS(n: number | null): string {
   if (n == null) return "—";
   return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
+}
+
+export interface LeadView {
+  id: string;
+  kind: LeadKind;
+  kindLabel: string;
+  status: LeadStatus;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  message: string | null;
+  details: Record<string, unknown>;
+  date: string;
+}
+
+const LEAD_KIND_LABEL: Record<LeadKind, string> = {
+  quote: "Presupuesto",
+  contact: "Contacto",
+  painter_application: "Postulación",
+};
+
+/**
+ * Consultas recibidas por los formularios públicos.
+ *
+ * Sólo las lee la empresa: la policy `leads_select_company` (migración 0007) lo garantiza
+ * a nivel de base, no sólo por el gate de la página. Si la migración todavía no corrió,
+ * la query falla, se loguea y la vista muestra la lista vacía en vez de romperse.
+ */
+export async function getLeads(kind?: LeadKind): Promise<LeadView[]> {
+  if (!SUPA) return [];
+  try {
+    const supabase = await createClient();
+    let q = supabase
+      .from("leads")
+      .select("id, kind, status, name, email, phone, message, details, created_at");
+    if (kind) q = q.eq("kind", kind);
+    const { data, error } = await q.order("created_at", { ascending: false }).limit(100);
+    if (error || !data) {
+      if (error) dbError("getLeads", error);
+      return [];
+    }
+    const rows = data as unknown as {
+      id: string;
+      kind: LeadKind;
+      status: LeadStatus;
+      name: string;
+      email: string | null;
+      phone: string | null;
+      message: string | null;
+      details: Record<string, unknown> | null;
+      created_at: string;
+    }[];
+    return rows.map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      kindLabel: LEAD_KIND_LABEL[r.kind] ?? r.kind,
+      status: r.status,
+      name: r.name,
+      email: r.email,
+      phone: r.phone,
+      message: r.message,
+      details: r.details ?? {},
+      date: monthYear(r.created_at),
+    }));
+  } catch (e) {
+    dbError("getLeads", e);
+    return [];
+  }
 }

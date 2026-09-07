@@ -40,11 +40,18 @@ export interface QuoteRequest {
   status: "pending" | "quoted" | "accepted" | "completed";
 }
 
+/**
+ * Obras de ejemplo. Igual que mockPainters, llevan el prefijo "Demo ·" y un slug
+ * `demo-*` A PROPÓSITO: antes tenían los mismos títulos y slugs que el seed, así que
+ * con la base caída /obras mostraba obras falsas indistinguibles de las reales y
+ * /obras/casa-barracas servía contenido inventado bajo una URL real e indexada.
+ * El sitemap filtra los slugs `demo-` por este mismo motivo.
+ */
 export const mockProjects: Project[] = [
   {
     id: "1",
-    slug: "casa-barracas",
-    title: "Casa Barracas",
+    slug: "demo-casa-barracas",
+    title: "Demo · Casa Barracas",
     location: "Barracas, CABA",
     category: "Residencial",
     accentColor: "#C41E3A",
@@ -55,8 +62,8 @@ export const mockProjects: Project[] = [
   },
   {
     id: "2",
-    slug: "loft-palermo",
-    title: "Loft Palermo",
+    slug: "demo-loft-palermo",
+    title: "Demo · Loft Palermo",
     location: "Palermo, CABA",
     category: "Comercial",
     accentColor: "#1E3A8A",
@@ -66,8 +73,8 @@ export const mockProjects: Project[] = [
   },
   {
     id: "3",
-    slug: "estudio-nordelta",
-    title: "Estudio Nordelta",
+    slug: "demo-estudio-nordelta",
+    title: "Demo · Estudio Nordelta",
     location: "Nordelta, Tigre",
     category: "Residencial",
     accentColor: "#2D5A3D",
@@ -100,10 +107,18 @@ export interface Review {
   project?: string;
 }
 
+/**
+ * Datos de ejemplo. Se usan cuando no hay Supabase configurado o cuando una query falla.
+ *
+ * Los nombres llevan el prefijo "Demo ·" A PROPÓSITO: antes eran idénticos a los del seed
+ * (Martín Rojas, Lucía Fernández, Diego Sosa), así que con la base caída el sitio mostraba
+ * exactamente lo mismo que con la base sana y era imposible notar la diferencia. Si cambiás
+ * estos nombres, que sigan siendo distinguibles de los reales.
+ */
 export const mockPainters: Painter[] = [
   {
     id: "p1",
-    name: "Martín Rojas",
+    name: "Demo · Martín Rojas",
     level: "Master",
     rating: 4.9,
     reviews: 47,
@@ -114,7 +129,7 @@ export const mockPainters: Painter[] = [
   },
   {
     id: "p2",
-    name: "Lucía Fernández",
+    name: "Demo · Lucía Fernández",
     level: "Gold",
     rating: 4.7,
     reviews: 32,
@@ -125,7 +140,7 @@ export const mockPainters: Painter[] = [
   },
   {
     id: "p3",
-    name: "Diego Sosa",
+    name: "Demo · Diego Sosa",
     level: "Silver",
     rating: 4.5,
     reviews: 18,

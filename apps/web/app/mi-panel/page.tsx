@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getOwnProfile, isOnboarded } from "@/lib/queries";
+import { getOwnProfile } from "@/lib/queries";
 
 /**
  * Dispatcher: manda a cada usuario a su panel según el rol.
@@ -16,10 +16,10 @@ export default async function MiPanelPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/ingresar?next=/mi-panel");
 
-  if (!(await isOnboarded(user.id))) redirect("/bienvenida");
-
+  // UNA sola lectura del perfil: antes eran dos consultas que fallaban en direcciones
+  // opuestas y armaban un bucle de redirects con /bienvenida.
   const profile = await getOwnProfile(user.id);
-  if (!profile) redirect("/bienvenida");
+  if (!profile || !profile.onboarded) redirect("/bienvenida");
 
   if (profile.type === "client") redirect("/cliente");
   redirect("/dashboard");

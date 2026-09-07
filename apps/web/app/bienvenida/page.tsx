@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isOnboarded } from "@/lib/queries";
+import { getOwnProfile } from "@/lib/queries";
 import { RolePicker } from "./role-picker";
 
 /**
@@ -14,7 +14,11 @@ export default async function BienvenidaPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/ingresar?next=/mi-panel");
 
-  if (await isOnboarded(user.id)) redirect("/mi-panel");
+  // Sólo rebota si el perfil se leyó Y dice que ya eligió rol. Si no se pudo leer, la
+  // persona se queda acá y elige: rebotar sin perfil legible era la otra mitad del
+  // bucle infinito /mi-panel ↔ /bienvenida.
+  const perfil = await getOwnProfile(user.id);
+  if (perfil?.onboarded) redirect("/mi-panel");
 
   const firstName = (user.user_metadata?.full_name as string | undefined)?.split(" ")[0] ?? "";
 

@@ -5,6 +5,8 @@
  * Por ahora es una versión escrita a mano para tipar las queries.
  */
 export type ProfileType = "company" | "painter" | "client";
+export type LeadKind = "quote" | "contact" | "painter_application";
+export type LeadStatus = "new" | "contacted" | "won" | "lost" | "spam";
 export type ProjectType = "portfolio" | "service";
 export type ProjectCategory = "Residencial" | "Comercial" | "Industrial";
 export type JobStatus =
@@ -80,6 +82,23 @@ export interface Review {
   created_at: string;
 }
 
+/** Formularios públicos: presupuesto, contacto y postulación de pintores (migración 0007). */
+export interface Lead {
+  id: string;
+  kind: LeadKind;
+  status: LeadStatus;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  message: string | null;
+  /** Campos propios de cada formulario: superficie, ambientes, especialidades… */
+  details: Record<string, unknown>;
+  user_id: string | null;
+  source_path: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 type Row<T> = T;
 type Insert<T, Opt extends keyof T> = Omit<T, Opt> & Partial<Pick<T, Opt>>;
 
@@ -106,6 +125,11 @@ export interface Database {
         Insert: Insert<Review, "id" | "created_at" | "photos">;
         Update: Partial<Review>;
       };
+      leads: {
+        Row: Row<Lead>;
+        Insert: Insert<Lead, "id" | "created_at" | "updated_at" | "status" | "details">;
+        Update: Partial<Lead>;
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -113,6 +137,8 @@ export interface Database {
       profile_type: ProfileType;
       project_type: ProjectType;
       job_status: JobStatus;
+      lead_kind: LeadKind;
+      lead_status: LeadStatus;
     };
   };
 }

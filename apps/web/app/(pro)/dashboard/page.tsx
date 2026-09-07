@@ -9,7 +9,6 @@ import { PortfolioActions } from "./portfolio-actions";
 import { CompleteButton } from "./complete-button";
 import {
   getOwnProfile,
-  isOnboarded,
   getProjectsByOwner,
   getReviewsForPainter,
   getJobsForPainter,
@@ -23,10 +22,8 @@ export default async function PainterDashboardPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/ingresar?next=/dashboard");
 
-  if (!(await isOnboarded(user.id))) redirect("/bienvenida");
-
   const profile = await getOwnProfile(user.id);
-  if (!profile) redirect("/bienvenida");
+  if (!profile || !profile.onboarded) redirect("/bienvenida");
   // El cliente tiene su propio panel.
   if (profile.type === "client") redirect("/cliente");
 
