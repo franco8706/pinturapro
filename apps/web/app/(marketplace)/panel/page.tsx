@@ -1,7 +1,10 @@
+import { redirect } from "next/navigation";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { SectionLabel } from "@/components/features/states";
 import { mockJobs } from "@/lib/data";
+import { createClient } from "@/lib/supabase/server";
+import { getOwnProfile } from "@/lib/queries";
 
 const kpis = [
   { label: "Trabajos publicados", value: "1.284", delta: "+12%" },
@@ -14,7 +17,21 @@ const kpis = [
 const monthly = [32, 41, 38, 52, 60, 58, 71, 80, 76, 88, 95, 100];
 const months = ["E", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
 
-export default function MarketplacePanelPage() {
+/**
+ * Panel analítico del marketplace: es información de negocio de la plataforma
+ * (volumen transado, comisión generada), así que sólo lo ve la empresa.
+ * Antes compilaba como página estática sin ningún control de sesión.
+ */
+export default async function MarketplacePanelPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/ingresar?next=/panel");
+
+  const profile = await getOwnProfile(user.id);
+  if (!profile || profile.type !== "company") redirect("/mi-panel");
+
   const max = Math.max(...monthly);
 
   return (
