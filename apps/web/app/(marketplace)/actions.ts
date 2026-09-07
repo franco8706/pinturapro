@@ -2,7 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { notifyUser, emailLayout } from "@/lib/email";
+import { notifyUser, emailLayout, html } from "@/lib/email";
+import { commissionFor } from "@/lib/utils";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 const ars = (n: number) => "$" + n.toLocaleString("es-AR");
@@ -83,7 +84,7 @@ export async function cotizar(formData: FormData): Promise<{ error?: string; ok?
   if (!amount) return { error: "Ingresá un monto válido." };
   if (clientId === user.id) return { error: "No podés cotizar tu propio pedido." };
 
-  const commission_amount = Math.round(amount * 0.1);
+  const commission_amount = commissionFor(amount);
   const payload = {
     project_id: projectId,
     client_id: clientId,
@@ -98,12 +99,15 @@ export async function cotizar(formData: FormData): Promise<{ error?: string; ok?
   if (error) return { error: error.message };
 
   // Avisar al cliente que recibió una cotización (no-op si Resend no está configurado).
+  // `note` la escribe el pintor: va por `html` para que se escape y no pueda inyectar markup.
   await notifyUser(
     clientId,
     "Recibiste una nueva cotización en Pintura Pro",
     emailLayout(
       "Tenés una cotización nueva",
-      `Un pintor cotizó tu trabajo por <strong>${ars(amount)}</strong>.${note ? ` Te dejó un mensaje: “${note}”.` : ""} Entrá para compararla y aceptarla.`,
+      html`Un pintor cotizó tu trabajo por <strong>${ars(amount)}</strong>.${note
+        ? html` Te dejó un mensaje: “${note}”.`
+        : html``} Entrá para compararla y aceptarla.`,
       cta("/cotizaciones", "Ver cotizaciones"),
     ),
   );
@@ -184,15 +188,18 @@ export async function aceptarCotizacion(jobId: string): Promise<{ error?: string
   if (!user) return { error: "Tenés que iniciar sesión." };
   if (!jobId) return { error: "Falta la cotización." };
 
+  // El filtro por status es parte del arreglo: sin él, un cliente podía "re-aceptar" un
+  // trabajo ya completado (volviéndolo atrás) y disparar otro email al pintor en cada clic.
   const { data, error } = await supabase
     .from("jobs")
     .update({ status: "accepted" } as never)
     .eq("id", jobId)
     .eq("client_id", user.id)
+    .eq("status", "quoted")
     .select("id, painter_id, amount");
   if (error) return { error: error.message };
   const rows = (data ?? []) as unknown as { id: string; painter_id: string | null; amount: number | null }[];
-  if (rows.length === 0) return { error: "No se encontró la cotización o no es tuya." };
+  if (rows.length === 0) return { error: "Esta cotización ya no está disponible para aceptar." };
 
   // Avisar al pintor que le aceptaron la cotización.
   const accepted = rows[0];
@@ -202,7 +209,9 @@ export async function aceptarCotizacion(jobId: string): Promise<{ error?: string
       "¡Te aceptaron una cotización en Pintura Pro!",
       emailLayout(
         "Ganaste un trabajo",
-        `Un cliente aceptó tu cotización${accepted.amount ? ` de <strong>${ars(accepted.amount)}</strong>` : ""}. Coordiná con el cliente y, al terminar, marcá el trabajo como completado.`,
+        html`Un cliente aceptó tu cotización${accepted.amount
+          ? html` de <strong>${ars(accepted.amount)}</strong>`
+          : html``}. Coordiná con el cliente y, al terminar, marcá el trabajo como completado.`,
         cta("/dashboard", "Ir a mi panel"),
       ),
     );

@@ -1,3 +1,7 @@
+// Barrera de build: si alguien importa este módulo desde un componente cliente, el build
+// falla acá en vez de meter la service-role key en el bundle del navegador.
+import "server-only";
+
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 

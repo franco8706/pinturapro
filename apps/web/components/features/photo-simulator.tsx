@@ -228,6 +228,9 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
       if (!res.ok) {
         let msg = "No se pudo analizar la foto.";
         if (data?.error === "backend_not_configured") msg = "El servidor de IA todavía no está configurado. Por ahora marcá la pared con el 🖌 Pincel.";
+        else if (data?.error === "unauthorized") msg = "Iniciá sesión para usar la detección automática. Mientras tanto podés marcar la pared con el 🖌 Pincel.";
+        else if (data?.error === "rate_limited") msg = "Llegaste al límite de análisis por hora. Seguí con el 🖌 Pincel o probá más tarde.";
+        else if (data?.error === "image_too_large") msg = "La foto es demasiado pesada. Probá con una imagen más chica.";
         else if (data?.message) msg = `Error del servidor: ${data.message}`;
         else if (data?.error) msg = `Error del servidor (${data.error}).`;
         setErrorMsg(msg);

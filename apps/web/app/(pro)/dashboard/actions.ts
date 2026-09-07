@@ -44,6 +44,28 @@ function readFields(formData: FormData): { error: string } | { fields: ObraField
   };
 }
 
+/**
+ * Tipos de imagen aceptados. Los buckets son PÚBLICOS: si dejáramos pasar el `file.type`
+ * del cliente, alguien podría subir un `image/svg+xml` con un <script> adentro y quedaría
+ * JavaScript ejecutable alojado en el dominio de nuestro Storage.
+ */
+const IMAGE_TYPES = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+} as const;
+
+/** Firma real del archivo (magic bytes). El `file.type` lo pone el cliente y se puede mentir. */
+function sniffImageType(bytes: ArrayBuffer): keyof typeof IMAGE_TYPES | null {
+  const b = new Uint8Array(bytes.slice(0, 12));
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return "image/png";
+  // RIFF....WEBP
+  if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45)
+    return "image/webp";
+  return null;
+}
+
 /** Sube el archivo a un bucket de Storage con service-role y devuelve la URL pública (o un error). */
 async function uploadImage(
   bucket: "projects" | "avatars",
@@ -51,26 +73,43 @@ async function uploadImage(
   file: File,
 ): Promise<{ url: string } | { error: string }> {
   if (file.size > 6_000_000) return { error: "La imagen es muy pesada (máx 6MB)." };
-  const admin = createAdminClient();
-  const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
-  const path = `${userId}/${Date.now()}.${ext}`;
+  if (file.size === 0) return { error: "El archivo está vacío." };
+
   const bytes = await file.arrayBuffer();
-  const { error } = await admin.storage.from(bucket).upload(path, bytes, {
-    contentType: file.type || "image/jpeg",
-    upsert: false,
-  });
+  const sniffed = sniffImageType(bytes);
+  if (!sniffed) return { error: "El archivo no es una imagen JPG, PNG o WEBP válida." };
+
+  // El content-type sale de la firma del archivo, nunca de lo que declara el cliente.
+  const contentType = sniffed;
+  const ext = IMAGE_TYPES[sniffed];
+  const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+  const admin = createAdminClient();
+  const { error } = await admin.storage.from(bucket).upload(path, bytes, { contentType, upsert: false });
   if (error) return { error: "No se pudo subir la imagen: " + error.message };
   return { url: admin.storage.from(bucket).getPublicUrl(path).data.publicUrl };
 }
 
-/** Si la URL apunta a nuestro bucket público, borra el archivo (best-effort). */
-async function deleteCoverIfOwn(coverUrl: string | null) {
+/**
+ * Borra la portada del Storage, sólo si es un archivo NUESTRO y DEL PROPIO usuario.
+ *
+ * `cover_url` puede venir de un campo de texto libre del formulario. Antes se buscaba el
+ * marcador en cualquier parte del string y se borraba lo que siguiera, con service-role:
+ * bastaba con guardar una URL con la ruta de otro usuario para borrarle sus fotos.
+ * Ahora se exige prefijo exacto de nuestro proyecto y que la ruta empiece con su user id.
+ */
+async function deleteCoverIfOwn(coverUrl: string | null, userId: string) {
   if (!coverUrl) return;
-  const marker = "/storage/v1/object/public/projects/";
-  const i = coverUrl.indexOf(marker);
-  if (i === -1) return;
-  const path = coverUrl.slice(i + marker.length);
-  if (!path) return;
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!base) return;
+
+  const prefix = `${base.replace(/\/+$/, "")}/storage/v1/object/public/projects/`;
+  if (!coverUrl.startsWith(prefix)) return;
+
+  const path = decodeURIComponent(coverUrl.slice(prefix.length).split("?")[0]);
+  // Sólo archivos dentro de la carpeta del propio usuario, sin escapar hacia arriba.
+  if (!path.startsWith(`${userId}/`) || path.includes("..")) return;
+
   try {
     await createAdminClient().storage.from("projects").remove([path]);
   } catch {
@@ -204,7 +243,7 @@ export async function deleteObra(id: string): Promise<{ error?: string }> {
   if (error) return { error: error.message };
 
   const cover = (pre as unknown as { cover_url: string | null } | null)?.cover_url ?? null;
-  await deleteCoverIfOwn(cover);
+  await deleteCoverIfOwn(cover, user.id);
 
   revalidatePath("/dashboard");
   revalidatePath("/obras");

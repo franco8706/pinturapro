@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Painter } from "@/lib/data";
+import { escapeHtml } from "@/lib/utils";
 // Next resuelve el CSS en build; el componente ya se carga con `ssr:false`.
 import "leaflet/dist/leaflet.css";
 
@@ -166,9 +167,4 @@ export function PainterMap({ painters, activeId, onSelect }: PainterMapProps) {
       )}
     </div>
   );
-}
-
-/** Los nombres vienen de la base y se inyectan como HTML en el marcador. */
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }
