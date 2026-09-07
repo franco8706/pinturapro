@@ -4,6 +4,15 @@ import { ProjectCard } from "@/components/features/project-card";
 import { MagneticButton } from "@/components/features/magnetic-button";
 import { getProjects } from "@/lib/queries";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Obras",
+  description: "Portfolio de obras de pintura profesional: residencial, comercial e industrial. Antes y después de cada trabajo.",
+  alternates: { canonical: "/obras" },
+  openGraph: { title: "Obras", description: "Portfolio de obras de pintura profesional: residencial, comercial e industrial. Antes y después de cada trabajo." },
+};
+
 const categories = ["Todas", "Residencial", "Comercial", "Industrial"];
 const colors = ["Todos", "Rojo", "Azul", "Verde", "Negro", "Blanco", "Tierra"];
 const zones = ["Todas", "CABA", "Zona Norte", "Zona Oeste", "Zona Sur"];

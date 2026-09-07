@@ -5,6 +5,40 @@ import { BeforeAfterSlider } from "@/components/features/before-after-slider";
 import { getProjectBySlug } from "@/lib/queries";
 import { notFound } from "next/navigation";
 
+import type { Metadata } from "next";
+
+/**
+ * Cada obra necesita su propio título y descripción: sin esto todas comparten la metadata
+ * genérica del sitio y compiten entre sí en los resultados de búsqueda.
+ */
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const project = await getProjectBySlug(slug);
+  // Cortar acá evita resolver la misma consulta dos veces (metadata + cuerpo).
+  // OJO: esto NO alcanza para que el status sea 404 si el segmento hereda un loading.tsx —
+  // ese límite de Suspense arranca el stream con 200 y ya no se puede cambiar. Por eso el
+  // loading del listado vive en obras/(listado)/ y no cuelga sobre esta ruta.
+  if (!project) notFound();
+
+  const desc =
+    project.description?.slice(0, 155) ||
+    `${project.category} en ${project.location || "Buenos Aires"}. Obra de pintura profesional de Pintura Pro.`;
+  const cover = project.images.find((i) => i.startsWith("http"));
+
+  return {
+    title: project.title,
+    description: desc,
+    alternates: { canonical: `/obras/${project.slug}` },
+    openGraph: {
+      type: "article",
+      title: project.title,
+      description: desc,
+      url: `/obras/${project.slug}`,
+      ...(cover ? { images: [{ url: cover, alt: project.title }] } : {}),
+    },
+  };
+}
+
 export default async function ProjectPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const project = await getProjectBySlug(slug);

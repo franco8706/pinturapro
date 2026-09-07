@@ -8,6 +8,37 @@ import { ReviewSystem } from "@/components/features/review-system";
 import { SectionLabel } from "@/components/features/states";
 import { getPainterById, getProjectsByOwner, getReviewsForPainter, getPainterExtras } from "@/lib/queries";
 
+import type { Metadata } from "next";
+
+/** Título y descripción propios por pintor; sin esto todos los perfiles se ven iguales en Google. */
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const painter = await getPainterById(id);
+  // Cortar acá evita resolver la misma consulta dos veces (metadata + cuerpo).
+  // Si algún día se agrega un loading.tsx en este segmento, ponerlo en un grupo de rutas
+  // que cubra sólo el listado: si cuelga sobre esta ruta, el 404 se vuelve "blando" (200).
+  if (!painter) notFound();
+
+  const especialidades = painter.specialty.slice(0, 3).join(", ");
+  const desc =
+    painter.bio?.slice(0, 155) ||
+    `Pintor profesional${painter.zone ? ` en ${painter.zone}` : ""}${especialidades ? `. Especialidades: ${especialidades}` : ""}. ${painter.reviews} reseñas.`;
+  const foto = painter.image?.startsWith("http") ? painter.image : undefined;
+
+  return {
+    title: `${painter.name} — Pintor ${painter.level}`,
+    description: desc,
+    alternates: { canonical: `/pintor/${painter.id}` },
+    openGraph: {
+      type: "profile",
+      title: `${painter.name} — Pintor profesional`,
+      description: desc,
+      url: `/pintor/${painter.id}`,
+      ...(foto ? { images: [{ url: foto, alt: painter.name }] } : {}),
+    },
+  };
+}
+
 export default async function PainterProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const painter = await getPainterById(id);
