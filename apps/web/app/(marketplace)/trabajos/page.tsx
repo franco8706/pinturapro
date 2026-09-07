@@ -6,6 +6,15 @@ import { createClient } from "@/lib/supabase/server";
 import { getOpenServiceRequests, formatARS } from "@/lib/queries";
 import { QuoteForm } from "./quote-form";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Trabajos disponibles",
+  description: "Pedidos de pintura publicados por clientes. Cotizá y sumá trabajo a tu agenda.",
+  alternates: { canonical: "/trabajos" },
+  openGraph: { title: "Trabajos disponibles", description: "Pedidos de pintura publicados por clientes. Cotizá y sumá trabajo a tu agenda." },
+};
+
 function budgetLabel(min: number | null, max: number | null): string {
   if (min && max) return `${formatARS(min)} – ${formatARS(max)}`;
   if (max) return `Hasta ${formatARS(max)}`;

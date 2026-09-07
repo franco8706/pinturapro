@@ -1,5 +1,14 @@
 import Link from "next/link";
 
+import type { Metadata } from "next";
+
+// Las pantallas de sesión no se indexan: no aportan nada en buscadores y exponen
+// la superficie de autenticación.
+export const metadata: Metadata = {
+  title: "Ingresar",
+  robots: { index: false, follow: false },
+};
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-plaster px-6 py-16">

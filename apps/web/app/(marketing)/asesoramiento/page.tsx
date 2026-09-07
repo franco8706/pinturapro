@@ -4,6 +4,15 @@ import { SectionLabel } from "@/components/features/states";
 import { getResources } from "@/lib/queries";
 import { AdvisorClient } from "./advisor-client";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Asesoramiento",
+  description: "Qué pintura usar según el ambiente, cuánta necesitás y cómo tratar humedad y grietas.",
+  alternates: { canonical: "/asesoramiento" },
+  openGraph: { title: "Asesoramiento", description: "Qué pintura usar según el ambiente, cuánta necesitás y cómo tratar humedad y grietas." },
+};
+
 export default async function AsesoramientoPage() {
   const advice = await getResources("advice");
 

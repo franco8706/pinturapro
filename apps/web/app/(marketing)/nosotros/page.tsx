@@ -3,6 +3,15 @@ import { Footer } from "@/components/features/footer";
 import { MagneticButton } from "@/components/features/magnetic-button";
 import { Reveal, SectionLabel } from "@/components/features/states";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Nosotros",
+  description: "Quiénes somos, cómo trabajamos y por qué la preparación es la mitad del trabajo.",
+  alternates: { canonical: "/nosotros" },
+  openGraph: { title: "Nosotros", description: "Quiénes somos, cómo trabajamos y por qué la preparación es la mitad del trabajo." },
+};
+
 const valores = [
   { title: "Oficio", description: "Doce años pintando obra en Buenos Aires. La mano se nota en cada terminación." },
   { title: "Honestidad", description: "Presupuesto cerrado. Lo que cotizamos es lo que pagás, sin letra chica ni adicionales sorpresa." },

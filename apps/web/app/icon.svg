@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect width="32" height="32" fill="#141414"/>
+  <!-- Rodillo: el mango y el cilindro, reducidos a dos trazos -->
+  <rect x="7" y="7" width="14" height="7" rx="1" fill="#EDEBE6"/>
+  <rect x="21" y="9.5" width="4" height="2" fill="#EDEBE6"/>
+  <rect x="13" y="14" width="2" height="4" fill="#EDEBE6"/>
+  <rect x="10.5" y="18" width="7" height="7" rx="1" fill="#EDEBE6"/>
+</svg>

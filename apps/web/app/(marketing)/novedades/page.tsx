@@ -4,6 +4,15 @@ import { Footer } from "@/components/features/footer";
 import { SectionLabel, EmptyState } from "@/components/features/states";
 import { getNews } from "@/lib/queries";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Novedades",
+  description: "Tendencias de color, materiales y novedades del oficio de la pintura profesional.",
+  alternates: { canonical: "/novedades" },
+  openGraph: { title: "Novedades", description: "Tendencias de color, materiales y novedades del oficio de la pintura profesional." },
+};
+
 const ACCENTS = ["#C41E3A", "#1E3A8A", "#2D5A3D", "#B45309", "#0F766E"];
 
 export default async function NovedadesPage() {

@@ -4,6 +4,15 @@ import { SectionLabel } from "@/components/features/states";
 import { getPainters } from "@/lib/queries";
 import { PintoresClient } from "./pintores-client";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Pintores verificados",
+  description: "Directorio de pintores profesionales verificados, con reseñas reales, especialidades y zona de trabajo.",
+  alternates: { canonical: "/pintores" },
+  openGraph: { title: "Pintores verificados", description: "Directorio de pintores profesionales verificados, con reseñas reales, especialidades y zona de trabajo." },
+};
+
 export default async function PintoresPage() {
   const painters = await getPainters();
 

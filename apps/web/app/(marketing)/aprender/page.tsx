@@ -5,6 +5,15 @@ import { SectionLabel } from "@/components/features/states";
 import { getResources } from "@/lib/queries";
 import { AprenderClient } from "./aprender-client";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Aprender",
+  description: "Guías, videos y cursos para pintores: cómo cotizar, técnicas de terminación y gestión de obra.",
+  alternates: { canonical: "/aprender" },
+  openGraph: { title: "Aprender", description: "Guías, videos y cursos para pintores: cómo cotizar, técnicas de terminación y gestión de obra." },
+};
+
 export default async function AprenderPage() {
   // Guías, videos y cursos (el asesoramiento tiene su propia página).
   const resources = (await getResources()).filter((r) => r.kind !== "advice");
