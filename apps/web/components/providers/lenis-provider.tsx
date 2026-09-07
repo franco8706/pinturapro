@@ -15,15 +15,19 @@ export function LenisProvider({ children }: { children: React.ReactNode }) {
 
     lenisRef.current = lenis;
 
+    // El handle se guarda para poder cancelarlo: si no, el bucle sigue corriendo a ~60fps
+    // sobre una instancia ya destruida, y con StrictMode se acumula uno por montaje.
+    let frame = 0;
     function raf(time: number) {
       lenis.raf(time);
-      requestAnimationFrame(raf);
+      frame = requestAnimationFrame(raf);
     }
-
-    requestAnimationFrame(raf);
+    frame = requestAnimationFrame(raf);
 
     return () => {
+      cancelAnimationFrame(frame);
       lenis.destroy();
+      lenisRef.current = null;
     };
   }, []);
 
