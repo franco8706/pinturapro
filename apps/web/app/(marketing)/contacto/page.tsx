@@ -1,12 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
+import { enviarConsulta } from "../actions";
 
 export default function ContactoPage() {
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+  const [pending, startTransition] = useTransition();
   const [form, setForm] = useState({ name: "", email: "", message: "" });
+  // Campo trampa: invisible para una persona, los bots lo completan.
+  const [website, setWebsite] = useState("");
 
   const update = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -48,12 +53,22 @@ export default function ContactoPage() {
               </div>
             ) : (
               <form
+                noValidate
                 onSubmit={(e) => {
                   e.preventDefault();
-                  // INTEGRACIÓN: enviar mensaje a Supabase / email transaccional
-                  setSent(true);
+                  setError("");
+                  const fd = new FormData();
+                  fd.set("name", form.name);
+                  fd.set("email", form.email);
+                  fd.set("message", form.message);
+                  fd.set("website", website);
+                  startTransition(async () => {
+                    const res = await enviarConsulta(fd);
+                    if (res?.error) setError(res.error);
+                    else setSent(true);
+                  });
                 }}
-                className="space-y-8"
+                className="space-y-8 relative"
               >
                 <label className="block">
                   <span className="font-mono text-mono-sm text-concrete uppercase tracking-widest block mb-2">Nombre</span>
@@ -84,8 +99,32 @@ export default function ContactoPage() {
                     className="w-full bg-transparent border-2 border-concrete/30 p-4 font-body text-body-md focus:outline-none focus:border-ink transition-colors resize-none"
                   />
                 </label>
-                <button type="submit" className="px-7 py-4 bg-ink text-bone font-body text-body-sm hover:bg-ink/90 transition-colors">
-                  Enviar mensaje →
+                {/* Honeypot: fuera de la vista y del foco, sin anunciarse a lectores de pantalla. */}
+                <div aria-hidden="true" className="absolute -left-[9999px] w-px h-px overflow-hidden">
+                  <label>
+                    No completar
+                    <input
+                      type="text"
+                      tabIndex={-1}
+                      autoComplete="off"
+                      value={website}
+                      onChange={(e) => setWebsite(e.target.value)}
+                    />
+                  </label>
+                </div>
+
+                {error && (
+                  <p role="alert" className="font-body text-body-sm text-[#C41E3A] border-l-2 border-[#C41E3A] pl-3">
+                    {error}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={pending}
+                  className="px-7 py-4 bg-ink text-bone font-body text-body-sm hover:bg-ink/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {pending ? "Enviando…" : "Enviar mensaje →"}
                 </button>
               </form>
             )}

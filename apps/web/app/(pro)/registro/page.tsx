@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { MultiStepForm, type FormStep } from "@/components/features/multi-step-form";
 import { cn } from "@/lib/utils";
+import { postularmeComoPintor } from "@/app/(marketing)/actions";
 
 const specialties = ["Residencial", "Comercial", "Industrial", "Esmaltes", "Texturas", "Exteriores", "Impermeabilización"];
 const zones = ["CABA", "Zona Norte", "Zona Oeste", "Zona Sur"];
@@ -14,7 +15,31 @@ export default function RegistroPage() {
   const [years, setYears] = useState("");
   const [zone, setZone] = useState("");
   const [specs, setSpecs] = useState<string[]>([]);
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [done, setDone] = useState(false);
+  const [error, setError] = useState("");
+  const [pending, startTransition] = useTransition();
+  const [website, setWebsite] = useState(""); // honeypot anti-bot
+
+  // La postulación se PERSISTE en `leads`. Antes el formulario decía "te avisamos cuando
+  // tu perfil esté activo" sin guardar nada — y sin siquiera pedir un dato de contacto.
+  const enviar = () => {
+    setError("");
+    const fd = new FormData();
+    fd.set("name", name);
+    fd.set("email", email);
+    fd.set("phone", phone);
+    fd.set("zone", zone);
+    fd.set("experience", years);
+    fd.set("specialties", specs.join(", "));
+    fd.set("website", website);
+    startTransition(async () => {
+      const res = await postularmeComoPintor(fd);
+      if (res?.error) setError(res.error);
+      else setDone(true);
+    });
+  };
 
   const toggleSpec = (s: string) =>
     setSpecs((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
@@ -97,6 +122,34 @@ export default function RegistroPage() {
         </div>
       ),
     },
+    {
+      id: "contacto",
+      title: "¿Cómo te contactamos?",
+      subtitle: "Es por acá que te avisamos cuando activemos tu perfil.",
+      isValid: /\S+@\S+\.\S+/.test(email) && phone.trim().length >= 6,
+      content: (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl">
+          <label className="block">
+            <span className="font-mono text-mono-sm text-concrete uppercase tracking-widest block mb-2">Email</span>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-transparent border-b-2 border-concrete/30 py-2 font-body text-body-lg focus:outline-none focus:border-ink transition-colors"
+            />
+          </label>
+          <label className="block">
+            <span className="font-mono text-mono-sm text-concrete uppercase tracking-widest block mb-2">Teléfono</span>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="w-full bg-transparent border-b-2 border-concrete/30 py-2 font-body text-body-lg focus:outline-none focus:border-ink transition-colors"
+            />
+          </label>
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -111,15 +164,38 @@ export default function RegistroPage() {
               </div>
               <h1 className="font-display text-display-lg mb-4">¡Bienvenido, {name.split(" ")[0]}!</h1>
               <p className="font-body text-body-lg text-concrete max-w-md mx-auto">
-                Recibimos tu solicitud. Vamos a verificar tus datos y te avisamos cuando tu perfil esté activo.
+                Recibimos tu postulación. Vamos a revisar tus datos y te escribimos a <strong className="text-ink">{email}</strong> para activar tu perfil.
               </p>
             </div>
           ) : (
             <>
               <p className="font-mono text-mono-sm text-concrete uppercase tracking-widest mb-4">Sumate como Pro</p>
-              <h1 className="font-display text-display-xl mb-12">Tu perfil profesional en 3 pasos.</h1>
-              {/* INTEGRACIÓN: crear cuenta de pintor en Supabase Auth + perfil */}
-              <MultiStepForm steps={steps} onComplete={() => setDone(true)} submitLabel="Crear perfil" />
+              <h1 className="font-display text-display-xl mb-12">Tu perfil profesional en 4 pasos.</h1>
+              <MultiStepForm
+                steps={steps}
+                onComplete={enviar}
+                submitLabel={pending ? "Enviando…" : "Enviar postulación"}
+              />
+
+              {/* Honeypot: fuera de la vista y del foco. */}
+              <div aria-hidden="true" className="absolute -left-[9999px] w-px h-px overflow-hidden">
+                <label>
+                  No completar
+                  <input
+                    type="text"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={website}
+                    onChange={(e) => setWebsite(e.target.value)}
+                  />
+                </label>
+              </div>
+
+              {error && (
+                <p role="alert" className="mt-6 font-body text-body-sm text-[#C41E3A] border-l-2 border-[#C41E3A] pl-3">
+                  {error}
+                </p>
+              )}
             </>
           )}
         </div>

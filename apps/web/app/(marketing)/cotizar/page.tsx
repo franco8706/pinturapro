@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { MultiStepForm, type FormStep } from "@/components/features/multi-step-form";
 import { FaqAccordion } from "@/components/features/faq-accordion";
 import { cn } from "@/lib/utils";
+import { pedirPresupuesto } from "../actions";
 
 const tipos = [
   { id: "interior", label: "Interior", desc: "Paredes, cielorrasos y aberturas internas" },
@@ -22,6 +23,28 @@ export default function CotizarPage() {
   const [rooms, setRooms] = useState<string[]>([]);
   const [contact, setContact] = useState({ name: "", email: "", phone: "" });
   const [done, setDone] = useState(false);
+  const [error, setError] = useState("");
+  const [pending, startTransition] = useTransition();
+  const [website, setWebsite] = useState(""); // honeypot anti-bot
+
+  // El pedido se PERSISTE en `leads` y le avisa a la empresa. Antes este formulario
+  // mostraba "¡Recibimos tu pedido!" y descartaba todo: cada visitante era un lead perdido.
+  const enviar = () => {
+    setError("");
+    const fd = new FormData();
+    fd.set("name", contact.name);
+    fd.set("email", contact.email);
+    fd.set("phone", contact.phone);
+    fd.set("tipo", tipo);
+    fd.set("surface", superficie);
+    fd.set("rooms", rooms.join(", "));
+    fd.set("website", website);
+    startTransition(async () => {
+      const res = await pedirPresupuesto(fd);
+      if (res?.error) setError(res.error);
+      else setDone(true);
+    });
+  };
 
   // Ambientes según el tipo: exterior no muestra baño/dormitorio/etc. y viceversa.
   const ambientes =
@@ -167,8 +190,31 @@ export default function CotizarPage() {
             <>
               <p className="font-mono text-mono-sm text-concrete uppercase tracking-widest mb-4">Cotización online</p>
               <h1 className="font-display text-display-xl mb-12">Tu presupuesto en 4 pasos.</h1>
-              {/* INTEGRACIÓN: enviar { tipo, superficie, rooms, contact } a Supabase + notificación */}
-              <MultiStepForm steps={steps} onComplete={() => setDone(true)} submitLabel="Pedir presupuesto" />
+              <MultiStepForm
+                steps={steps}
+                onComplete={enviar}
+                submitLabel={pending ? "Enviando…" : "Pedir presupuesto"}
+              />
+
+              {/* Honeypot: fuera de la vista y del foco. */}
+              <div aria-hidden="true" className="absolute -left-[9999px] w-px h-px overflow-hidden">
+                <label>
+                  No completar
+                  <input
+                    type="text"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={website}
+                    onChange={(e) => setWebsite(e.target.value)}
+                  />
+                </label>
+              </div>
+
+              {error && (
+                <p role="alert" className="mt-6 font-body text-body-sm text-[#C41E3A] border-l-2 border-[#C41E3A] pl-3">
+                  {error}
+                </p>
+              )}
               <div className="mt-16">
                 <FaqAccordion />
               </div>
