@@ -7,6 +7,7 @@ import { MagneticButton } from "@/components/features/magnetic-button";
 import { createClient } from "@/lib/supabase/server";
 import { PortfolioActions } from "./portfolio-actions";
 import { CompleteButton } from "./complete-button";
+import { CancelButton } from "@/app/(marketplace)/cancel-button";
 import {
   getOwnProfile,
   getProjectsByOwner,
@@ -135,8 +136,17 @@ export default async function PainterDashboardPage() {
                     </div>
                   </div>
                   {job.status === "accepted" && (
-                    <div className="mt-4">
+                    <div className="mt-4 flex flex-wrap items-center gap-5">
                       <CompleteButton jobId={job.id} />
+                      <CancelButton jobId={job.id} label="No puedo tomarlo" />
+                    </div>
+                  )}
+                  {/* Retirar una cotización que todavía nadie aceptó: sin esto el pintor
+                      quedaba clavado con un precio equivocado y sin poder recotizar
+                      (el índice único impide una segunda cotización viva). */}
+                  {job.status === "quoted" && (
+                    <div className="mt-4">
+                      <CancelButton jobId={job.id} label="Retirar cotización" />
                     </div>
                   )}
                 </div>

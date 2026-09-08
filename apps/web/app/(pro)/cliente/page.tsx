@@ -4,8 +4,9 @@ import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { MagneticButton } from "@/components/features/magnetic-button";
 import { createClient } from "@/lib/supabase/server";
-import { getOwnProfile, getJobsForClient, formatARS } from "@/lib/queries";
+import { getOwnProfile, getJobsForClient, getPedidosDelCliente, formatARS } from "@/lib/queries";
 import { ReviewForm } from "./review-form";
+import { CancelButton } from "@/app/(marketplace)/cancel-button";
 
 const ACTIVE = ["published", "quoted", "accepted", "in_progress"];
 
@@ -21,8 +22,11 @@ export default async function ClientePanelPage() {
   // Pintores y empresas tienen su propio panel profesional.
   if (profile.type !== "client") redirect("/dashboard");
 
-  const jobs = await getJobsForClient(user.id);
-  const activos = jobs.filter((j) => ACTIVE.includes(j.status)).length;
+  // Los pedidos PUBLICADOS y los trabajos son dos cosas distintas: `jobs` sólo existe
+  // cuando un pintor cotiza. Sin la primera lista, un cliente que acababa de publicar
+  // veía "Todavía ningún pintor te cotizó" y muchos publicaban de nuevo, duplicando.
+  const [jobs, pedidos] = await Promise.all([getJobsForClient(user.id), getPedidosDelCliente(user.id)]);
+  const activos = pedidos.filter((p) => p.published).length;
   const completados = jobs.filter((j) => j.status === "completed").length;
   const pintores = new Set(jobs.map((j) => j.painter).filter(Boolean)).size;
 
@@ -65,13 +69,54 @@ export default async function ClientePanelPage() {
             ))}
           </div>
 
+          {/* Pedidos publicados por el cliente */}
+          <h2 className="font-display text-display-md mb-6">Tus pedidos publicados</h2>
+          {pedidos.length === 0 ? (
+            <p className="font-body text-body-md text-concrete mb-12">
+              Todavía no publicaste ningún pedido.{" "}
+              <Link href="/publicar" className="text-ink underline underline-offset-2">
+                Publicar uno
+              </Link>
+              .
+            </p>
+          ) : (
+            <div className="border border-concrete/15 divide-y divide-concrete/15 mb-12">
+              {pedidos.map((p) => (
+                <div key={p.id} className="p-5 sm:p-6 flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <p className="font-body text-body-md text-ink">{p.title}</p>
+                    <p className="font-mono text-mono-sm text-concrete mt-1">
+                      {p.location || "Sin zona"} · {p.date}
+                      {p.budgetMin || p.budgetMax ? ` · ${formatARS(p.budgetMin)}–${formatARS(p.budgetMax)}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="font-mono text-mono-sm uppercase tracking-widest text-concrete">
+                      {p.published ? "Publicado" : "Cerrado"}
+                    </span>
+                    {p.cotizaciones > 0 ? (
+                      <Link
+                        href="/cotizaciones"
+                        className="font-body text-body-sm text-ink underline underline-offset-2"
+                      >
+                        {p.cotizaciones} cotización{p.cotizaciones === 1 ? "" : "es"} →
+                      </Link>
+                    ) : (
+                      <span className="font-body text-body-sm text-concrete">Sin cotizaciones aún</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Solicitudes / trabajos del cliente */}
-          <h2 className="font-display text-display-md mb-6">Tus solicitudes</h2>
+          <h2 className="font-display text-display-md mb-6">Trabajos con pintores</h2>
           {jobs.length === 0 ? (
             <div className="border border-concrete/15 p-8 sm:p-12 text-center">
               <p className="font-display text-body-lg text-ink mb-2">Todavía no pediste ningún trabajo</p>
               <p className="font-body text-body-md text-concrete mb-6 max-w-md mx-auto">
-                Contá qué necesitás pintar y recibí presupuestos de pintores verificados de tu zona.
+                Cuando un pintor cotice alguno de tus pedidos, el trabajo va a aparecer acá.
               </p>
               <div className="flex justify-center gap-3">
                 <Link
@@ -112,6 +157,13 @@ export default async function ClientePanelPage() {
                     ) : (
                       <ReviewForm jobId={job.id} painterId={job.painterId} painter={job.painter ?? "el pintor"} />
                     )
+                  )}
+                  {/* Salida para el cliente: si el pintor abandona, sin esto el trabajo
+                      quedaba trabado y el pedido no volvía nunca al tablero. */}
+                  {["quoted", "accepted", "in_progress"].includes(job.status) && (
+                    <div className="mt-4">
+                      <CancelButton jobId={job.id} label="Cancelar este trabajo" />
+                    </div>
                   )}
                 </div>
               ))}

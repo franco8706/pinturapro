@@ -19,7 +19,12 @@ export default async function CotizacionesPage() {
   if (profile && profile.type !== "client") redirect("/dashboard");
 
   const quotes = await getQuotesForClient(user.id);
-  const aceptada = quotes.some((q) => q.status === "accepted");
+  // Por PEDIDO, no global: antes bastaba con aceptar una cotización para que se apagara
+  // el botón de todas las demás, incluidas las de otros trabajos. Un cliente con dos
+  // pedidos quedaba sin poder contratar a nadie para el segundo.
+  const adjudicados = new Set(
+    quotes.filter((q) => q.status === "accepted" && q.projectId).map((q) => q.projectId),
+  );
 
   return (
     <main>
@@ -82,9 +87,9 @@ export default async function CotizacionesPage() {
                         <span className="font-mono text-mono-sm uppercase tracking-widest text-[#2D5A3D]">
                           ✓ Cotización aceptada
                         </span>
-                      ) : aceptada ? (
+                      ) : q.projectId && adjudicados.has(q.projectId) ? (
                         <span className="font-mono text-mono-sm uppercase tracking-widest text-concrete">
-                          Ya elegiste otra cotización
+                          Ya elegiste otra cotización para este pedido
                         </span>
                       ) : (
                         <AcceptButton jobId={q.id} />

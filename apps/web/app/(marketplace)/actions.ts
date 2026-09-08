@@ -58,7 +58,7 @@ export async function publicarTrabajo(formData: FormData): Promise<{ error?: str
   };
 
   const { error } = await supabase.from("projects").insert(payload as never);
-  if (error) return { error: error.message };
+  if (error) return { error: mensajeDeError(error) };
 
   revalidatePath("/trabajos");
   revalidatePath("/cliente");
@@ -96,7 +96,7 @@ export async function cotizar(formData: FormData): Promise<{ error?: string; ok?
   };
 
   const { error } = await supabase.from("jobs").insert(payload as never);
-  if (error) return { error: error.message };
+  if (error) return { error: mensajeDeError(error) };
 
   // Avisar al cliente que recibió una cotización (no-op si Resend no está configurado).
   // `note` la escribe el pintor: va por `html` para que se escape y no pueda inyectar markup.
@@ -134,7 +134,7 @@ export async function marcarCompletado(jobId: string): Promise<{ error?: string;
     .eq("painter_id", user.id)
     .eq("status", "accepted")
     .select("id");
-  if (error) return { error: error.message };
+  if (error) return { error: mensajeDeError(error) };
   if (((data ?? []) as unknown[]).length === 0) return { error: "No se encontró el trabajo o no está en curso." };
 
   revalidatePath("/dashboard");
@@ -171,7 +171,7 @@ export async function dejarResena(formData: FormData): Promise<{ error?: string;
   const { error } = await supabase.from("reviews").insert(payload as never);
   if (error) {
     if (/duplicate key/i.test(error.message)) return { error: "Ya dejaste una reseña para este trabajo." };
-    return { error: error.message };
+    return { error: mensajeDeError(error) };
   }
 
   revalidatePath("/cliente");
@@ -197,7 +197,7 @@ export async function aceptarCotizacion(jobId: string): Promise<{ error?: string
     .eq("client_id", user.id)
     .eq("status", "quoted")
     .select("id, painter_id, amount");
-  if (error) return { error: error.message };
+  if (error) return { error: mensajeDeError(error) };
   const rows = (data ?? []) as unknown as { id: string; painter_id: string | null; amount: number | null }[];
   if (rows.length === 0) return { error: "Esta cotización ya no está disponible para aceptar." };
 
@@ -220,5 +220,88 @@ export async function aceptarCotizacion(jobId: string): Promise<{ error?: string
   revalidatePath("/cotizaciones");
   revalidatePath("/cliente");
   revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+/**
+ * Traduce el error de la base a algo que una persona pueda entender.
+ *
+ * Antes se devolvía `error.message` tal cual, así que el usuario veía en pantalla cosas
+ * como "new row violates row-level security policy for table \"jobs\"" o el nombre de un
+ * índice. Además de ser incomprensible, filtra nombres de tablas, constraints y policies.
+ */
+function mensajeDeError(error: { message?: string; code?: string }): string {
+  const m = error?.message ?? "";
+  const code = error?.code ?? "";
+
+  if (code === "23505" || /duplicate key/i.test(m)) {
+    if (/uniq_jobs_quote_viva/.test(m)) return "Ya enviaste una cotización para este pedido.";
+    return "Ese registro ya existe.";
+  }
+  if (code === "42501" || /row-level security/i.test(m)) {
+    return "No podés hacer esa acción sobre este trabajo.";
+  }
+  if (/Transición no permitida/i.test(m)) {
+    return "Ese cambio de estado no está permitido para este trabajo.";
+  }
+  if (/monto|comisión/i.test(m) && /no puede|no corresponde|fuera de rango/i.test(m)) {
+    return m; // los raise del trigger ya están escritos para el usuario
+  }
+  if (/fetch failed|network|ENOTFOUND/i.test(m)) {
+    return "No pudimos conectar con el servidor. Probá de nuevo en un momento.";
+  }
+  console.error("[accion] error sin traducir:", m);
+  return "No pudimos completar la acción. Probá de nuevo.";
+}
+
+/**
+ * Cancelar un trabajo. Lo puede hacer cualquiera de las dos partes.
+ *
+ * Sin esto no había ninguna salida: si el pintor aceptaba y después desaparecía, el trabajo
+ * quedaba en 'accepted' para siempre — el cliente no podía reseñar (la reseña exige
+ * 'completed'), no podía aceptar otra cotización para ese pedido, y no tenía forma de
+ * liberarlo. El único camino era escribir por mail y que alguien lo arreglara a mano.
+ *
+ * El trigger de la migración 0009 se encarga de reabrir el pedido en el tablero cuando el
+ * trabajo cancelado era el adjudicado.
+ */
+export async function cancelarTrabajo(jobId: string): Promise<{ error?: string; ok?: boolean }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Tenés que iniciar sesión." };
+  if (!jobId) return { error: "Falta el trabajo." };
+
+  const { data, error } = await supabase
+    .from("jobs")
+    .update({ status: "cancelled" } as never)
+    .eq("id", jobId)
+    .or(`client_id.eq.${user.id},painter_id.eq.${user.id}`)
+    .in("status", ["quoted", "accepted", "in_progress"])
+    .select("id, client_id, painter_id");
+  if (error) return { error: mensajeDeError(error) };
+  const filas = (data ?? []) as unknown as { id: string; client_id: string; painter_id: string | null }[];
+  if (filas.length === 0) return { error: "Este trabajo ya no se puede cancelar." };
+
+  // Avisar a la otra parte.
+  const fila = filas[0];
+  const otra = fila.client_id === user.id ? fila.painter_id : fila.client_id;
+  if (otra) {
+    await notifyUser(
+      otra,
+      "Se canceló un trabajo en Pintura Pro",
+      emailLayout(
+        "Trabajo cancelado",
+        html`La otra parte canceló el trabajo. Si era un pedido tuyo, volvió a quedar publicado para recibir cotizaciones nuevas.`,
+        cta("/mi-panel", "Ir a mi panel"),
+      ),
+    );
+  }
+
+  revalidatePath("/cotizaciones");
+  revalidatePath("/cliente");
+  revalidatePath("/dashboard");
+  revalidatePath("/trabajos");
   return { ok: true };
 }
