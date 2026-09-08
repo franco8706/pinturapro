@@ -1,0 +1,776 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- setup-completo.sql — Pintura Pro
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- Las 7 migraciones en un solo archivo, en orden y RE-EJECUTABLE.
+--
+-- Para qué: poner en marcha la base de cero (proyecto Supabase nuevo, o uno
+-- restaurado) sin tener que pegar 7 archivos uno por uno. Correr esto deja el
+-- esquema completo: tablas, RLS, triggers, contenido inicial y la tabla de leads.
+--
+-- CÓMO: Supabase → SQL Editor → pegar todo → Run.
+--
+-- Se puede correr más de una vez sin romper nada: los enums, tablas, índices,
+-- policies y triggers de 0001 se reescribieron acá con guardas de idempotencia
+-- (el archivo original de 0001 falla si se corre dos veces).
+--
+-- DESPUÉS de esto, sembrar los datos demo:
+--   SUPABASE_URL=https://<ref>.supabase.co \
+--   SUPABASE_SECRET=<service_role_key> \
+--   python3 scripts/seed_supabase.py
+-- ═══════════════════════════════════════════════════════════════════════════
+
+
+
+-- ╔══════════════════════════════════════════════════════════════════════╗
+-- ║  0001_init.sql                                                     ║
+-- ╚══════════════════════════════════════════════════════════════════════╝
+
+-- Pintura Pro — esquema inicial (multi-tenant desde el día 1).
+-- Ejecutar en Supabase → SQL Editor (pegar y correr) o con `supabase db push`.
+-- Modelo: profiles (empresa|pintor|cliente) · projects (portfolio|service) · jobs · reviews.
+
+-- ───────────────────────── Enums ─────────────────────────
+do $$ begin
+  create type profile_type as enum ('company', 'painter', 'client');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type project_type as enum ('portfolio', 'service');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type job_status   as enum ('draft', 'published', 'quoted', 'accepted', 'in_progress', 'completed', 'cancelled');
+exception when duplicate_object then null; end $$;
+
+-- ───────────────────────── profiles (1-1 con auth.users) ─────────────────────────
+create table if not exists public.profiles (
+  id            uuid primary key references auth.users(id) on delete cascade,
+  type          profile_type not null default 'client',
+  full_name     text,
+  avatar_url    text,
+  phone         text,
+  bio           text,
+  location      text,
+  lat           double precision,
+  lng           double precision,
+  verified      boolean not null default false,
+  rating        numeric(2,1) not null default 0,
+  rating_count  int not null default 0,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+
+-- ───────────────────────── projects (portfolio = obra de muestra; service = trabajo publicado) ─────────────────────────
+create table if not exists public.projects (
+  id           uuid primary key default gen_random_uuid(),
+  owner_id     uuid not null references public.profiles(id) on delete cascade,
+  type         project_type not null,
+  title        text not null,
+  slug         text unique,
+  description  text,
+  cover_url    text,
+  images       text[] not null default '{}',
+  location     text,
+  lat          double precision,
+  lng          double precision,
+  budget_min   int,
+  budget_max   int,
+  published    boolean not null default false,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+
+-- ───────────────────────── jobs (contrato cliente ↔ pintor; comisión del marketplace) ─────────────────────────
+create table if not exists public.jobs (
+  id               uuid primary key default gen_random_uuid(),
+  project_id       uuid references public.projects(id) on delete set null,
+  client_id        uuid not null references public.profiles(id) on delete cascade,
+  painter_id       uuid references public.profiles(id) on delete set null,
+  status           job_status not null default 'draft',
+  amount           int,                                    -- monto acordado (definir unidad: ARS)
+  commission_rate  numeric(4,3) not null default 0.100,    -- 10%
+  commission_amount int,
+  scheduled_for    date,
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
+
+-- ───────────────────────── reviews (reseña de un job) ─────────────────────────
+create table if not exists public.reviews (
+  id          uuid primary key default gen_random_uuid(),
+  job_id      uuid not null references public.jobs(id) on delete cascade,
+  author_id   uuid not null references public.profiles(id) on delete cascade,
+  target_id   uuid not null references public.profiles(id) on delete cascade,
+  rating      int not null check (rating between 1 and 5),
+  comment     text,
+  photos      text[] not null default '{}',
+  created_at  timestamptz not null default now(),
+  unique (job_id, author_id)
+);
+
+-- ───────────────────────── triggers: updated_at + alta de profile al registrarse ─────────────────────────
+create or replace function public.set_updated_at() returns trigger language plpgsql as $$
+begin new.updated_at = now(); return new; end; $$;
+
+drop trigger if exists trg_profiles_updated on public.profiles;
+create trigger trg_profiles_updated before update on public.profiles for each row execute function public.set_updated_at();
+drop trigger if exists trg_projects_updated on public.projects;
+create trigger trg_projects_updated before update on public.projects for each row execute function public.set_updated_at();
+drop trigger if exists trg_jobs_updated on public.jobs;
+create trigger trg_jobs_updated     before update on public.jobs     for each row execute function public.set_updated_at();
+
+-- Crea automáticamente el profile cuando se registra un usuario en Supabase Auth.
+create or replace function public.handle_new_user() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.profiles (id, full_name, type)
+  values (
+    new.id,
+    new.raw_user_meta_data->>'full_name',
+    coalesce((new.raw_user_meta_data->>'type')::profile_type, 'client')
+  );
+  return new;
+end; $$;
+
+drop trigger if exists on_auth_user_created on public.handle_new_user;
+create trigger on_auth_user_created after insert on auth.users
+for each row execute function public.handle_new_user();
+
+-- ───────────────────────── Row Level Security ─────────────────────────
+alter table public.profiles enable row level security;
+alter table public.projects enable row level security;
+alter table public.jobs     enable row level security;
+alter table public.reviews  enable row level security;
+
+-- profiles: perfiles públicos (los pintores se muestran); cada uno edita el suyo.
+drop policy if exists "profiles_select_all" on public.profiles;
+create policy "profiles_select_all"   on public.profiles for select using (true);
+drop policy if exists "profiles_insert_own" on public.profiles;
+create policy "profiles_insert_own"   on public.profiles for insert with check (auth.uid() = id);
+drop policy if exists "profiles_update_own" on public.profiles;
+create policy "profiles_update_own"   on public.profiles for update using (auth.uid() = id);
+
+-- projects: los publicados son visibles para todos; el dueño ve/gestiona los suyos.
+drop policy if exists "projects_select_pub_or_own" on public.projects;
+create policy "projects_select_pub_or_own" on public.projects for select using (published or owner_id = auth.uid());
+drop policy if exists "projects_modify_own" on public.projects;
+create policy "projects_modify_own"        on public.projects for all using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+
+-- jobs: solo los participantes (cliente o pintor).
+drop policy if exists "jobs_select_participant" on public.jobs;
+create policy "jobs_select_participant" on public.jobs for select using (client_id = auth.uid() or painter_id = auth.uid());
+drop policy if exists "jobs_insert_client" on public.jobs;
+create policy "jobs_insert_client"      on public.jobs for insert with check (client_id = auth.uid());
+drop policy if exists "jobs_update_participant" on public.jobs;
+create policy "jobs_update_participant" on public.jobs for update using (client_id = auth.uid() or painter_id = auth.uid());
+
+-- reviews: lectura pública; la escribe su autor.
+drop policy if exists "reviews_select_all" on public.reviews;
+create policy "reviews_select_all"    on public.reviews for select using (true);
+drop policy if exists "reviews_insert_author" on public.reviews;
+create policy "reviews_insert_author" on public.reviews for insert with check (author_id = auth.uid());
+
+-- ───────────────────────── Índices ─────────────────────────
+create index if not exists idx_projects_owner   on public.projects (owner_id);
+create index if not exists idx_projects_type    on public.projects (type) where published;
+create index if not exists idx_jobs_client      on public.jobs (client_id);
+create index if not exists idx_jobs_painter     on public.jobs (painter_id);
+create index if not exists idx_reviews_target   on public.reviews (target_id);
+
+
+-- ╔══════════════════════════════════════════════════════════════════════╗
+-- ║  0002_normalize.sql                                                ║
+-- ╚══════════════════════════════════════════════════════════════════════╝
+
+-- 0002 — Normalización y datos derivados consistentes.
+-- Ejecutar en Supabase → SQL Editor (después de 0001).
+
+-- ── 1) Especialidades del pintor (faltaban) ──────────────────────────
+-- Array de texto: simple y suficiente para una lista corta de oficios.
+alter table public.profiles add column if not exists specialties text[] not null default '{}';
+
+-- ── 2) category + accent_color en projects (dejar de derivarlos en código) ──
+do $$ begin
+  create type project_category as enum ('Residencial', 'Comercial', 'Industrial');
+exception when duplicate_object then null; end $$;
+
+alter table public.projects add column if not exists category project_category not null default 'Residencial';
+alter table public.projects add column if not exists accent_color text;
+
+-- ── 3) rating / rating_count: CACHÉ mantenida desde reviews ───────────
+-- Antes se cargaban a mano y quedaban inconsistentes con las reseñas reales.
+-- Ahora la FUENTE DE VERDAD es la tabla reviews y un trigger recalcula el caché.
+create or replace function public.recalc_profile_rating(target uuid)
+returns void language sql security definer set search_path = public as $$
+  update public.profiles p set
+    rating = coalesce((select round(avg(r.rating)::numeric, 1) from public.reviews r where r.target_id = target), 0),
+    rating_count = (select count(*) from public.reviews r where r.target_id = target)
+  where p.id = target;
+$$;
+
+create or replace function public.on_review_change()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'DELETE' then
+    perform public.recalc_profile_rating(old.target_id);
+    return old;
+  end if;
+  perform public.recalc_profile_rating(new.target_id);
+  if tg_op = 'UPDATE' and old.target_id is distinct from new.target_id then
+    perform public.recalc_profile_rating(old.target_id);
+  end if;
+  return new;
+end; $$;
+
+drop trigger if exists trg_reviews_rating on public.reviews;
+create trigger trg_reviews_rating
+after insert or update or delete on public.reviews
+for each row execute function public.on_review_change();
+
+-- ── 4) Backfill: recalcular el rating de todos según las reseñas existentes ──
+do $$ declare r record; begin
+  for r in select id from public.profiles loop
+    perform public.recalc_profile_rating(r.id);
+  end loop;
+end $$;
+
+-- ── 5) Índices de apoyo ──────────────────────────────────────────────
+create index if not exists idx_reviews_author on public.reviews (author_id);
+create index if not exists idx_jobs_status    on public.jobs (status);
+
+
+-- ╔══════════════════════════════════════════════════════════════════════╗
+-- ║  0003_onboarding.sql                                               ║
+-- ╚══════════════════════════════════════════════════════════════════════╝
+
+-- 0003_onboarding.sql
+-- Soporte para login social (Google/Microsoft/Facebook) + selección de rol.
+--
+-- Problema: cuando alguien entra con OAuth, Supabase no sabe si es cliente, pintor
+-- o empresa. El trigger handle_new_user crea el profile con type 'client' por defecto,
+-- pero eso no distingue "eligió cliente" de "todavía no eligió".
+--
+-- Solución: una columna `onboarded`. El que se registra con el formulario (manda su rol)
+-- queda onboarded=true; el que entra por OAuth queda onboarded=false y la app lo manda
+-- a /bienvenida a elegir su rol.
+
+alter table public.profiles
+  add column if not exists onboarded boolean not null default false;
+
+-- Recreamos el trigger: marca onboarded según si vino el rol en el alta.
+create or replace function public.handle_new_user() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.profiles (id, full_name, type, onboarded)
+  values (
+    new.id,
+    new.raw_user_meta_data->>'full_name',
+    coalesce((new.raw_user_meta_data->>'type')::profile_type, 'client'),
+    -- true si el alta trajo rol (signup con formulario); false si fue OAuth (sin rol)
+    (new.raw_user_meta_data->>'type') is not null
+  );
+  return new;
+end; $$;
+
+-- Los usuarios que ya existen (sembrados / con rol real) quedan onboarded.
+update public.profiles set onboarded = true where onboarded = false;
+
+
+-- ╔══════════════════════════════════════════════════════════════════════╗
+-- ║  0004_marketplace.sql                                              ║
+-- ╚══════════════════════════════════════════════════════════════════════╝
+
+-- 0004_marketplace.sql
+-- Marketplace: el cliente publica un pedido de trabajo (projects type='service')
+-- y los pintores envían cotizaciones (jobs status='quoted').
+
+-- Mensaje de la cotización del pintor.
+alter table public.jobs add column if not exists note text;
+
+-- El pintor puede crear una cotización para sí mismo, en estado 'quoted', sobre un
+-- pedido de servicio real cuyo dueño sea el client_id que declara. (Las policies INSERT
+-- permissive se combinan con OR, así que esto convive con jobs_insert_client.)
+drop policy if exists "jobs_insert_painter_quote" on public.jobs;
+create policy "jobs_insert_painter_quote" on public.jobs
+  for insert with check (
+    painter_id = auth.uid()
+    and status = 'quoted'
+    and project_id is not null
+    and exists (
+      select 1 from public.projects p
+      where p.id = project_id and p.type = 'service' and p.owner_id = client_id
+    )
+  );
+
+create index if not exists idx_jobs_painter on public.jobs (painter_id);
+create index if not exists idx_jobs_client  on public.jobs (client_id);
+create index if not exists idx_projects_service on public.projects (type) where type = 'service' and published;
+
+
+-- ╔══════════════════════════════════════════════════════════════════════╗
+-- ║  0005_content.sql                                                  ║
+-- ╚══════════════════════════════════════════════════════════════════════╝
+
+-- 0005_content.sql
+-- Contenido dinámico del sitio + atributos del pintor.
+--   profiles.pros / profiles.cons : puntos a favor / a considerar del pintor
+--   faqs       : preguntas básicas antes de un presupuesto
+--   resources  : guías del pintor, videos instructivos, cursos y asesoramiento
+--   news       : noticias para el carrusel
+-- RLS: lectura pública de lo publicado; la escritura es solo por service-role (sin policies de write).
+
+-- ── Pintor: puntos a favor / a considerar ──────────────────────────────
+alter table public.profiles add column if not exists pros text[] not null default '{}';
+alter table public.profiles add column if not exists cons text[] not null default '{}';
+
+-- ── FAQs (preguntas antes de pedir presupuesto) ────────────────────────
+create table if not exists public.faqs (
+  id          uuid primary key default gen_random_uuid(),
+  question    text not null unique,
+  answer      text not null,
+  sort_order  int  not null default 0,
+  published   boolean not null default true,
+  created_at  timestamptz not null default now()
+);
+
+-- ── Recursos (guías / videos / cursos / asesoramiento) ─────────────────
+create table if not exists public.resources (
+  id          uuid primary key default gen_random_uuid(),
+  kind        text not null check (kind in ('guide','video','course','advice')),
+  title       text not null unique,
+  summary     text,
+  body        text,
+  media_url   text,            -- link a video / recurso externo
+  cover_url   text,
+  level       text,            -- ej: Principiante / Intermedio
+  duration    text,            -- ej: "8 min" / "4 clases"
+  sort_order  int  not null default 0,
+  published   boolean not null default true,
+  created_at  timestamptz not null default now()
+);
+
+-- ── Noticias (carrusel) ────────────────────────────────────────────────
+create table if not exists public.news (
+  id            uuid primary key default gen_random_uuid(),
+  title         text not null unique,
+  excerpt       text,
+  cover_url     text,
+  url           text,
+  published_at  timestamptz not null default now(),
+  published     boolean not null default true
+);
+
+-- ── RLS ────────────────────────────────────────────────────────────────
+alter table public.faqs      enable row level security;
+alter table public.resources enable row level security;
+alter table public.news      enable row level security;
+
+drop policy if exists "faqs_select_pub"      on public.faqs;
+drop policy if exists "resources_select_pub" on public.resources;
+drop policy if exists "news_select_pub"      on public.news;
+create policy "faqs_select_pub"      on public.faqs      for select using (published);
+create policy "resources_select_pub" on public.resources for select using (published);
+create policy "news_select_pub"      on public.news      for select using (published);
+
+create index if not exists idx_resources_kind on public.resources (kind) where published;
+create index if not exists idx_news_pub on public.news (published_at desc) where published;
+
+-- ── Seed (idempotente vía unique + on conflict) ────────────────────────
+insert into public.faqs (question, answer, sort_order) values
+  ('¿El trabajo es interior, exterior o ambos?', 'Definí si pintamos ambientes internos, frentes/medianeras o una obra completa. Cambia mucho el material y la preparación.', 1),
+  ('¿Qué superficie aproximada en m² hay que pintar?', 'No hace falta exactitud: una estimación (por ambiente o total) ya nos permite acercar un número. Si no sabés, contamos las paredes principales.', 2),
+  ('¿En qué estado están las paredes?', 'Contanos si son nuevas, están descascaradas, tienen humedad, hongos o grietas. La preparación es la mitad del trabajo.', 3),
+  ('¿Incluye reparaciones (enduido, grietas, humedad)?', 'Si hay que reparar antes de pintar, conviene aclararlo: impacta en tiempo y costo, y evita sorpresas a mitad de obra.', 4),
+  ('¿Ya tenés color y marca, o necesitás asesoramiento?', 'Podés traer tu paleta o pedirnos una recomendación según el ambiente, la luz y el uso. Trabajamos con primeras marcas.', 5),
+  ('¿El espacio va a estar habitado o amoblado durante el trabajo?', 'Saber si hay muebles, mascotas o gente viviendo nos ayuda a planificar la protección y los tiempos.', 6),
+  ('¿Para cuándo lo necesitás?', 'Una fecha objetivo (o si es urgente) nos permite organizar el equipo y darte un plazo realista.', 7)
+on conflict (question) do nothing;
+
+insert into public.resources (kind, title, summary, body, media_url, level, duration, sort_order) values
+  ('guide', 'Armá un perfil que consiga más trabajos', 'Foto, bio, zona y especialidades: cómo presentarte para que los clientes te elijan.', 'Un perfil completo recibe muchas más solicitudes. Subí una foto clara, escribí una bio corta con tu experiencia, marcá tus especialidades y tu zona. Sumá tus mejores obras al portfolio con fotos antes/después.', null, 'Principiante', '6 min', 1),
+  ('guide', 'Cómo cotizar de forma profesional', 'Estructura una cotización clara: materiales, mano de obra, plazos y qué incluye.', 'Una buena cotización detalla superficie, preparación, manos de pintura, materiales (marca/tipo), plazos y qué NO incluye. La claridad genera confianza y reduce idas y vueltas.', null, 'Principiante', '8 min', 2),
+  ('guide', 'Qué materiales llevar a cada obra', 'Checklist de herramientas y materiales para no frenar el trabajo.', 'Rodillos y pinceles según terminación, bandejas, cinta de papel, lonas de protección, enduido, lija, fijador, y la pintura calculada con 10% de margen. Llevar todo evita viajes y demoras.', null, 'Principiante', '5 min', 3),
+  ('video', 'Técnica de rodillo sin marcas', 'El método de la "W" y el repaso para una terminación pareja.', null, 'https://www.youtube.com/results?search_query=tecnica+rodillo+sin+marcas', 'Principiante', '7 min', 1),
+  ('video', 'Cómo tratar una pared con humedad', 'Diagnóstico, secado, fijador y pintura antihumedad paso a paso.', null, 'https://www.youtube.com/results?search_query=pared+con+humedad+como+pintar', 'Intermedio', '10 min', 2),
+  ('course', 'Terminaciones premium', 'Esmaltes, veladuras y texturas para diferenciarte y cobrar mejor.', 'Curso práctico de 4 clases sobre terminaciones de alto valor: esmalte al agua, veladuras, microcemento y texturas decorativas.', null, 'Intermedio', '4 clases', 1),
+  ('course', 'Gestión de obra y presupuestos', 'Organizá tiempos, equipo y números para que cada obra sea rentable.', 'Aprendé a presupuestar, planificar etapas, coordinar ayudantes y controlar costos. Incluye plantillas de cotización.', null, 'Intermedio', '5 clases', 2),
+  ('advice', 'Elegí la pintura según el ambiente', 'Cocina, baño, exterior o dormitorio: cada uno pide un tipo distinto.', 'Lavable y antihongos para cocina/baño, látex mate para dormitorios, esmalte al agua para aberturas, y membrana o impermeabilizante para exteriores. Elegir bien evita repintar antes de tiempo.', null, null, null, 1),
+  ('advice', '¿Cuánta pintura necesito?', 'Calculá el rendimiento real para no comprar de más ni de menos.', 'Regla práctica: 1 litro rinde ~10 m² por mano. Multiplicá la superficie por la cantidad de manos (normalmente 2) y dividí por 10. Sumá 10% de margen.', null, null, null, 2)
+on conflict (title) do nothing;
+
+insert into public.news (title, excerpt, url, published_at) values
+  ('Tendencias de color 2026 para interiores', 'Tonos tierra, verdes profundos y neutros cálidos lideran la temporada. Mirá la paleta sugerida.', '/colores', now() - interval '2 days'),
+  ('Sumamos pintores verificados en Zona Norte', 'Ampliamos la cobertura del marketplace: más profesionales con reseñas reales cerca tuyo.', '/pintores', now() - interval '9 days'),
+  ('Esmaltes al agua: por qué conviene el cambio', 'Bajo olor, secado rápido y limpieza con agua. Te contamos cuándo usarlos.', '/aprender', now() - interval '16 days'),
+  ('Cómo proteger tu obra del calor en verano', 'Horarios, materiales y cuidados para pintar bien con altas temperaturas.', '/aprender', now() - interval '25 days')
+on conflict (title) do nothing;
+
+
+-- ╔══════════════════════════════════════════════════════════════════════╗
+-- ║  0006_security.sql                                                 ║
+-- ╚══════════════════════════════════════════════════════════════════════╝
+
+-- 0006_security.sql
+-- Cierra los huecos de autorización de la auditoría.
+--
+-- CONTEXTO: la `anon key` viaja en el bundle del navegador — es pública por diseño.
+-- Cualquiera con sesión puede pegarle directo a PostgREST y saltear TODAS las Server
+-- Actions. Las validaciones en actions.ts son UX, no seguridad. El límite real es esto.
+--
+-- Correr en Supabase → SQL Editor, después de 0005. Es idempotente.
+--
+-- NOTA DE REVISIÓN: una primera versión de este archivo no se podía aplicar (el índice
+-- único chocaba con los datos del seed y hacía rollback de todo) y tenía varios arreglos
+-- incompletos. Cada corrección quedó comentada abajo, en su bloque.
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Helper: ¿la escritura viene del backend con service-role?
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Usamos auth.role() de Supabase y NO current_setting('request.jwt.claim.role').
+-- Esa GUC por-claim quedó deprecada en PostgREST 9 y removida después: PostgREST
+-- moderno sólo setea `request.jwt.claims` (JSON con todos los claims). Con la forma
+-- vieja la guarda era código muerto y el service-role pasaba sólo por accidente.
+create or replace function public.es_service_role() returns boolean
+language sql stable as $$
+  select coalesce(
+    nullif(current_setting('request.jwt.claim.role', true), ''),
+    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role'),
+    ''
+  ) = 'service_role';
+$$;
+
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- S1 · Reseñas: sólo el cliente de un trabajo COMPLETADO reseña a SU pintor
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Antes la policy sólo pedía author_id = auth.uid(): cualquiera reseñaba a cualquiera.
+--
+-- CORRECCIÓN: validar el job no alcanzaba. `jobs_insert_client` (0001) deja al cliente
+-- insertar un job con CUALQUIER status, así que el atacante se fabricaba un job ya en
+-- 'completed' y pasaba el check igual. Hay que cerrar las dos puntas.
+drop policy if exists "reviews_insert_author" on public.reviews;
+create policy "reviews_insert_author" on public.reviews
+  for insert with check (
+    author_id = auth.uid()
+    and exists (
+      select 1 from public.jobs j
+      where j.id = job_id
+        and j.client_id = auth.uid()     -- el trabajo es tuyo, como cliente
+        and j.painter_id = target_id     -- y reseñás al pintor que lo hizo
+        and j.status = 'completed'       -- y el trabajo terminó
+    )
+  );
+
+-- La otra punta: un cliente ya no puede fabricarse jobs. Ningún código de la app inserta
+-- jobs como cliente (verificado en app/(marketplace)/actions.ts y apps/mobile/lib/mutations.ts:
+-- el único INSERT es `cotizar`, con painter_id = auth.uid()). El seed usa service-role,
+-- que no pasa por RLS. Así que esta policy se puede cerrar del todo sin romper nada.
+drop policy if exists "jobs_insert_client" on public.jobs;
+
+-- Sin policy de UPDATE/DELETE en reviews a propósito: si se pudieran editar, se esquivaría
+-- el check de arriba cambiando el rating después de insertarlo.
+
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- S2 · Perfiles: los campos de confianza dejan de ser escribibles
+-- ═══════════════════════════════════════════════════════════════════════════
+-- `profiles_update_own` permite escribir CUALQUIER columna de la fila propia. Un pintor
+-- hacía `set verified = true, rating = 5.0` y quedaba nivel "Master" y primero en /pintores.
+-- Postgres no tiene RLS por columna, así que se congelan con un trigger.
+--
+-- CORRECCIÓN: `type` se congelaba sólo `if old.onboarded`, pero `onboarded` no se congelaba.
+-- El bypass eran dos requests: apagás onboarded, después te cambiás a 'company' y entrás
+-- a /admin y /panel. Ahora `onboarded` sólo puede ir de false a true.
+
+-- El recálculo del rating (trigger de reviews, 0002) escribe rating/rating_count con el JWT
+-- del usuario que reseñó. Sin esta marca el congelamiento lo revertiría y los ratings
+-- quedarían clavados para siempre.
+create or replace function public.recalc_profile_rating(target uuid)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  perform set_config('app.rating_recalc', 'on', true);  -- true = sólo esta transacción
+  update public.profiles p set
+    rating = coalesce((select round(avg(r.rating)::numeric, 1) from public.reviews r where r.target_id = target), 0),
+    rating_count = (select count(*) from public.reviews r where r.target_id = target)
+  where p.id = target;
+  perform set_config('app.rating_recalc', 'off', true);
+end; $$;
+
+create or replace function public.freeze_profile_trust_fields()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if public.es_service_role() then
+    return new;
+  end if;
+  -- Recálculo legítimo disparado por una reseña.
+  if coalesce(current_setting('app.rating_recalc', true), 'off') = 'on' then
+    return new;
+  end if;
+  if auth.uid() is null then
+    return new;  -- contexto sin JWT (SQL Editor, migraciones)
+  end if;
+
+  new.verified     := old.verified;
+  new.rating       := old.rating;       -- caché que mantiene el trigger de reviews
+  new.rating_count := old.rating_count;
+
+  -- El rol se elige UNA vez, en el onboarding (/bienvenida, para perfiles que llegan por
+  -- OAuth sin rol). Después queda fijo, y `onboarded` no puede volver atrás: si se pudiera,
+  -- alcanzaría con apagarlo para reabrir el cambio de rol.
+  if old.onboarded then
+    new.type      := old.type;
+    new.onboarded := true;
+  end if;
+
+  return new;
+end; $$;
+
+drop trigger if exists trg_profiles_freeze_trust on public.profiles;
+create trigger trg_profiles_freeze_trust
+  before update on public.profiles
+  for each row execute function public.freeze_profile_trust_fields();
+
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- S3 · Trabajos: la máquina de estados y el dinero se aplican en la base
+-- ═══════════════════════════════════════════════════════════════════════════
+-- `jobs_update_participant` sólo pedía ser participante, sin WITH CHECK ni restricción de
+-- columnas: el pintor aceptaba su propia cotización, subía el monto, o ponía la comisión en cero.
+
+drop policy if exists "jobs_update_participant" on public.jobs;
+
+create policy "jobs_update_client" on public.jobs
+  for update using (client_id = auth.uid()) with check (client_id = auth.uid());
+
+create policy "jobs_update_painter" on public.jobs
+  for update using (painter_id = auth.uid()) with check (painter_id = auth.uid());
+
+-- CORRECCIÓN: el dinero tampoco se validaba al NACER. `jobs_insert_painter_quote` (0004) no
+-- miraba amount ni commission_amount, así que el pintor cotizaba con comisión cero desde el
+-- INSERT. Se valida acá, donde nace.
+drop policy if exists "jobs_insert_painter_quote" on public.jobs;
+create policy "jobs_insert_painter_quote" on public.jobs
+  for insert with check (
+    painter_id = auth.uid()
+    and client_id <> auth.uid()          -- no podés cotizarte a vos mismo
+    and status = 'quoted'
+    and project_id is not null
+    and amount is not null and amount > 0 and amount <= 1000000000
+    -- La comisión tiene que ser la que corresponde (10%), con 1 peso de tolerancia por redondeo.
+    and commission_amount is not null
+    and abs(commission_amount - round(amount * coalesce(commission_rate, 0.100))) <= 1
+    and coalesce(commission_rate, 0.100) = 0.100
+    and exists (
+      select 1 from public.projects p
+      where p.id = project_id and p.type = 'service' and p.owner_id = client_id
+    )
+  );
+
+-- CORRECCIÓN: la versión anterior hacía `new.client_id := old.client_id` (etc.) de forma
+-- incondicional. Eso REVERTÍA el `on delete set null` de las FK: al borrar un project o un
+-- profile, Postgres ponía NULL y el trigger lo devolvía al valor viejo, dejando foreign keys
+-- colgadas apuntando a filas inexistentes. Ahora se lanza excepción ante una reasignación
+-- real, y se permite explícitamente el único cambio legítimo: old → NULL por cascada.
+create or replace function public.enforce_job_rules()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  actor_is_client  boolean := (auth.uid() = old.client_id);
+  actor_is_painter boolean := (auth.uid() = old.painter_id);
+begin
+  if public.es_service_role() or auth.uid() is null then
+    return new;
+  end if;
+
+  -- Las partes no se reasignan. Pasar a NULL sí se permite: es lo que hace la FK al
+  -- borrarse el padre, y bloquearlo dejaría la base inconsistente.
+  if new.client_id is distinct from old.client_id and new.client_id is not null then
+    raise exception 'No se puede reasignar el cliente del trabajo';
+  end if;
+  if new.painter_id is distinct from old.painter_id and new.painter_id is not null then
+    raise exception 'No se puede reasignar el pintor del trabajo';
+  end if;
+  if new.project_id is distinct from old.project_id and new.project_id is not null then
+    raise exception 'No se puede reasignar el pedido del trabajo';
+  end if;
+
+  -- El dinero se congela apenas la cotización deja de estar en 'quoted'.
+  if old.status <> 'quoted' then
+    new.amount            := old.amount;
+    new.commission_amount := old.commission_amount;
+    new.commission_rate   := old.commission_rate;
+  end if;
+
+  -- Transiciones permitidas.
+  -- CORRECCIÓN: antes 'in_progress' era un estado terminal — el pintor podía entrar pero
+  -- ninguna rama lo dejaba salir, y el trabajo quedaba tapiado sin poder completarse ni
+  -- cancelarse. Ahora el ciclo cierra por los dos lados.
+  if new.status is distinct from old.status then
+    if actor_is_client then
+      if not (
+        (old.status = 'quoted'      and new.status in ('accepted', 'cancelled')) or
+        (old.status = 'accepted'    and new.status = 'cancelled') or
+        (old.status = 'in_progress' and new.status = 'cancelled')
+      ) then
+        raise exception 'Transición no permitida para el cliente: % -> %', old.status, new.status;
+      end if;
+    elsif actor_is_painter then
+      -- El pintor NO acepta su propia cotización: eso lo decide el cliente.
+      if not (
+        (old.status = 'quoted'      and new.status = 'cancelled') or   -- retirar la cotización
+        (old.status = 'accepted'    and new.status in ('in_progress', 'completed', 'cancelled')) or
+        (old.status = 'in_progress' and new.status in ('completed', 'cancelled'))
+      ) then
+        raise exception 'Transición no permitida para el pintor: % -> %', old.status, new.status;
+      end if;
+    else
+      raise exception 'No sos parte de este trabajo';
+    end if;
+  end if;
+
+  return new;
+end; $$;
+
+drop trigger if exists trg_jobs_rules on public.jobs;
+create trigger trg_jobs_rules
+  before update on public.jobs
+  for each row execute function public.enforce_job_rules();
+
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- S4 · Una cotización VIVA por pintor y pedido
+-- ═══════════════════════════════════════════════════════════════════════════
+-- CORRECCIÓN CRÍTICA: la versión anterior indexaba (project_id, painter_id) para TODOS los
+-- jobs. El seed genera un job por cada reseña, todos con el mismo project_id del pintor
+-- (scripts/seed_supabase.py: `proj_by_owner.get(painter)` dentro del loop), así que había
+-- hasta 9 duplicados y el CREATE INDEX fallaba — haciendo rollback de TODA la migración.
+-- Acotado a status='quoted' se crea limpio y sigue impidiendo lo que importa: que un pintor
+-- cotice el mismo pedido muchas veces y le dispare un email al cliente en cada intento.
+drop index if exists public.uniq_jobs_quote_por_pintor;
+create unique index if not exists uniq_jobs_quote_viva
+  on public.jobs (project_id, painter_id)
+  where status = 'quoted' and painter_id is not null and project_id is not null;
+
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- S10 · El teléfono deja de ser legible por cualquiera
+-- ═══════════════════════════════════════════════════════════════════════════
+-- `profiles_select_all using (true)` expone TODOS los perfiles a cualquier anónimo, con
+-- teléfono incluido. La policy de FILAS no se toca: los pintores necesitan leer el nombre
+-- del cliente que publicó un pedido (getOpenServiceRequests), y restringirla rompería
+-- /trabajos.
+--
+-- CORRECCIÓN: `revoke select (phone)` a secas no hacía NADA. En Postgres los privilegios de
+-- tabla y de columna son ACLs separadas y basta con que UNA conceda; Supabase corre
+-- `grant all on all tables in schema public to anon, authenticated`, así que el permiso de
+-- tabla seguía ganando. Para que el privilegio por columna signifique algo hay que sacar
+-- primero el de tabla y devolver las columnas una por una.
+--
+-- MANTENIMIENTO: al agregar una columna nueva a `profiles` hay que sumarla acá, o no se
+-- va a poder leer desde la app. Ninguna query usa select("*") sobre profiles (verificado),
+-- así que este esquema es seguro hoy.
+revoke select on public.profiles from anon, authenticated;
+grant select (
+  id, type, full_name, avatar_url, bio, location, lat, lng,
+  verified, rating, rating_count, specialties, onboarded, pros, cons,
+  created_at, updated_at
+) on public.profiles to anon, authenticated;
+
+-- El backend sigue viendo todo (incluido el teléfono) para poder contactar a las partes.
+grant select on public.profiles to service_role;
+
+-- OPCIONAL — decisión de producto, no de seguridad.
+-- Hoy cualquier anónimo lista los pedidos de los clientes con zona y presupuesto. Si querés
+-- exigir login para ver el tablero de trabajos, descomentá. Ojo: cambia el embudo de
+-- /trabajos (hoy el visitante ve los pedidos y recién al cotizar se le pide cuenta).
+-- El portfolio público (/obras) sigue abierto en los dos casos.
+--
+-- drop policy if exists "projects_select_pub_or_own" on public.projects;
+-- create policy "projects_select_pub_or_own" on public.projects
+--   for select using (
+--     owner_id = auth.uid()
+--     or (published and (type = 'portfolio' or auth.uid() is not null))
+--   );
+
+
+-- ╔══════════════════════════════════════════════════════════════════════╗
+-- ║  0007_leads.sql                                                    ║
+-- ╚══════════════════════════════════════════════════════════════════════╝
+
+-- 0007_leads.sql
+-- Persistencia de los formularios públicos.
+--
+-- PROBLEMA QUE RESUELVE: /cotizar, /contacto y /registro mostraban un mensaje de éxito
+-- ("Te vamos a contactar en menos de 24 horas") y DESCARTABAN los datos. No se guardaba
+-- nada ni se enviaba ningún aviso. Cada visitante que pedía presupuesto era un cliente
+-- perdido, y el sitio le prometía algo que no iba a pasar.
+--
+-- Correr en Supabase → SQL Editor, después de 0006.
+
+do $$ begin
+  create type lead_kind as enum ('quote', 'contact', 'painter_application');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type lead_status as enum ('new', 'contacted', 'won', 'lost', 'spam');
+exception when duplicate_object then null; end $$;
+
+create table if not exists public.leads (
+  id          uuid primary key default gen_random_uuid(),
+  kind        lead_kind   not null,
+  status      lead_status not null default 'new',
+
+  -- Contacto: lo mínimo para poder responder.
+  name        text not null check (length(btrim(name)) between 2 and 120),
+  email       text        check (email is null or (length(email) <= 200 and position('@' in email) > 1)),
+  phone       text        check (phone is null or length(phone) <= 40),
+  message     text        check (message is null or length(message) <= 4000),
+
+  -- Campos propios de cada formulario (superficie, ambientes, especialidades…).
+  details     jsonb not null default '{}'::jsonb,
+
+  -- Si la persona estaba logueada, queda asociado. Si no, es un lead anónimo.
+  user_id     uuid references public.profiles(id) on delete set null,
+
+  -- Trazabilidad mínima para detectar abuso, sin guardar IP.
+  source_path text check (source_path is null or length(source_path) <= 200),
+
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+create index if not exists idx_leads_kind_created on public.leads (kind, created_at desc);
+create index if not exists idx_leads_status       on public.leads (status) where status = 'new';
+create index if not exists idx_leads_user         on public.leads (user_id) where user_id is not null;
+
+drop trigger if exists trg_leads_updated on public.leads;
+create trigger trg_leads_updated before update on public.leads
+  for each row execute function public.set_updated_at();
+
+-- ── RLS ────────────────────────────────────────────────────────────────
+-- Cualquiera puede DEJAR un lead (los formularios son públicos, sin login).
+-- NADIE puede leerlos salvo la empresa: son datos de contacto de clientes, y una
+-- policy de lectura abierta sería una lista de prospectos servida a la competencia.
+alter table public.leads enable row level security;
+
+drop policy if exists "leads_insert_any"      on public.leads;
+drop policy if exists "leads_select_company"  on public.leads;
+drop policy if exists "leads_update_company"  on public.leads;
+
+create policy "leads_insert_any" on public.leads
+  for insert with check (
+    -- El status siempre arranca en 'new': que nadie inserte un lead ya marcado como atendido.
+    status = 'new'
+    -- Si dice ser un usuario, tiene que serlo.
+    and (user_id is null or user_id = auth.uid())
+  );
+
+create policy "leads_select_company" on public.leads
+  for select using (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.type = 'company')
+  );
+
+create policy "leads_update_company" on public.leads
+  for update using (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.type = 'company')
+  );
+
+-- Sin policy de DELETE a propósito: un lead no se borra desde la app, se marca 'spam'.
