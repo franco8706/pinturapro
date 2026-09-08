@@ -1,0 +1,16 @@
+-- 0010: is_admin quedó sin GRANT de columna, así que ninguna policy que lo lea podía correr.
+--
+-- 0008_admin.sql agregó `profiles.is_admin` y reescribió las policies de `leads` para
+-- depender de él (`exists (select ... where p.id = auth.uid() and p.is_admin)`), pero
+-- 0006_security.sql ya había revocado el SELECT de tabla en `profiles` y sólo re-otorgó una
+-- lista fija de columnas — lista armada antes de que `is_admin` existiera. Postgres exige
+-- privilegio de columna sobre TODO lo que una policy de RLS toca, sin importar si la fila
+-- termina pasando el filtro. Resultado: cualquier lectura de `leads` (admin, no-admin, o
+-- anon) tiraba "permission denied for table profiles" en vez de filtrar como corresponde —
+-- el propio admin quedaba tan bloqueado como cualquiera. `getLeads()` lo tragaba y
+-- devolvía `[]` en silencio, así que /admin mostraba "sin leads" siempre.
+--
+-- `is_admin` es un booleano de bajo riesgo (indica "esta cuenta es la operadora de la
+-- plataforma", no una credencial) — se lo otorga también a `anon` para que una lectura sin
+-- sesión de /leads devuelva una lista vacía limpia en vez de un error de permisos.
+grant select (is_admin) on public.profiles to anon, authenticated;

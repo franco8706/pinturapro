@@ -2,11 +2,13 @@
 -- setup-completo.sql — Pintura Pro
 -- ═══════════════════════════════════════════════════════════════════════════
 --
--- Las 7 migraciones en un solo archivo, en orden y RE-EJECUTABLE.
+-- Las 9 migraciones en un solo archivo, en orden y RE-EJECUTABLE.
 --
 -- Para qué: poner en marcha la base de cero (proyecto Supabase nuevo, o uno
--- restaurado) sin tener que pegar 7 archivos uno por uno. Correr esto deja el
--- esquema completo: tablas, RLS, triggers, contenido inicial y la tabla de leads.
+-- restaurado) sin tener que pegar 9 archivos uno por uno. Correr esto deja el
+-- esquema completo: tablas, RLS, triggers, contenido inicial, leads, el rol
+-- is_admin y el ciclo de vida de los trabajos (congelar el monto, reabrir el
+-- pedido al cancelar).
 --
 -- CÓMO: Supabase → SQL Editor → pegar todo → Run.
 --
@@ -131,7 +133,7 @@ begin
   return new;
 end; $$;
 
-drop trigger if exists on_auth_user_created on public.handle_new_user;
+drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users
 for each row execute function public.handle_new_user();
 
@@ -538,9 +540,11 @@ create trigger trg_profiles_freeze_trust
 
 drop policy if exists "jobs_update_participant" on public.jobs;
 
+drop policy if exists "jobs_update_client" on public.jobs;
 create policy "jobs_update_client" on public.jobs
   for update using (client_id = auth.uid()) with check (client_id = auth.uid());
 
+drop policy if exists "jobs_update_painter" on public.jobs;
 create policy "jobs_update_painter" on public.jobs
   for update using (painter_id = auth.uid()) with check (painter_id = auth.uid());
 
@@ -774,3 +778,264 @@ create policy "leads_update_company" on public.leads
   );
 
 -- Sin policy de DELETE a propósito: un lead no se borra desde la app, se marca 'spam'.
+
+
+-- ╔══════════════════════════════════════════════════════════════════════╗
+-- ║  0008_admin.sql                                                     ║
+-- ╚══════════════════════════════════════════════════════════════════════╝
+
+-- 0008_admin.sql
+-- Separa "empresa" (rol de negocio) de "administrador" (privilegio de plataforma).
+--
+-- PROBLEMA QUE RESUELVE: `profiles.type = 'company'` significaba las dos cosas a la vez.
+-- Y "Empresa" es una opción del formulario público de alta (/crear-cuenta) y del selector
+-- de rol (/bienvenida), donde el valor viaja en raw_user_meta_data y `handle_new_user` lo
+-- escribe tal cual. O sea: cualquiera se registraba eligiendo "Empresa" en un <select> y
+-- entraba a /admin a leer nombre, email y teléfono de TODOS los prospectos — la lista que
+-- 0007 dice explícitamente que no hay que servirle a la competencia.
+--
+-- Ahora el acceso de administración depende de una columna que el usuario no puede escribir.
+--
+-- Correr en Supabase → SQL Editor, después de 0007.
+
+
+alter table public.profiles add column if not exists is_admin boolean not null default false;
+
+comment on column public.profiles.is_admin is
+  'Acceso al panel de administración. Sólo se puede activar con service-role (SQL Editor); '
+  'el trigger freeze_profile_trust_fields lo congela para cualquier escritura del usuario.';
+
+-- ── El usuario no puede auto-otorgarse admin ──────────────────────────
+-- Se suma is_admin a los campos que el trigger revierte. Sin esto, `profiles_update_own`
+-- (que permite escribir cualquier columna de la fila propia) haría inútil toda la columna.
+create or replace function public.freeze_profile_trust_fields()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if public.es_service_role() then
+    return new;
+  end if;
+  -- Recálculo legítimo del rating disparado por una reseña.
+  if coalesce(current_setting('app.rating_recalc', true), 'off') = 'on' then
+    return new;
+  end if;
+  if auth.uid() is null then
+    return new;  -- contexto sin JWT (SQL Editor, migraciones)
+  end if;
+
+  new.verified     := old.verified;
+  new.rating       := old.rating;
+  new.rating_count := old.rating_count;
+  new.is_admin     := old.is_admin;   -- el privilegio de plataforma nunca se auto-otorga
+
+  -- El rol se elige UNA vez, en el onboarding. Después queda fijo, y `onboarded` no puede
+  -- volver atrás: si se pudiera, alcanzaría con apagarlo para reabrir el cambio de rol.
+  if old.onboarded then
+    new.type      := old.type;
+    new.onboarded := true;
+  end if;
+
+  return new;
+end; $$;
+
+-- ── Los leads pasan a depender de is_admin, no del rol de negocio ─────
+drop policy if exists "leads_select_company" on public.leads;
+drop policy if exists "leads_update_company" on public.leads;
+drop policy if exists "leads_select_admin" on public.leads;
+drop policy if exists "leads_update_admin" on public.leads;
+
+create policy "leads_select_admin" on public.leads
+  for select using (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
+  );
+
+create policy "leads_update_admin" on public.leads
+  for update using (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
+  );
+
+-- ── Alta del primer administrador ─────────────────────────────────────
+-- Si ya existe un perfil de empresa (el de la propia Pintura Pro, sembrado por
+-- scripts/seed_supabase.py como empresa@pinturapro.demo), se lo marca como admin para no
+-- quedar sin acceso al panel después de esta migración.
+update public.profiles
+   set is_admin = true
+ where type = 'company'
+   and id in (select id from public.profiles where type = 'company' order by created_at asc limit 1);
+
+-- Para dar de alta otro administrador más adelante, desde el SQL Editor:
+--   update public.profiles set is_admin = true where id = '<uuid del usuario>';
+
+
+
+-- ╔══════════════════════════════════════════════════════════════════════╗
+-- ║  0009_ciclo_trabajo.sql                                            ║
+-- ╚══════════════════════════════════════════════════════════════════════╝
+
+-- 0009_ciclo_trabajo.sql
+-- Cierra el ciclo de vida del trabajo: el dinero deja de ser editable por el cliente, y
+-- aceptar una cotización cierra el pedido y descarta las demás.
+--
+-- Correr en Supabase → SQL Editor, después de 0008.
+
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 1 · El cliente no toca la plata, nunca
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 0006 congelaba amount/commission_* sólo `if old.status <> 'quoted'`, y la validación de
+-- montos vivía sólo en la policy de INSERT. Mientras la cotización estaba en 'quoted' el
+-- cliente podía mandar un PATCH con {"amount":1,"commission_amount":0,"status":"accepted"}:
+-- old.status era 'quoted' (no congelaba), la transición quoted→accepted le está permitida,
+-- y quedaba registrado un trabajo de $1 con comisión $0.
+--
+-- Regla nueva: el dinero lo fija el PINTOR al cotizar y sólo él puede corregirlo mientras
+-- siga en 'quoted'. El cliente no lo escribe en ningún estado.
+create or replace function public.enforce_job_rules()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  actor_is_client  boolean := (auth.uid() = old.client_id);
+  actor_is_painter boolean := (auth.uid() = old.painter_id);
+  dinero_cambia    boolean := (new.amount            is distinct from old.amount)
+                           or (new.commission_amount is distinct from old.commission_amount)
+                           or (new.commission_rate   is distinct from old.commission_rate);
+begin
+  if public.es_service_role() or auth.uid() is null then
+    return new;
+  end if;
+
+  -- Las partes no se reasignan. Pasar a NULL sí: es lo que hace la FK al borrarse el padre.
+  if new.client_id is distinct from old.client_id and new.client_id is not null then
+    raise exception 'No se puede reasignar el cliente del trabajo';
+  end if;
+  if new.painter_id is distinct from old.painter_id and new.painter_id is not null then
+    raise exception 'No se puede reasignar el pintor del trabajo';
+  end if;
+  if new.project_id is distinct from old.project_id and new.project_id is not null then
+    raise exception 'No se puede reasignar el pedido del trabajo';
+  end if;
+
+  -- ── Dinero ──
+  if dinero_cambia then
+    if actor_is_client then
+      raise exception 'El cliente no puede modificar el monto ni la comisión';
+    end if;
+    if old.status <> 'quoted' then
+      raise exception 'El monto ya no se puede cambiar: la cotización dejó de estar pendiente';
+    end if;
+    -- El pintor corrige su propia cotización: se revalida la aritmética de la comisión.
+    if new.amount is null or new.amount <= 0 or new.amount > 1000000000 then
+      raise exception 'Monto fuera de rango';
+    end if;
+    if coalesce(new.commission_rate, 0.100) <> 0.100
+       or new.commission_amount is null
+       or abs(new.commission_amount - round(new.amount * coalesce(new.commission_rate, 0.100))) > 1 then
+      raise exception 'La comisión no corresponde al monto';
+    end if;
+  end if;
+
+  -- ── Transiciones ──
+  if new.status is distinct from old.status then
+    if actor_is_client then
+      if not (
+        (old.status = 'quoted'      and new.status in ('accepted', 'cancelled')) or
+        (old.status = 'accepted'    and new.status = 'cancelled') or
+        (old.status = 'in_progress' and new.status = 'cancelled')
+      ) then
+        raise exception 'Transición no permitida para el cliente: % -> %', old.status, new.status;
+      end if;
+    elsif actor_is_painter then
+      -- El pintor NO acepta su propia cotización: eso lo decide el cliente.
+      if not (
+        (old.status = 'quoted'      and new.status = 'cancelled') or   -- retirar la cotización
+        (old.status = 'accepted'    and new.status in ('in_progress', 'completed', 'cancelled')) or
+        (old.status = 'in_progress' and new.status in ('completed', 'cancelled'))
+      ) then
+        raise exception 'Transición no permitida para el pintor: % -> %', old.status, new.status;
+      end if;
+    else
+      raise exception 'No sos parte de este trabajo';
+    end if;
+  end if;
+
+  return new;
+end; $$;
+
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 2 · Aceptar cierra el pedido y descarta las cotizaciones perdedoras
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Sin esto el pedido seguía publicado para siempre: pintores nuevos cotizaban un trabajo ya
+-- adjudicado (y terminado), el cliente recibía emails de algo que ya pintó, y /trabajos se
+-- llenaba de pedidos zombis. Las cotizaciones perdedoras además quedaban en 'quoted' para
+-- siempre, sin que el pintor se enterara nunca de que perdió.
+create or replace function public.on_job_accepted()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.status = 'accepted' and old.status is distinct from 'accepted' and new.project_id is not null then
+    -- El pedido sale del tablero.
+    update public.projects set published = false where id = new.project_id;
+
+    -- Las demás cotizaciones del mismo pedido se cancelan.
+    update public.jobs
+       set status = 'cancelled'
+     where project_id = new.project_id
+       and id <> new.id
+       and status = 'quoted';
+  end if;
+  return new;
+end; $$;
+
+drop trigger if exists trg_job_accepted on public.jobs;
+create trigger trg_job_accepted
+  after update on public.jobs
+  for each row execute function public.on_job_accepted();
+
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 3 · Reabrir el pedido si el trabajo se cancela
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Si el pintor abandona y el cliente cancela, el pedido tiene que volver al tablero para
+-- que pueda contratar a otro. Sin esto, cancelar dejaba al cliente igual de trabado.
+create or replace function public.on_job_cancelled()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.status = 'cancelled' and old.status in ('accepted', 'in_progress') and new.project_id is not null then
+    -- Sólo se reabre si no quedó otro trabajo vivo sobre el mismo pedido.
+    if not exists (
+      select 1 from public.jobs j
+      where j.project_id = new.project_id
+        and j.id <> new.id
+        and j.status in ('accepted', 'in_progress', 'completed')
+    ) then
+      update public.projects set published = true where id = new.project_id;
+    end if;
+  end if;
+  return new;
+end; $$;
+
+drop trigger if exists trg_job_cancelled on public.jobs;
+create trigger trg_job_cancelled
+  after update on public.jobs
+  for each row execute function public.on_job_cancelled();
+
+
+
+-- ╔══════════════════════════════════════════════════════════════════════╗
+-- ║  0010_fix_leads_admin_grant.sql                                    ║
+-- ╚══════════════════════════════════════════════════════════════════════╝
+
+-- 0010: is_admin quedó sin GRANT de columna, así que ninguna policy que lo lea podía correr.
+--
+-- 0008_admin.sql agregó `profiles.is_admin` y reescribió las policies de `leads` para
+-- depender de él (`exists (select ... where p.id = auth.uid() and p.is_admin)`), pero
+-- 0006_security.sql ya había revocado el SELECT de tabla en `profiles` y sólo re-otorgó una
+-- lista fija de columnas — lista armada antes de que `is_admin` existiera. Postgres exige
+-- privilegio de columna sobre TODO lo que una policy de RLS toca, sin importar si la fila
+-- termina pasando el filtro. Resultado: cualquier lectura de `leads` (admin, no-admin, o
+-- anon) tiraba "permission denied for table profiles" en vez de filtrar como corresponde —
+-- el propio admin quedaba tan bloqueado como cualquiera. `getLeads()` lo tragaba y
+-- devolvía `[]` en silencio, así que /admin mostraba "sin leads" siempre.
+--
+-- `is_admin` es un booleano de bajo riesgo (indica "esta cuenta es la operadora de la
+-- plataforma", no una credencial) — se lo otorga también a `anon` para que una lectura sin
+-- sesión de /leads devuelva una lista vacía limpia en vez de un error de permisos.
+grant select (is_admin) on public.profiles to anon, authenticated;
