@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { MultiStepForm, type FormStep } from "@/components/features/multi-step-form";
@@ -19,12 +19,12 @@ export default function RegistroPage() {
   const [phone, setPhone] = useState("");
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
   const [website, setWebsite] = useState(""); // honeypot anti-bot
 
   // La postulación se PERSISTE en `leads`. Antes el formulario decía "te avisamos cuando
   // tu perfil esté activo" sin guardar nada — y sin siquiera pedir un dato de contacto.
-  const enviar = () => {
+  const enviar = async () => {
     setError("");
     const fd = new FormData();
     fd.set("name", name);
@@ -34,11 +34,20 @@ export default function RegistroPage() {
     fd.set("experience", years);
     fd.set("specialties", specs.join(", "));
     fd.set("website", website);
-    startTransition(async () => {
+    // `await` de verdad: MultiStepForm espera esta promesa para mantener su botón
+    // bloqueado. Con startTransition el botón se re-habilitaba a los milisegundos
+    // (React 18 no espera callbacks async) y un doble clic mandaba dos veces.
+    setPending(true);
+    try {
       const res = await postularmeComoPintor(fd);
       if (res?.error) setError(res.error);
       else setDone(true);
-    });
+    } catch (e) {
+      console.error("[form] falló el envío:", e);
+      setError("No pudimos enviar el formulario. Revisá tu conexión y probá de nuevo.");
+    } finally {
+      setPending(false);
+    }
   };
 
   const toggleSpec = (s: string) =>

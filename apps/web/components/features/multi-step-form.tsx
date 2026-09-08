@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export interface FormStep {
@@ -14,7 +14,7 @@ export interface FormStep {
 
 interface MultiStepFormProps {
   steps: FormStep[];
-  onComplete?: () => void;
+  onComplete?: () => void | Promise<void>;
   submitLabel?: string;
 }
 
@@ -25,16 +25,30 @@ interface MultiStepFormProps {
  */
 export function MultiStepForm({ steps, onComplete, submitLabel = "Enviar" }: MultiStepFormProps) {
   const [current, setCurrent] = useState(0);
+  // El componente es dueño del estado de envío: antes el botón sólo miraba `canAdvance`,
+  // así que quedaba habilitado mientras la Server Action viajaba y un doble clic
+  // publicaba el mismo pedido dos veces (cada envío genera su propio slug, así que el
+  // índice único de `slug` tampoco lo frenaba).
+  const [submitting, setSubmitting] = useState(false);
+  const enVuelo = useRef(false);
   const isLast = current === steps.length - 1;
   const step = steps[current];
   const canAdvance = step.isValid !== false;
 
-  const next = () => {
-    if (!canAdvance) return;
-    if (isLast) {
-      onComplete?.();
-    } else {
+  const next = async () => {
+    if (!canAdvance || submitting || enVuelo.current) return;
+    if (!isLast) {
       setCurrent((c) => Math.min(steps.length - 1, c + 1));
+      return;
+    }
+    // Último paso: esperar de verdad a la acción antes de volver a habilitar el botón.
+    enVuelo.current = true;
+    setSubmitting(true);
+    try {
+      await onComplete?.();
+    } finally {
+      enVuelo.current = false;
+      setSubmitting(false);
     }
   };
 
@@ -86,8 +100,9 @@ export function MultiStepForm({ steps, onComplete, submitLabel = "Enviar" }: Mul
         </button>
         <button
           type="button"
-          onClick={next}
-          disabled={!canAdvance}
+          onClick={() => void next()}
+          disabled={!canAdvance || submitting}
+          aria-busy={submitting}
           className={cn(
             "px-7 py-4 font-body text-body-sm bg-ink text-bone transition-all duration-300",
             "hover:bg-ink/90 disabled:opacity-40 disabled:cursor-not-allowed",

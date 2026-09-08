@@ -1,29 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { deleteObra } from "./actions";
+import { useAccion } from "@/lib/use-accion";
 
 /** Acciones de una obra del portfolio: editar (link) y borrar (con confirmación). */
 export function PortfolioActions({ id, slug }: { id: string; slug: string }) {
-  const [pending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState(false);
-  const [error, setError] = useState("");
+  const { ejecutar, pending, error } = useAccion(deleteObra);
 
   function onDelete() {
     if (!confirming) {
       setConfirming(true);
       return;
     }
-    setError("");
-    startTransition(async () => {
-      const res = await deleteObra(id);
-      if (res?.error) {
-        setError(res.error);
-        setConfirming(false);
-      }
-      // En éxito, revalidatePath refresca el panel y la card desaparece.
-    });
+    void ejecutar(id);
+    // En éxito, revalidatePath refresca el panel y la card desaparece.
   }
 
   return (
@@ -37,13 +30,18 @@ export function PortfolioActions({ id, slug }: { id: string; slug: string }) {
       <button
         type="button"
         onClick={onDelete}
-        onBlur={() => setConfirming(false)}
+        onBlur={() => !pending && setConfirming(false)}
         disabled={pending}
-        className="text-concrete hover:text-[#C41E3A] transition-colors disabled:opacity-50"
+        aria-busy={pending}
+        className="text-concrete hover:text-[#C41E3A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {pending ? "Borrando…" : confirming ? "¿Confirmar?" : "Borrar"}
       </button>
-      {error && <span className="text-[#C41E3A]">{error}</span>}
+      {error && (
+        <span role="alert" className="text-[#C41E3A]">
+          {error}
+        </span>
+      )}
     </div>
   );
 }

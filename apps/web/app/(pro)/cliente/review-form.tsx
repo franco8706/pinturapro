@@ -24,13 +24,19 @@ export function ReviewForm({ jobId, painterId, painter }: { jobId: string; paint
     fd.set("job_id", jobId);
     fd.set("painter_id", painterId);
     fd.set("rating", String(rating));
-    const res = await dejarResena(fd);
-    setLoading(false);
-    if (res?.error) {
-      setError(res.error);
-      return;
+    try {
+      const res = await dejarResena(fd);
+      if (res?.error) {
+        setError(res.error);
+        return;
+      }
+      setDone(true);
+    } catch (err) {
+      console.error("[resena] falló:", err);
+      setError("No pudimos guardar la reseña. Revisá tu conexión y probá de nuevo.");
+    } finally {
+      setLoading(false);
     }
-    setDone(true);
   }
 
   if (done) {
@@ -72,7 +78,7 @@ export function ReviewForm({ jobId, painterId, painter }: { jobId: string; paint
         placeholder="Contá cómo fue el trabajo: prolijidad, plazos, trato…"
         className="w-full border border-concrete/30 bg-plaster px-3 py-2 font-body text-body-md text-ink focus:border-ink outline-none transition-colors resize-y"
       />
-      {error && <p className="font-body text-body-sm text-[#C41E3A]">{error}</p>}
+      {error && <p role="alert" className="font-body text-body-sm text-[#C41E3A]">{error}</p>}
       <div className="flex gap-3">
         <button
           type="submit"

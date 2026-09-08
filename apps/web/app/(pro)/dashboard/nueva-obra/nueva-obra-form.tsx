@@ -46,21 +46,32 @@ export function NuevaObraForm({ initial }: { initial?: ObraInitial }) {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const fd = new FormData(e.currentTarget);
-    fd.set("accent_color", accent);
-    if (fileBlob) fd.set("cover_file", fileBlob, "cover.jpg");
-    let res: { error?: string };
-    if (editing) {
-      fd.set("id", initial!.id);
-      res = await updateObra(fd);
-    } else {
-      res = await createObra(fd);
-    }
-    if (res?.error) {
-      setError(res.error);
+    try {
+      const fd = new FormData(e.currentTarget);
+      fd.set("accent_color", accent);
+      if (fileBlob) fd.set("cover_file", fileBlob, "cover.jpg");
+      let res: { error?: string };
+      if (editing) {
+        fd.set("id", initial!.id);
+        res = await updateObra(fd);
+      } else {
+        res = await createObra(fd);
+      }
+      if (res?.error) {
+        setError(res.error);
+        setLoading(false);
+      }
+      // En éxito, el server action redirige al dashboard.
+    } catch (e) {
+      // Si la acción RECHAZA (red caída, excepción en el servidor) sin este catch el
+      // estado de envío no se apagaba nunca: el botón quedaba muerto en "Guardando…"
+      // y sin un solo mensaje. `redirect()` de Next también viaja como excepción,
+      // así que hay que dejarla pasar o se rompe la navegación de éxito.
+      if ((e as { digest?: string })?.digest?.startsWith("NEXT_REDIRECT")) throw e;
+      console.error("[nueva-obra] falló:", e);
+      setError("No pudimos guardar la obra. Revisá tu conexión y probá de nuevo.");
       setLoading(false);
     }
-    // En éxito, el server action redirige al dashboard.
   }
 
   const preview = filePreview || (cover.startsWith("http") ? cover : "");
@@ -114,7 +125,7 @@ export function NuevaObraForm({ initial }: { initial?: ObraInitial }) {
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            className="hidden"
+            className="sr-only"
             onChange={(e) => onFile(e.target.files?.[0])}
           />
         </label>
@@ -146,7 +157,7 @@ export function NuevaObraForm({ initial }: { initial?: ObraInitial }) {
         </div>
       </div>
 
-      {error && <p className="font-body text-body-sm text-[#C41E3A]">{error}</p>}
+      {error && <p role="alert" className="font-body text-body-sm text-[#C41E3A]">{error}</p>}
 
       <button
         type="submit"

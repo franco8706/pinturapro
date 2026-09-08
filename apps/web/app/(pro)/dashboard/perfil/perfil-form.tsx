@@ -54,15 +54,26 @@ export function PerfilForm({ initial }: { initial: Initial }) {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const fd = new FormData(e.currentTarget);
-    fd.set("specialties", JSON.stringify(specs));
-    if (avatarBlob) fd.set("avatar_file", avatarBlob, "avatar.jpg");
-    const res = await updateProfile(fd);
-    if (res?.error) {
-      setError(res.error);
+    try {
+      const fd = new FormData(e.currentTarget);
+      fd.set("specialties", JSON.stringify(specs));
+      if (avatarBlob) fd.set("avatar_file", avatarBlob, "avatar.jpg");
+      const res = await updateProfile(fd);
+      if (res?.error) {
+        setError(res.error);
+        setLoading(false);
+      }
+      // En éxito redirige al panel.
+    } catch (e) {
+      // Si la acción RECHAZA (red caída, excepción en el servidor) sin este catch el
+      // estado de envío no se apagaba nunca: el botón quedaba muerto en "Guardando…"
+      // y sin un solo mensaje. `redirect()` de Next también viaja como excepción,
+      // así que hay que dejarla pasar o se rompe la navegación de éxito.
+      if ((e as { digest?: string })?.digest?.startsWith("NEXT_REDIRECT")) throw e;
+      console.error("[perfil] falló:", e);
+      setError("No pudimos guardar el perfil. Revisá tu conexión y probá de nuevo.");
       setLoading(false);
     }
-    // En éxito redirige al panel.
   }
 
   const preview = avatarPreview || (initial.avatar.startsWith("http") ? initial.avatar : "");
@@ -80,14 +91,14 @@ export function PerfilForm({ initial }: { initial: Initial }) {
             inicial
           )}
         </div>
-        <label className="cursor-pointer">
+        <label className="cursor-pointer focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ink">
           <span className="inline-block px-4 py-2.5 border border-concrete/30 font-body text-body-sm hover:border-ink transition-colors">
             {resizing ? "Procesando…" : "Cambiar foto"}
           </span>
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            className="hidden"
+            className="sr-only"
             onChange={(e) => onFile(e.target.files?.[0])}
           />
         </label>
@@ -151,7 +162,7 @@ export function PerfilForm({ initial }: { initial: Initial }) {
         </div>
       </div>
 
-      {error && <p className="font-body text-body-sm text-[#C41E3A]">{error}</p>}
+      {error && <p role="alert" className="font-body text-body-sm text-[#C41E3A]">{error}</p>}
 
       <button
         type="submit"

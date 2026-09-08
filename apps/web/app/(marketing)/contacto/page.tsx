@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { enviarConsulta } from "../actions";
@@ -8,7 +8,7 @@ import { enviarConsulta } from "../actions";
 export default function ContactoPage() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", message: "" });
   // Campo trampa: invisible para una persona, los bots lo completan.
   const [website, setWebsite] = useState("");
@@ -62,11 +62,19 @@ export default function ContactoPage() {
                   fd.set("email", form.email);
                   fd.set("message", form.message);
                   fd.set("website", website);
-                  startTransition(async () => {
-                    const res = await enviarConsulta(fd);
-                    if (res?.error) setError(res.error);
-                    else setSent(true);
-                  });
+                  void (async () => {
+                    setPending(true);
+                    try {
+                      const res = await enviarConsulta(fd);
+                      if (res?.error) setError(res.error);
+                      else setSent(true);
+                    } catch (err) {
+                      console.error("[contacto] falló el envío:", err);
+                      setError("No pudimos enviar el mensaje. Revisá tu conexión y probá de nuevo.");
+                    } finally {
+                      setPending(false);
+                    }
+                  })();
                 }}
                 className="space-y-8 relative"
               >

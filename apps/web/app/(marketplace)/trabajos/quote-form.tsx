@@ -17,13 +17,20 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
     const fd = new FormData(e.currentTarget);
     fd.set("project_id", projectId);
     fd.set("client_id", clientId);
-    const res = await cotizar(fd);
-    setLoading(false);
-    if (res?.error) {
-      setError(res.error);
-      return;
+    try {
+      const res = await cotizar(fd);
+      if (res?.error) {
+        setError(res.error);
+        return;
+      }
+      setSent(true);
+    } catch (err) {
+      // Sin este catch, un rechazo de la promesa dejaba el botón clavado en "Enviando…".
+      console.error("[cotizar] falló:", err);
+      setError("No pudimos enviar la cotización. Revisá tu conexión y probá de nuevo.");
+    } finally {
+      setLoading(false);
     }
-    setSent(true);
   }
 
   if (sent) {
@@ -65,7 +72,7 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
           className="mt-1 w-full border border-concrete/30 bg-plaster px-3 py-2 font-body text-body-md text-ink focus:border-ink outline-none transition-colors resize-y"
         />
       </label>
-      {error && <p className="font-body text-body-sm text-[#C41E3A]">{error}</p>}
+      {error && <p role="alert" className="font-body text-body-sm text-[#C41E3A]">{error}</p>}
       <div className="flex gap-3">
         <button
           type="submit"

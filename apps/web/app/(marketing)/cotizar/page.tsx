@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { MultiStepForm, type FormStep } from "@/components/features/multi-step-form";
@@ -24,12 +24,12 @@ export default function CotizarPage() {
   const [contact, setContact] = useState({ name: "", email: "", phone: "" });
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
   const [website, setWebsite] = useState(""); // honeypot anti-bot
 
   // El pedido se PERSISTE en `leads` y le avisa a la empresa. Antes este formulario
   // mostraba "¡Recibimos tu pedido!" y descartaba todo: cada visitante era un lead perdido.
-  const enviar = () => {
+  const enviar = async () => {
     setError("");
     const fd = new FormData();
     fd.set("name", contact.name);
@@ -39,11 +39,20 @@ export default function CotizarPage() {
     fd.set("surface", superficie);
     fd.set("rooms", rooms.join(", "));
     fd.set("website", website);
-    startTransition(async () => {
+    // `await` de verdad: MultiStepForm espera esta promesa para mantener su botón
+    // bloqueado. Con startTransition el botón se re-habilitaba a los milisegundos
+    // (React 18 no espera callbacks async) y un doble clic mandaba dos veces.
+    setPending(true);
+    try {
       const res = await pedirPresupuesto(fd);
       if (res?.error) setError(res.error);
       else setDone(true);
-    });
+    } catch (e) {
+      console.error("[form] falló el envío:", e);
+      setError("No pudimos enviar el formulario. Revisá tu conexión y probá de nuevo.");
+    } finally {
+      setPending(false);
+    }
   };
 
   // Ambientes según el tipo: exterior no muestra baño/dormitorio/etc. y viceversa.
