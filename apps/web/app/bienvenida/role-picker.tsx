@@ -57,7 +57,7 @@ export function RolePicker({ userId }: { userId: string }) {
         ))}
       </div>
 
-      {error && <p className="mt-4 font-body text-body-sm text-[#C41E3A]">{error}</p>}
+      {error && <p role="alert" className="mt-4 font-body text-body-sm text-[#C41E3A]">{error}</p>}
 
       <button
         type="button"

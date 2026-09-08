@@ -18,7 +18,7 @@ const BUDGETS: Record<string, [number | null, number | null]> = {
   "A definir": [null, null],
 };
 
-export default function PublicarPage() {
+export function PublicarForm() {
   const [title, setTitle] = useState("");
   const [tipo, setTipo] = useState("");
   const [surface, setSurface] = useState("");
@@ -36,9 +36,14 @@ export default function PublicarPage() {
     fd.set("location", zone);
     if (bMin) fd.set("budget_min", String(bMin));
     if (bMax) fd.set("budget_max", String(bMax));
-    const res = await publicarTrabajo(fd);
-    if (res?.error) setError(res.error);
-    else setDone(true);
+    try {
+      const res = await publicarTrabajo(fd);
+      if (res?.error) setError(res.error);
+      else setDone(true);
+    } catch (err) {
+      console.error("[publicar] falló:", err);
+      setError("No pudimos publicar el trabajo. Revisá tu conexión y probá de nuevo.");
+    }
   }
 
   const steps: FormStep[] = [
@@ -154,7 +159,7 @@ export default function PublicarPage() {
               <p className="font-mono text-mono-sm text-concrete uppercase tracking-widest mb-4">Publicar trabajo</p>
               <h1 className="font-display text-display-xl mb-12">Recibí cotizaciones de pintores verificados.</h1>
               <MultiStepForm steps={steps} onComplete={onComplete} submitLabel="Publicar trabajo" />
-              {error && <p className="mt-6 font-body text-body-sm text-[#C41E3A]">{error}</p>}
+              {error && <p role="alert" className="mt-6 font-body text-body-sm text-[#C41E3A]">{error}</p>}
             </>
           )}
         </div>

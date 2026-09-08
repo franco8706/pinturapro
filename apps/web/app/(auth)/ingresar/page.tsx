@@ -47,7 +47,7 @@ export default function IngresarPage() {
         <Field label="Email" type="email" value={email} onChange={setEmail} autoComplete="email" />
         <Field label="Contraseña" type="password" value={password} onChange={setPassword} autoComplete="current-password" />
 
-        {error && <p className="font-body text-body-sm text-[#C41E3A]">{error}</p>}
+        {error && <p role="alert" className="font-body text-body-sm text-[#C41E3A]">{error}</p>}
 
         <button
           type="submit"

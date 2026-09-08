@@ -55,7 +55,7 @@ export function SocialAuth() {
           <span>{loading === p.id ? "Redirigiendo…" : `Continuar con ${p.label}`}</span>
         </button>
       ))}
-      {error && <p className="font-body text-body-sm text-[#C41E3A]">{error}</p>}
+      {error && <p role="alert" className="font-body text-body-sm text-[#C41E3A]">{error}</p>}
     </div>
   );
 }
