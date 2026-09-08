@@ -14,9 +14,9 @@ export default async function BienvenidaPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/ingresar?next=/mi-panel");
 
-  // Sólo rebota si el perfil se leyó Y dice que ya eligió rol. Si no se pudo leer, la
-  // persona se queda acá y elige: rebotar sin perfil legible era la otra mitad del
-  // bucle infinito /mi-panel ↔ /bienvenida.
+  // Sólo rebota si el perfil se leyó Y dice que ya eligió rol. Si la lectura falla,
+  // `getOwnProfile` tira y lo atrapa app/error.tsx: mostrarle el selector de rol a alguien
+  // que ya lo eligió sólo sirve para que la elección vuelva a fallar contra la misma base.
   const perfil = await getOwnProfile(user.id);
   if (perfil?.onboarded) redirect("/mi-panel");
 

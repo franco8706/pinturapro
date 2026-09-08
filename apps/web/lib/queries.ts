@@ -292,7 +292,31 @@ export interface OwnProfile {
   zone: string;
 }
 
-/** Perfil de la cuenta logueada, sin filtrar por tipo (sirve para rutear al panel correcto). */
+/**
+ * El perfil no se pudo LEER (permisos, red, base caída). Distinto de "no hay perfil".
+ *
+ * Existe porque confundir las dos cosas hacía daño real: cuando `profiles` no se podía leer,
+ * `getOwnProfile` devolvía `null` igual que si la fila no existiera, y las cuatro páginas que
+ * hacen `if (!profile || !profile.onboarded) redirect("/bienvenida")` mandaban a elegir rol a
+ * gente que ya lo tenía elegido, sin decirle nada. Pasó de verdad: la migración 0008 agregó
+ * `profiles.is_admin` sin sumarla al grant por columna de 0006, y todo usuario logueado
+ * quedó rebotando a /bienvenida. El propio 0006 avisa que esto se repite con cada columna
+ * nueva, así que el modo de falla necesita ser ruidoso, no silencioso.
+ */
+export class ErrorDeLecturaDePerfil extends Error {
+  constructor(causa: string) {
+    super(`No se pudo leer el perfil: ${causa}`);
+    this.name = "ErrorDeLecturaDePerfil";
+  }
+}
+
+/**
+ * Perfil de la cuenta logueada, sin filtrar por tipo (sirve para rutear al panel correcto).
+ *
+ * Devuelve `null` SÓLO si la cuenta todavía no tiene fila en `profiles` (alta a medias).
+ * Si la lectura falla, tira `ErrorDeLecturaDePerfil` y la ataja `app/error.tsx`: es preferible
+ * decir "algo se rompió" que rutear a la persona a un lugar equivocado como si fuera normal.
+ */
 export async function getOwnProfile(id: string): Promise<OwnProfile | null> {
   if (!SUPA) return null;
   try {
@@ -302,10 +326,13 @@ export async function getOwnProfile(id: string): Promise<OwnProfile | null> {
       .select("id, type, onboarded, is_admin, full_name, avatar_url, location, bio, verified, rating, rating_count, specialties")
       .eq("id", id)
       .maybeSingle();
-    if (error || !data) {
-      if (error) dbError("getOwnProfile", error);
-      return null;
+    if (error) {
+      dbError("getOwnProfile", error);
+      throw new ErrorDeLecturaDePerfil(error.message ?? "error de la base");
     }
+    // Sin error y sin fila: la cuenta existe en auth pero no en profiles. El llamador la
+    // manda a /bienvenida, que es exactamente lo que corresponde.
+    if (!data) return null;
     const p = data as unknown as {
       id: string;
       type: ProfileType;
@@ -340,25 +367,14 @@ export async function getOwnProfile(id: string): Promise<OwnProfile | null> {
       zone: p.location ?? "",
     };
   } catch (e) {
+    // Sin esto el catch se tragaba la excepción de arriba y la volvía a convertir en null,
+    // que es justo el comportamiento que este cambio viene a sacar.
+    if (e instanceof ErrorDeLecturaDePerfil) throw e;
     dbError("getOwnProfile", e);
-    return null;
+    throw new ErrorDeLecturaDePerfil(e instanceof Error ? e.message : String(e));
   }
 }
 
-/**
- * ¿El usuario ya eligió su rol?
- *
- * Lee el MISMO perfil que `getOwnProfile` a propósito. Antes eran dos consultas separadas
- * que resolvían el fallo en direcciones opuestas: `isOnboarded` fallaba-abierto (devolvía
- * true) y `getOwnProfile` fallaba-cerrado (devolvía null). Si no se podía leer `profiles`,
- * /mi-panel pasaba el primer chequeo, fallaba el segundo y redirigía a /bienvenida, que
- * volvía a pasar el primero y redirigía a /mi-panel: bucle infinito de redirects.
- */
-export async function isOnboarded(id: string): Promise<boolean> {
-  const perfil = await getOwnProfile(id);
-  // Sin perfil legible no hay rol que elegir: que decida el llamador con getOwnProfile.
-  return perfil ? perfil.onboarded : true;
-}
 
 export interface ClientJobView {
   id: string;
@@ -1037,7 +1053,17 @@ export interface PedidoPropio {
   budgetMin: number | null;
   budgetMax: number | null;
   published: boolean;
+  /** Cotizaciones VIVAS (status='quoted'), las únicas que el cliente todavía puede aceptar. */
   cotizaciones: number;
+  /**
+   * En qué anda el pedido, mirando los trabajos que salieron de él.
+   *
+   * Hace falta porque `cotizaciones` sólo cuenta las vivas: al aceptar una, el resto se
+   * cancela y la aceptada deja de ser 'quoted', así que el contador vuelve a cero. El panel
+   * entonces mostraba "Cerrado · Sin cotizaciones aún" en un pedido que en realidad se
+   * adjudicó y se terminó — el cartel decía lo contrario de lo que había pasado.
+   */
+  estado: "abierto" | "adjudicado" | "terminado" | "cerrado";
   date: string;
 }
 
@@ -1075,27 +1101,46 @@ export async function getPedidosDelCliente(clientId: string): Promise<PedidoProp
     }[];
     if (rows.length === 0) return [];
 
-    // Cuántas cotizaciones vivas tiene cada pedido.
+    // Todos los trabajos de estos pedidos, no sólo los 'quoted': con el estado de cada uno
+    // se sabe si el pedido sigue esperando ofertas, ya se adjudicó, o terminó.
     const conteo = new Map<string, number>();
-    const { data: js } = await supabase
+    const estados = new Map<string, Set<string>>();
+    const { data: js, error: errJobs } = await supabase
       .from("jobs")
-      .select("project_id")
-      .in("project_id", rows.map((r) => r.id))
-      .eq("status", "quoted");
-    for (const j of (js ?? []) as unknown as { project_id: string | null }[]) {
-      if (j.project_id) conteo.set(j.project_id, (conteo.get(j.project_id) ?? 0) + 1);
+      .select("project_id, status")
+      .in("project_id", rows.map((r) => r.id));
+    if (errJobs) dbError("getPedidosDelCliente/jobs", errJobs);
+    for (const j of (js ?? []) as unknown as { project_id: string | null; status: string }[]) {
+      if (!j.project_id) continue;
+      if (j.status === "quoted") conteo.set(j.project_id, (conteo.get(j.project_id) ?? 0) + 1);
+      const set = estados.get(j.project_id) ?? new Set<string>();
+      set.add(j.status);
+      estados.set(j.project_id, set);
     }
 
-    return rows.map((r) => ({
-      id: r.id,
-      title: r.title,
-      location: r.location ?? "",
-      budgetMin: r.budget_min,
-      budgetMax: r.budget_max,
-      published: r.published,
-      cotizaciones: conteo.get(r.id) ?? 0,
-      date: monthYear(r.created_at),
-    }));
+    return rows.map((r) => {
+      const s = estados.get(r.id) ?? new Set<string>();
+      // El orden importa: un pedido terminado pudo tener antes cotizaciones perdedoras
+      // canceladas, y lo que hay que contar es cómo terminó, no por dónde pasó.
+      const estado: PedidoPropio["estado"] = s.has("completed")
+        ? "terminado"
+        : s.has("accepted") || s.has("in_progress")
+          ? "adjudicado"
+          : r.published
+            ? "abierto"
+            : "cerrado";
+      return {
+        id: r.id,
+        title: r.title,
+        location: r.location ?? "",
+        budgetMin: r.budget_min,
+        budgetMax: r.budget_max,
+        published: r.published,
+        cotizaciones: conteo.get(r.id) ?? 0,
+        estado,
+        date: monthYear(r.created_at),
+      };
+    });
   } catch (e) {
     dbError("getPedidosDelCliente", e);
     return [];
