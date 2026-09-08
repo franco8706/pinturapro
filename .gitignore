@@ -41,3 +41,6 @@ pnpm-debug.log*
 # TypeScript / Next generated
 *.tsbuildinfo
 next-env.d.ts
+
+# Cache de versión del CLI de Supabase (lo escribe `npx supabase`)
+supabase/.temp/

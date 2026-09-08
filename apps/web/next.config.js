@@ -12,7 +12,7 @@ const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://*.supabase.co https://*.tile.openstreetmap.org https://replicate.delivery",
+  "img-src 'self' data: blob: https://*.supabase.co https://*.tile.openstreetmap.org https://replicate.delivery https://images.unsplash.com",
   "font-src 'self' data:",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
   "media-src 'self' blob: data:",
@@ -41,12 +41,17 @@ const nextConfig = {
   poweredByHeader: false, // no anunciar la versión del framework
   images: {
     // `domains` está deprecado en Next 15. Antes apuntaba a cdn.sanity.io, que nunca se
-    // integró; las fotos hoy viven en el Storage de Supabase.
+    // integró; las fotos hoy viven en el Storage de Supabase. Unsplash es de las fotos
+    // sembradas como demo (scripts/seed_supabase.py) — sin esto next/image las rechaza.
     remotePatterns: [
       {
         protocol: 'https',
         hostname: '*.supabase.co',
         pathname: '/storage/v1/object/public/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
       },
     ],
   },

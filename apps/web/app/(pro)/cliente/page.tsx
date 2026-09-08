@@ -92,8 +92,18 @@ export default async function ClientePanelPage() {
                   </div>
                   <div className="flex items-center gap-4">
                     <span className="font-mono text-mono-sm uppercase tracking-widest text-concrete">
-                      {p.published ? "Publicado" : "Cerrado"}
+                      {
+                        {
+                          abierto: "Publicado",
+                          adjudicado: "Adjudicado",
+                          terminado: "Terminado",
+                          cerrado: "Cerrado",
+                        }[p.estado]
+                      }
                     </span>
+                    {/* Sólo se ofrece ir a comparar si hay algo para aceptar. Un pedido ya
+                        adjudicado no tiene cotizaciones vivas, y decir "sin cotizaciones aún"
+                        ahí era mentirle al cliente sobre su propio trabajo terminado. */}
                     {p.cotizaciones > 0 ? (
                       <Link
                         href="/cotizaciones"
@@ -101,9 +111,9 @@ export default async function ClientePanelPage() {
                       >
                         {p.cotizaciones} cotización{p.cotizaciones === 1 ? "" : "es"} →
                       </Link>
-                    ) : (
+                    ) : p.estado === "abierto" ? (
                       <span className="font-body text-body-sm text-concrete">Sin cotizaciones aún</span>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               ))}
