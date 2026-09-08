@@ -111,9 +111,19 @@ async function avisarAEmpresa(input: {
 }): Promise<void> {
   try {
     const admin = createAdminClient();
-    const { data } = await admin.from("profiles").select("id").eq("type", "company").limit(1);
-    const empresa = (data as unknown as { id: string }[] | null)?.[0];
-    if (!empresa) return;
+    // Antes buscaba "el primer perfil type=company", sin orden: con más de una empresa el
+    // destinatario era indeterminado, y si no había ninguna el aviso no se mandaba en silencio.
+    const { data } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("is_admin", true)
+      .order("created_at", { ascending: true })
+      .limit(1);
+    const destinatario = (data as unknown as { id: string }[] | null)?.[0];
+    if (!destinatario) {
+      console.warn("[leads] no hay ningún perfil con is_admin: el aviso del lead no se envió");
+      return;
+    }
 
     const titulos = {
       quote: "Nuevo pedido de presupuesto",
@@ -126,7 +136,7 @@ async function avisarAEmpresa(input: {
       .map(([k, v]) => html`<br/><strong>${k}:</strong> ${String(v)}`);
 
     await notifyUser(
-      empresa.id,
+      destinatario.id,
       `${titulos[input.kind]} — ${input.name}`,
       emailLayout(
         titulos[input.kind],

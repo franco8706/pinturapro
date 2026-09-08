@@ -278,6 +278,9 @@ export interface OwnProfile {
   type: ProfileType;
   /** false = llegó por OAuth y todavía no eligió rol (va a /bienvenida). */
   onboarded: boolean;
+  /** Acceso al panel de administración. Nada que ver con type='company': ese es un rol
+   *  de negocio que cualquiera elige al registrarse. Este flag sólo se activa por SQL. */
+  isAdmin: boolean;
   name: string;
   image: string;
   verified: boolean;
@@ -296,7 +299,7 @@ export async function getOwnProfile(id: string): Promise<OwnProfile | null> {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, type, onboarded, full_name, avatar_url, location, bio, verified, rating, rating_count, specialties")
+      .select("id, type, onboarded, is_admin, full_name, avatar_url, location, bio, verified, rating, rating_count, specialties")
       .eq("id", id)
       .maybeSingle();
     if (error || !data) {
@@ -307,6 +310,7 @@ export async function getOwnProfile(id: string): Promise<OwnProfile | null> {
       id: string;
       type: ProfileType;
       onboarded: boolean | null;
+      is_admin: boolean | null;
       full_name: string | null;
       avatar_url: string | null;
       location: string | null;
@@ -322,6 +326,9 @@ export async function getOwnProfile(id: string): Promise<OwnProfile | null> {
       // Si la columna todavía no existe (migración 0003 sin correr) asumimos onboarded:
       // es preferible dejar entrar que trabar a todos en /bienvenida.
       onboarded: p.onboarded ?? true,
+      // Si la columna todavía no existe (migración 0008 sin correr) nadie es admin:
+      // acá se falla CERRADO, al revés que onboarded — es un privilegio, no un paso de alta.
+      isAdmin: p.is_admin ?? false,
       name: p.full_name ?? "",
       image: p.avatar_url ?? "",
       verified: p.verified,
@@ -662,6 +669,9 @@ export async function getOpenServiceRequests(): Promise<ServiceRequest[]> {
 
 export interface QuoteView {
   id: string;
+  /** El pedido al que pertenece. Necesario para no mezclar cotizaciones de
+   *  trabajos distintos al decidir cuál ya fue adjudicado. */
+  projectId: string | null;
   amount: number | null;
   note: string | null;
   status: string;
@@ -726,6 +736,7 @@ export async function getQuotesForClient(clientId: string): Promise<QuoteView[]>
       const p = r.painter_id ? painters.get(r.painter_id) : undefined;
       return {
         id: r.id,
+        projectId: r.project_id,
         amount: r.amount,
         note: r.note,
         status: r.status,
@@ -1015,6 +1026,78 @@ export async function getLeads(kind?: LeadKind): Promise<LeadView[]> {
     }));
   } catch (e) {
     dbError("getLeads", e);
+    return [];
+  }
+}
+
+export interface PedidoPropio {
+  id: string;
+  title: string;
+  location: string;
+  budgetMin: number | null;
+  budgetMax: number | null;
+  published: boolean;
+  cotizaciones: number;
+  date: string;
+}
+
+/**
+ * Los pedidos de servicio que publicó un cliente.
+ *
+ * Existe porque /cliente listaba sólo `jobs`, que se pueblan cuando un PINTOR cotiza. Un
+ * pedido sin cotizaciones no existía para el panel: el cliente publicaba, veía "Tu trabajo
+ * está publicado", entraba a su panel y leía "Todavía no pediste ningún trabajo". Varios
+ * terminaban publicando de nuevo y duplicando el pedido.
+ */
+export async function getPedidosDelCliente(clientId: string): Promise<PedidoPropio[]> {
+  if (!SUPA) return [];
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("projects")
+      .select("id, title, location, budget_min, budget_max, published, created_at")
+      .eq("owner_id", clientId)
+      .eq("type", "service")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error || !data) {
+      if (error) dbError("getPedidosDelCliente", error);
+      return [];
+    }
+    const rows = data as unknown as {
+      id: string;
+      title: string;
+      location: string | null;
+      budget_min: number | null;
+      budget_max: number | null;
+      published: boolean;
+      created_at: string;
+    }[];
+    if (rows.length === 0) return [];
+
+    // Cuántas cotizaciones vivas tiene cada pedido.
+    const conteo = new Map<string, number>();
+    const { data: js } = await supabase
+      .from("jobs")
+      .select("project_id")
+      .in("project_id", rows.map((r) => r.id))
+      .eq("status", "quoted");
+    for (const j of (js ?? []) as unknown as { project_id: string | null }[]) {
+      if (j.project_id) conteo.set(j.project_id, (conteo.get(j.project_id) ?? 0) + 1);
+    }
+
+    return rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      location: r.location ?? "",
+      budgetMin: r.budget_min,
+      budgetMax: r.budget_max,
+      published: r.published,
+      cotizaciones: conteo.get(r.id) ?? 0,
+      date: monthYear(r.created_at),
+    }));
+  } catch (e) {
+    dbError("getPedidosDelCliente", e);
     return [];
   }
 }

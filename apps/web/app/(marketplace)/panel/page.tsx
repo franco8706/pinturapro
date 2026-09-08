@@ -30,7 +30,9 @@ export default async function MarketplacePanelPage() {
   if (!user) redirect("/ingresar?next=/panel");
 
   const profile = await getOwnProfile(user.id);
-  if (!profile || profile.type !== "company") redirect("/mi-panel");
+  // is_admin y NO type==="company": el rol de empresa se auto-asigna en el formulario
+  // público de alta, así que gatear por él era una cerradura con la llave en el sobre.
+  if (!profile || !profile.isAdmin) redirect("/mi-panel");
 
   const max = Math.max(...monthly);
 

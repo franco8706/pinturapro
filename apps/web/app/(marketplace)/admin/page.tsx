@@ -24,7 +24,9 @@ export default async function AdminPage() {
   if (!user) redirect("/ingresar?next=/admin");
 
   const profile = await getOwnProfile(user.id);
-  if (!profile || profile.type !== "company") redirect("/mi-panel");
+  // is_admin y NO type==="company": el rol de empresa se auto-asigna en el formulario
+  // público de alta, así que gatear por él era una cerradura con la llave en el sobre.
+  if (!profile || !profile.isAdmin) redirect("/mi-panel");
 
   // Datos REALES. Antes esta página renderizaba mocks: mostraba pintores inventados y
   // botones "Suspender" que no hacían nada, bajo un cartel de "Acceso restringido".
