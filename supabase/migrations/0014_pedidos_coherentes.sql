@@ -11,6 +11,7 @@
 -- poder leerlo. Efecto: en su panel los trabajos aparecían todos como "Trabajo", sin título,
 -- imposibles de distinguir entre sí justo cuando ya los había ganado.
 drop policy if exists "projects_select_pub_or_own" on public.projects;
+drop policy if exists "projects_select_pub_own_o_adjudicado" on public.projects;
 create policy "projects_select_pub_own_o_adjudicado" on public.projects
   for select using (
     published
@@ -74,8 +75,12 @@ as $$
   limit greatest(1, least(coalesce(limite, 50), 100));
 $$;
 
-revoke execute on function public.pedidos_abiertos(int) from public, anon;
-grant execute on function public.pedidos_abiertos(int) to authenticated;
+-- Se le da también a `anon` a propósito: /trabajos es una página PÚBLICA — es como un
+-- pintor descubre la plataforma antes de registrarse. La función es `security invoker`, así
+-- que sigue respetando la RLS: un anónimo ve exactamente los pedidos publicados que ya podía
+-- ver con el select directo, ni uno más.
+revoke execute on function public.pedidos_abiertos(int) from public;
+grant execute on function public.pedidos_abiertos(int) to anon, authenticated;
 
 comment on function public.pedidos_abiertos(int) is
   'El tablero de /trabajos. Filtra por estado real de los jobs, no sólo por projects.published, '

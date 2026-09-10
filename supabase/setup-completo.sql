@@ -2,10 +2,10 @@
 -- setup-completo.sql — Pintura Pro
 -- ═══════════════════════════════════════════════════════════════════════════
 --
--- Las 12 migraciones en un solo archivo, en orden y RE-EJECUTABLE.
+-- Las 14 migraciones en un solo archivo, en orden y RE-EJECUTABLE.
 --
 -- Para qué: poner en marcha la base de cero (proyecto Supabase nuevo, o uno
--- restaurado) sin tener que pegar 12 archivos uno por uno. Correr esto deja el
+-- restaurado) sin tener que pegar 14 archivos uno por uno. Correr esto deja el
 -- esquema completo: tablas, RLS, triggers, contenido inicial, leads, el rol
 -- is_admin, el ciclo de vida de los trabajos (congelar el monto, reabrir el
 -- pedido al cancelar), el intercambio de teléfono entre las partes y las
@@ -1217,3 +1217,171 @@ revoke execute on function public.actividad_reciente(int) from public, anon;
 grant execute on function public.metricas_plataforma() to authenticated;
 grant execute on function public.volumen_mensual() to authenticated;
 grant execute on function public.actividad_reciente(int) to authenticated;
+
+
+-- ╔══════════════════════════════════════════════════════════════════════╗
+-- ║  0013_privacidad_clientes.sql                                      ║
+-- ╚══════════════════════════════════════════════════════════════════════╝
+
+-- 0013: dejar de publicar el domicilio de los clientes.
+--
+-- Hallazgo de la auditoría: sin ninguna sesión, con la anon key que viaja en el bundle del
+-- navegador, cualquiera se bajaba el padrón completo de clientes con nombre, barrio y
+-- coordenadas:
+--
+--   curl "$URL/rest/v1/profiles?select=full_name,lat,lng&type=eq.client" -H "apikey: $ANON"
+--   → [{"full_name":"Carolina Ruiz","lat":-34.6395,"lng":-58.3795}, ...]
+--
+-- Eso es la casa de una persona con ~11 metros de precisión. Los pintores en el mapa son
+-- deliberadamente públicos; los clientes nunca tuvieron que estarlo, y de hecho NINGÚN
+-- formulario de la app escribe lat/lng — a los clientes les llegó sólo por el seed.
+--
+-- Se arregla en dos capas independientes, porque una sola no alcanza:
+
+-- ── Capa 1: las coordenadas salen del alcance público ─────────────────
+-- Un grant de columna no distingue filas, así que mientras `lat`/`lng` estén otorgadas se
+-- pueden leer de CUALQUIER perfil. Se las sacamos a todos y el mapa pasa a servirse por una
+-- función que sólo devuelve pintores. Así la fuga no puede volver por un cambio de policy.
+revoke select (lat, lng) on public.profiles from anon, authenticated;
+
+-- Limpieza del dato que nunca debió estar: coordenadas de quien no es pintor.
+update public.profiles set lat = null, lng = null where type <> 'painter';
+
+-- El mapa de /mapa y /pintores. Es público a propósito: un pintor se publica para que lo
+-- encuentren. Devuelve SÓLO pintores, así que no hay forma de pedirle un cliente.
+create or replace function public.pintores_geolocalizados()
+returns table (id uuid, lat double precision, lng double precision)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p.id, p.lat, p.lng
+  from public.profiles p
+  where p.type = 'painter'
+    and p.lat is not null
+    and p.lng is not null;
+$$;
+
+-- PUBLIC (default de Postgres) y anon (default privileges de Supabase) — hacen falta los dos
+-- revokes, ver la nota en 0011. Acá sí se lo devolvemos a anon: el mapa se ve sin login.
+revoke execute on function public.pintores_geolocalizados() from public, anon;
+grant execute on function public.pintores_geolocalizados() to anon, authenticated;
+
+-- ── Capa 2: el padrón deja de ser enumerable sin sesión ───────────────
+-- `profiles_select_all using (true)` dejaba listar a todo el mundo. Ahora, sin sesión sólo se
+-- ven los perfiles que existen para ser vistos (pintores y empresas).
+--
+-- Con sesión se sigue viendo todo, y es a propósito: hay pantallas legítimas que necesitan el
+-- nombre de un cliente —el pintor mirando los pedidos abiertos de /trabajos, el autor de una
+-- reseña en el perfil público, los testimonios de la home— y restringirlas rompería el
+-- producto sin ganar mucho: cualquiera puede crearse una cuenta. Lo que esta capa corta es el
+-- scrapeo masivo y anónimo con la llave que ya está publicada en el bundle. El dato sensible
+-- de verdad (teléfono, coordenadas, is_admin) ya no se puede leer por columna, sin importar
+-- la fila.
+drop policy if exists "profiles_select_all" on public.profiles;
+drop policy if exists "profiles_select_publicos_o_con_sesion" on public.profiles;
+create policy "profiles_select_publicos_o_con_sesion" on public.profiles
+  for select using (
+    type in ('painter', 'company')   -- el directorio, visible para cualquiera
+    or auth.uid() is not null        -- con sesión, el resto de la app funciona igual
+  );
+
+comment on function public.pintores_geolocalizados() is
+  'Coordenadas para el mapa. Existe porque lat/lng dejó de estar en el grant de columna de '
+  'profiles: era la casa de cada cliente, legible por cualquiera con la anon key.';
+
+
+-- ╔══════════════════════════════════════════════════════════════════════╗
+-- ║  0014_pedidos_coherentes.sql                                       ║
+-- ╚══════════════════════════════════════════════════════════════════════╝
+
+-- 0014: el pintor pierde el título de su trabajo, y hay pedidos terminados en el tablero.
+--
+-- Los dos salieron del recorrido de QA y tienen la misma raíz: `projects.published` es a la
+-- vez el estado del pedido Y la llave de lectura, así que cerrar un pedido también se lo
+-- esconde a quien lo está trabajando.
+
+-- ── 1. El pintor tiene que poder leer el pedido que está haciendo ─────
+-- `projects_select_pub_or_own` deja ver un proyecto sólo si está publicado o si sos el dueño.
+-- Cuando el cliente acepta una cotización, el trigger `on_job_accepted` (0009) pone
+-- `published = false` para sacarlo del tablero — y en ese mismo momento el pintor deja de
+-- poder leerlo. Efecto: en su panel los trabajos aparecían todos como "Trabajo", sin título,
+-- imposibles de distinguir entre sí justo cuando ya los había ganado.
+drop policy if exists "projects_select_pub_or_own" on public.projects;
+drop policy if exists "projects_select_pub_own_o_adjudicado" on public.projects;
+create policy "projects_select_pub_own_o_adjudicado" on public.projects
+  for select using (
+    published
+    or owner_id = auth.uid()
+    -- El pintor con un trabajo sobre este pedido lo sigue viendo, aunque ya no esté publicado.
+    or exists (
+      select 1 from public.jobs j
+      where j.project_id = projects.id
+        and j.painter_id = auth.uid()
+    )
+  );
+
+-- ── 2. Un pedido ya adjudicado no vuelve al tablero ───────────────────
+-- `getOpenServiceRequests` confía sólo en `published`, así que cualquier desincronización de
+-- esa columna republica un trabajo terminado. Pasó de verdad: el seed INSERTA los jobs ya en
+-- estado 'completed', y como `on_job_accepted` es un trigger AFTER UPDATE, nunca se disparó
+-- para ellos. Resultado: pedidos terminados ofreciéndose para cotizar.
+--
+-- Se reconcilia el dato existente...
+update public.projects pr
+set published = false
+where pr.type = 'service'
+  and pr.published
+  and exists (
+    select 1 from public.jobs j
+    where j.project_id = pr.id
+      and j.status in ('accepted', 'in_progress', 'completed')
+  );
+
+-- ...y se agrega la red de contención, para que la coherencia no dependa de que el trigger
+-- haya corrido: el tablero se arma con esta función, que mira el estado real de los trabajos.
+create or replace function public.pedidos_abiertos(limite int default 50)
+returns table (
+  id uuid,
+  title text,
+  description text,
+  location text,
+  budget_min int,
+  budget_max int,
+  owner_id uuid,
+  created_at timestamptz
+)
+language sql
+stable
+security invoker  -- respeta la RLS de arriba a propósito: no hay nada que elevar acá
+set search_path = public
+as $$
+  select pr.id, pr.title, pr.description, pr.location, pr.budget_min, pr.budget_max,
+         pr.owner_id, pr.created_at
+  from public.projects pr
+  where pr.type = 'service'
+    and pr.published
+    -- La condición que faltaba: aunque `published` quedara mal, un pedido con un trabajo ya
+    -- adjudicado no se ofrece de nuevo.
+    and not exists (
+      select 1 from public.jobs j
+      where j.project_id = pr.id
+        and j.status in ('accepted', 'in_progress', 'completed')
+    )
+  order by pr.created_at desc
+  limit greatest(1, least(coalesce(limite, 50), 100));
+$$;
+
+-- Se le da también a `anon` a propósito: /trabajos es una página PÚBLICA — es como un
+-- pintor descubre la plataforma antes de registrarse. La función es `security invoker`, así
+-- que sigue respetando la RLS: un anónimo ve exactamente los pedidos publicados que ya podía
+-- ver con el select directo, ni uno más.
+revoke execute on function public.pedidos_abiertos(int) from public;
+grant execute on function public.pedidos_abiertos(int) to anon, authenticated;
+
+comment on function public.pedidos_abiertos(int) is
+  'El tablero de /trabajos. Filtra por estado real de los jobs, no sólo por projects.published, '
+  'que puede quedar desincronizado (el seed inserta jobs completados sin disparar el trigger).';
+
+

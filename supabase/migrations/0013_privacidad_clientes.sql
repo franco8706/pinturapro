@@ -55,6 +55,7 @@ grant execute on function public.pintores_geolocalizados() to anon, authenticate
 -- de verdad (teléfono, coordenadas, is_admin) ya no se puede leer por columna, sin importar
 -- la fila.
 drop policy if exists "profiles_select_all" on public.profiles;
+drop policy if exists "profiles_select_publicos_o_con_sesion" on public.profiles;
 create policy "profiles_select_publicos_o_con_sesion" on public.profiles
   for select using (
     type in ('painter', 'company')   -- el directorio, visible para cualquiera
