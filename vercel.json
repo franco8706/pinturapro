@@ -1,0 +1,25 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd apps/web && pnpm build",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "outputDirectory": "apps/web/.next",
+  "framework": "nextjs",
+
+  "//": [
+    "regions: iad1 (Virginia) para quedar PEGADO a la base. El proyecto de",
+    "Supabase vive en us-east-1, y casi todas las páginas son Server Components",
+    "que hacen varias consultas seguidas. Poner las funciones en São Paulo por",
+    "cercanía a los usuarios haría que cada una de esas consultas cruce el",
+    "continente de ida y vuelta: se gana un salto y se pierden varios.",
+    "Si algún día la base se muda a sa-east-1, mover esto a gru1 con ella.",
+    "",
+    "maxDuration 60: el techo del plan Hobby. El código pide 120 en route.ts,",
+    "que Vercel recortaría igual. La segmentación en frío puede tardar hasta 60s,",
+    "así que si se va a usar en serio conviene el plan Pro y subir ambos."
+  ],
+  "functions": {
+    "apps/web/app/api/segment/route.ts": {
+      "maxDuration": 60
+    }
+  }
+}
