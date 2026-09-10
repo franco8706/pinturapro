@@ -2,13 +2,14 @@
 -- setup-completo.sql — Pintura Pro
 -- ═══════════════════════════════════════════════════════════════════════════
 --
--- Las 9 migraciones en un solo archivo, en orden y RE-EJECUTABLE.
+-- Las 12 migraciones en un solo archivo, en orden y RE-EJECUTABLE.
 --
 -- Para qué: poner en marcha la base de cero (proyecto Supabase nuevo, o uno
--- restaurado) sin tener que pegar 9 archivos uno por uno. Correr esto deja el
+-- restaurado) sin tener que pegar 12 archivos uno por uno. Correr esto deja el
 -- esquema completo: tablas, RLS, triggers, contenido inicial, leads, el rol
--- is_admin y el ciclo de vida de los trabajos (congelar el monto, reabrir el
--- pedido al cancelar).
+-- is_admin, el ciclo de vida de los trabajos (congelar el monto, reabrir el
+-- pedido al cancelar), el intercambio de teléfono entre las partes y las
+-- métricas del panel analítico.
 --
 -- CÓMO: Supabase → SQL Editor → pegar todo → Run.
 --
@@ -1039,3 +1040,180 @@ create trigger trg_job_cancelled
 -- plataforma", no una credencial) — se lo otorga también a `anon` para que una lectura sin
 -- sesión de /leads devuelva una lista vacía limpia en vez de un error de permisos.
 grant select (is_admin) on public.profiles to anon, authenticated;
+
+
+-- ╔══════════════════════════════════════════════════════════════════════╗
+-- ║  0011_contacto.sql                                                 ║
+-- ╚══════════════════════════════════════════════════════════════════════╝
+
+-- 0011: cliente y pintor se pasan el teléfono cuando el trabajo ya es un trabajo.
+--
+-- Hasta acá el producto no permitía coordinar nada. Un pintor ganaba una cotización y no
+-- tenía cómo llamar al cliente; el cliente aceptaba y no tenía cómo decirle a qué hora
+-- abrirle la puerta. `profiles.phone` existía desde 0001 pero ningún formulario lo escribía,
+-- y 0006 le revocó el SELECT a anon/authenticated (con razón: la RLS de `profiles` es
+-- `using (true)`, así que un grant de columna sería el teléfono de todos, público).
+--
+-- La salida no es aflojar el grant sino preguntar por el vínculo: estas dos funciones son
+-- `security definer` (leen `phone` salteando el grant) pero sólo devuelven algo cuando quien
+-- pregunta tiene derecho a saberlo.
+
+-- ── El teléfono propio ────────────────────────────────────────────────
+-- Para precargar el formulario de perfil. Sin esto el dueño tampoco puede leer su propio
+-- teléfono, y el campo aparecería vacío cada vez, invitando a pisarlo sin querer.
+create or replace function public.mi_telefono()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select phone from public.profiles where id = auth.uid();
+$$;
+
+-- ── El teléfono de la contraparte ─────────────────────────────────────
+-- Devuelve a la OTRA parte del trabajo, y sólo si:
+--   · quien pregunta es una de las dos partes de ESE trabajo, y
+--   · el trabajo ya está en marcha.
+--
+-- 'quoted' queda deliberadamente afuera: si cotizar alcanzara para ver el teléfono,
+-- cualquiera se registraría de pintor, cotizaría todo lo publicado a cualquier precio y
+-- se llevaría la agenda entera. El dato se libera cuando el cliente eligió, que es también
+-- cuando empieza a hacer falta.
+create or replace function public.contacto_del_trabajo(job_id uuid)
+returns table (nombre text, telefono text)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p.full_name, p.phone
+  from public.jobs j
+  join public.profiles p
+    on p.id = case
+                when j.client_id = auth.uid() then j.painter_id
+                else j.client_id
+              end
+  where j.id = job_id
+    and (j.client_id = auth.uid() or j.painter_id = auth.uid())
+    and j.status in ('accepted', 'in_progress', 'completed');
+$$;
+
+-- Sin sesión no hay vínculo que mirar: las dos funciones dependen de auth.uid().
+--
+-- Hacen falta LOS DOS revokes, y por razones distintas:
+--   · PUBLIC  → Postgres le da EXECUTE a PUBLIC en toda función nueva.
+--   · anon    → Supabase, además, tiene un ALTER DEFAULT PRIVILEGES que le otorga EXECUTE
+--               explícitamente sobre cada función que nace en el schema public.
+-- Sacárselo sólo a PUBLIC deja el grant nominal de `anon` intacto (verificado en pg_proc:
+-- quedaba `anon=X/postgres`). No filtraba nada, porque sin JWT auth.uid() es null y la
+-- consulta no devuelve filas — pero toda la defensa quedaba colgando de ese único detalle.
+revoke execute on function public.mi_telefono() from public, anon;
+revoke execute on function public.contacto_del_trabajo(uuid) from public, anon;
+grant execute on function public.mi_telefono() to authenticated;
+grant execute on function public.contacto_del_trabajo(uuid) to authenticated;
+
+comment on function public.contacto_del_trabajo(uuid) is
+  'Teléfono y nombre de la contraparte de un trabajo en marcha. security definer: lee phone '
+  'salteando el grant de columna de 0006, pero sólo para quien es parte del trabajo.';
+
+
+-- ╔══════════════════════════════════════════════════════════════════════╗
+-- ║  0012_metricas.sql                                                 ║
+-- ╚══════════════════════════════════════════════════════════════════════╝
+
+-- 0012: el panel analítico deja de inventar números.
+--
+-- /panel mostraba "1.284 trabajos publicados", "$48.2M transados", "$3.85M de comisión" y un
+-- gráfico de barras con una serie escrita a mano. Ninguno de esos números salía de la base:
+-- eran constantes en el TSX desde que la página era una maqueta. Un panel que dice cifras de
+-- negocio inventadas es peor que no tener panel — se toman decisiones con eso.
+--
+-- Por qué una función y no consultarlo desde la app: la RLS de `jobs` sólo deja ver los
+-- trabajos propios, así que ni el admin puede contar los de toda la plataforma con la sesión
+-- normal. La alternativa sería usar la service-role desde la página, pero entonces el único
+-- guardia sería el `if (isAdmin)` del componente: si alguien lo toca, la página pasa a tener
+-- acceso total. Acá el chequeo viaja pegado a los datos — sin `is_admin` no hay filas.
+
+-- ── Los números de arriba ─────────────────────────────────────────────
+create or replace function public.metricas_plataforma()
+returns table (
+  pedidos_publicados   bigint,
+  cotizaciones         bigint,
+  trabajos_completados bigint,
+  volumen              bigint,
+  comision             bigint
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    (select count(*) from public.projects where type = 'service'),
+    (select count(*) from public.jobs),
+    (select count(*) from public.jobs where status = 'completed'),
+    -- Sólo lo completado cuenta como transado: un trabajo aceptado todavía puede caerse, y
+    -- contarlo como volumen sería contar plata que nunca se movió.
+    (select coalesce(sum(amount), 0)::bigint from public.jobs where status = 'completed'),
+    (select coalesce(sum(commission_amount), 0)::bigint from public.jobs where status = 'completed')
+  -- El gate: sin admin no devuelve ninguna fila (y la app muestra el panel vacío).
+  where exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin);
+$$;
+
+-- ── La serie del gráfico ──────────────────────────────────────────────
+-- Doce meses corridos hasta hoy, con cero en los meses sin actividad: si se devolvieran sólo
+-- los meses con trabajos, el gráfico dibujaría meses vacíos pegados y mentiría sobre el
+-- crecimiento.
+create or replace function public.volumen_mensual()
+returns table (mes date, total bigint)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    m.mes::date,
+    coalesce((
+      select sum(j.amount)
+      from public.jobs j
+      where j.status = 'completed'
+        and date_trunc('month', j.updated_at) = m.mes
+    ), 0)::bigint
+  from generate_series(
+    date_trunc('month', now()) - interval '11 months',
+    date_trunc('month', now()),
+    interval '1 month'
+  ) as m(mes)
+  where exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
+  order by m.mes;
+$$;
+
+-- ── La actividad reciente ─────────────────────────────────────────────
+-- Reemplaza a `mockJobs`, que llenaba la columna de la derecha con trabajos inventados.
+create or replace function public.actividad_reciente(limite int default 6)
+returns table (titulo text, creado timestamptz, cotizaciones bigint)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    pr.title,
+    pr.created_at,
+    (select count(*) from public.jobs j where j.project_id = pr.id)
+  from public.projects pr
+  where pr.type = 'service'
+    and exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
+  order by pr.created_at desc
+  limit greatest(1, least(coalesce(limite, 6), 50));
+$$;
+
+-- Los dos revokes: PUBLIC (default de Postgres) y anon (default privileges de Supabase).
+-- Ver la nota larga en 0011 — sacárselo a uno solo deja el otro grant en pie.
+revoke execute on function public.metricas_plataforma() from public, anon;
+revoke execute on function public.volumen_mensual() from public, anon;
+revoke execute on function public.actividad_reciente(int) from public, anon;
+grant execute on function public.metricas_plataforma() to authenticated;
+grant execute on function public.volumen_mensual() to authenticated;
+grant execute on function public.actividad_reciente(int) to authenticated;
