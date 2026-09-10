@@ -647,13 +647,11 @@ export async function getOpenServiceRequests(): Promise<ServiceRequest[]> {
   if (!SUPA) return [];
   try {
     const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("projects")
-      .select("id, title, description, location, budget_min, budget_max, owner_id, created_at")
-      .eq("type", "service")
-      .eq("published", true)
-      .order("created_at", { ascending: false })
-      .limit(50); // tope: tablero de trabajos
+    // Va por `pedidos_abiertos` (0014) y no por un select a `projects`: filtrar sólo por
+    // `published` dejaba en el tablero pedidos ya terminados cada vez que esa columna quedaba
+    // desincronizada. El seed, por ejemplo, inserta jobs directamente en 'completed', y como
+    // el trigger que cierra el pedido es AFTER UPDATE, para esas filas nunca corrió.
+    const { data, error } = await supabase.rpc("pedidos_abiertos", { limite: 50 } as never);
     if (error || !data) {
       if (error) dbError("getOpenServiceRequests", error);
       return [];
