@@ -41,7 +41,7 @@ export default async function CotizacionesPage() {
             <div className="border border-concrete/15 p-8 sm:p-12 text-center">
               <p className="font-display text-body-lg text-ink mb-2">Todavía no recibiste cotizaciones</p>
               <p className="font-body text-body-md text-concrete mb-6 max-w-md mx-auto">
-                Publicá un trabajo y los pintores verificados de tu zona te van a enviar sus presupuestos.
+                Publicá un trabajo y los pintores de tu zona te van a enviar sus presupuestos.
               </p>
               <Link
                 href="/publicar"

@@ -157,7 +157,7 @@ export function PublicarForm() {
           ) : (
             <>
               <p className="font-mono text-mono-sm text-concrete uppercase tracking-widest mb-4">Publicar trabajo</p>
-              <h1 className="font-display text-display-xl mb-12">Recibí cotizaciones de pintores verificados.</h1>
+              <h1 className="font-display text-display-xl mb-12">Recibí cotizaciones de pintores de tu zona.</h1>
               <MultiStepForm steps={steps} onComplete={onComplete} submitLabel="Publicar trabajo" />
               {error && <p role="alert" className="mt-6 font-body text-body-sm text-[#C41E3A]">{error}</p>}
             </>

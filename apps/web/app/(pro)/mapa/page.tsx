@@ -5,7 +5,7 @@ import { MapaClient } from "./mapa-client";
 
 export const metadata = {
   title: "Mapa de pintores",
-  description: "Encontrá pintores verificados por zona en CABA y el conurbano.",
+  description: "Encontrá pintores por zona en CABA y el conurbano.",
 };
 
 export default async function MapaPage() {

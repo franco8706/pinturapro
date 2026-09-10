@@ -116,7 +116,9 @@ export default async function HomePage() {
         <div className="container-asymmetric">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-12">
             <div>
-              <SectionLabel className="mb-4">Trabajamos con las mejores marcas</SectionLabel>
+              {/* Antes decía "Trabajamos con las mejores marcas": afirmaba una relación comercial
+                  con Alba, Sherwin, Sinteplast y Plavicon que no existe. La paleta es propia. */}
+              <SectionLabel className="mb-4">Paletas por marca</SectionLabel>
               <h2 className="font-display text-display-lg max-w-2xl text-balance">
                 Elegí tu color, de tu marca preferida.
               </h2>

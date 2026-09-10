@@ -27,7 +27,7 @@ export default function ColoresPage() {
           <div className="mb-12 max-w-3xl">
             <SectionLabel className="mb-4">Cartas de color</SectionLabel>
             <h1 className="font-display text-display-xl text-balance mb-6">
-              Los colores de las mejores marcas, en un solo lugar.
+              Una paleta para elegir tu color, marca por marca.
             </h1>
             <p className="font-body text-body-lg text-concrete">
               Explorá las paletas de Alba, Sherwin Williams, Sinteplast y Plavicon. Elegí tu color y probalo en tu
@@ -106,9 +106,18 @@ export default function ColoresPage() {
             </MagneticButton>
           </div>
 
-          <p className="font-mono text-mono-sm text-concrete/60 mt-8">
-            * Los colores son una referencia digital y pueden variar respecto del producto real. Consultá la carta
-            física de cada marca antes de comprar.
+          {/* El disclaimer anterior sólo avisaba que el color en pantalla varía. Faltaba lo
+              más importante: esta paleta es propia, no es la carta oficial de nadie, y no hay
+              relación comercial con las marcas. Los sitios oficiales no publican sus cartas en
+              un formato consultable (ver lib/brands.ts), así que los tonos son aproximaciones
+              curadas a mano. Presentarlas como el catálogo oficial era atribuirle a cada marca
+              algo que no dijo. */}
+          <p className="font-mono text-mono-sm text-concrete/60 mt-8 max-w-3xl">
+            * Paleta orientativa de elaboración propia, inspirada en tonos habituales de cada marca.
+            No es la carta de color oficial y no tenemos relación comercial con Alba, Sherwin Williams,
+            Sinteplast ni Plavicon; las marcas se nombran sólo como referencia. Los tonos en pantalla
+            son una aproximación y varían según el monitor. <strong>Antes de comprar, confirmá el color
+            con la carta física y el código oficial en el comercio.</strong>
           </p>
         </div>
       </section>

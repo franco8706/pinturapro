@@ -32,7 +32,7 @@ export default function SimuladorPage() {
             </h1>
             <p className="font-body text-body-lg text-concrete max-w-xl">
               Subí una foto y <strong className="text-ink">hacé clic en la pared</strong>: la IA marca el contorno exacto.
-              Después aplicá colores reales de las marcas.
+              Después probá colores de una paleta inspirada en las marcas más usadas en obra.
             </p>
           </div>
 
@@ -126,8 +126,16 @@ export default function SimuladorPage() {
             </div>
           </div>
 
+          {/* Este texto decía "la detección con IA corre en tu navegador (no subimos tu foto a
+              ningún servidor)". Fue cierto mientras el modelo corría en el cliente, pero esa
+              versión se retiró por precisión y lag: hoy la detección con IA manda la foto a
+              /api/segment y de ahí a un servicio externo. La frase quedó sin actualizar y pasó
+              a ser una afirmación falsa sobre fotos del interior de la casa de la persona. */}
           <p className="font-mono text-mono-sm text-concrete/60 mt-10 max-w-2xl">
-            * La detección con IA corre en tu navegador (no subimos tu foto a ningún servidor). El color es una
+            * El pincel y la varita mágica trabajan enteros en tu navegador: la foto no sale de tu
+            equipo. La <strong>detección automática con IA</strong> sí la envía a un servicio de
+            procesamiento para analizarla; no la guardamos ni la usamos para nada más. Si preferís
+            que la foto no salga de tu dispositivo, usá el pincel o la varita. El color es una
             referencia digital y puede variar respecto del producto real.
           </p>
         </div>
