@@ -10,9 +10,8 @@ import { TestimonialsCarousel } from "@/components/features/testimonials-carouse
 import { Marquee } from "@/components/features/marquee";
 import { CountUp } from "@/components/features/count-up";
 import { HeroSpotlight } from "@/components/features/hero-spotlight";
-import { mockProjects } from "@/lib/data";
 import { brands } from "@/lib/brands";
-import { getNews, getRecentReviews } from "@/lib/queries";
+import { getNews, getRecentReviews, getProjects } from "@/lib/queries";
 
 const services = [
   "Interior",
@@ -42,7 +41,12 @@ const stats = [
 ];
 
 export default async function HomePage() {
-  const [news, testimonials] = await Promise.all([getNews(), getRecentReviews()]);
+  // Las obras salían de `mockProjects`, así que las tres tarjetas de la home linkeaban a
+  // slugs que no existen (`demo-casa-barracas` → 404), mostraban el título con el prefijo
+  // "Demo ·" y, donde va la foto, el nombre del archivo. La home es lo primero que ve
+  // cualquiera: eran tres 404 en la portada.
+  const [news, testimonials, obras] = await Promise.all([getNews(), getRecentReviews(), getProjects()]);
+  const obrasDestacadas = obras.slice(0, 3);
   return (
     <main>
       <Navbar />
@@ -165,7 +169,7 @@ export default async function HomePage() {
             </MagneticButton>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-12">
-            {mockProjects.map((project, index) => (
+            {obrasDestacadas.map((project, index) => (
               <Reveal key={project.id} delay={index * 0.06}>
                 <ProjectCard
                   title={project.title}
