@@ -21,17 +21,29 @@ const RATE_LIMIT = { max: 12, windowMs: 60 * 60 * 1000 }; // 12 análisis por ho
  * publica de verdad, moverlo a Upstash/Redis y contar también por IP.
  */
 const hits = new Map<string, number[]>();
-function overQuota(userId: string): boolean {
+
+/**
+ * ¿Ya gastó su cuota? Sólo consulta, no anota.
+ *
+ * Separado de `registrarUso` a propósito: antes una sola función hacía las dos cosas y se
+ * llamaba al principio del handler, así que un JSON roto o una foto demasiado grande —que
+ * nunca llegan a Replicate ni cuestan un centavo— igual le quemaban al usuario uno de sus 12
+ * análisis por hora.
+ */
+function superaCuota(userId: string): boolean {
   const now = Date.now();
   const recent = (hits.get(userId) ?? []).filter((t) => now - t < RATE_LIMIT.windowMs);
-  if (recent.length >= RATE_LIMIT.max) {
-    hits.set(userId, recent);
-    return true;
-  }
+  hits.set(userId, recent);
+  return recent.length >= RATE_LIMIT.max;
+}
+
+/** Anota un uso. Se llama recién cuando el pedido es válido y va a costar plata de verdad. */
+function registrarUso(userId: string): void {
+  const now = Date.now();
+  const recent = (hits.get(userId) ?? []).filter((t) => now - t < RATE_LIMIT.windowMs);
   recent.push(now);
   hits.set(userId, recent);
   if (hits.size > 5_000) for (const [k, v] of hits) if (!v.some((t) => now - t < RATE_LIMIT.windowMs)) hits.delete(k);
-  return false;
 }
 
 /** Ejecuta las tareas de a `limit` en paralelo, en vez de todas juntas. */
@@ -88,7 +100,7 @@ export async function POST(req: NextRequest) {
       { status: 401 },
     );
   }
-  if (overQuota(user.id)) {
+  if (superaCuota(user.id)) {
     return NextResponse.json(
       { error: "rate_limited", message: "Llegaste al límite de análisis por hora. Probá más tarde o usá el pincel." },
       { status: 429 },
@@ -117,13 +129,18 @@ export async function POST(req: NextRequest) {
 
   // 1) Backend propio (proxy)
   if (process.env.SAM_BACKEND_URL) {
+    registrarUso(user.id); // recién acá: el pedido es válido y va a consumir el backend
     return proxyToBackend(process.env.SAM_BACKEND_URL, body);
   }
 
   // 2) Replicate
   if (process.env.REPLICATE_API_TOKEN) {
+    registrarUso(user.id); // recién acá: es lo único que cuesta plata
     return segmentWithReplicate(image, point, width ?? 1024, height ?? 1024);
   }
+
+  // Sin backend configurado no se gastó nada: no se anota uso, así que el 503 no le cuesta
+  // al usuario ninguno de sus análisis.
 
   return NextResponse.json(
     {

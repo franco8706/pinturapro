@@ -446,6 +446,19 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
     [brush, brushSize, repaint, recomputeMaskDerived],
   );
 
+  /**
+   * Cierra el trazo actual. Se usa desde pointerup, pointercancel y pointerleave.
+   *
+   * El feathering y el repintado se hacen UNA vez al soltar, no en cada movimiento del dedo:
+   * por eso hace falta un final de trazo confiable, y por eso los tres eventos terminan acá.
+   */
+  const terminarTrazo = useCallback(() => {
+    if (!drawing.current) return;
+    drawing.current = false;
+    recomputeMaskDerived(true);
+    repaint();
+  }, [recomputeMaskDerived, repaint]);
+
   const clearSelection = () => {
     if (maskRef.current) maskRef.current.fill(0);
     lastClickRef.current = null;
@@ -500,7 +513,14 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
                 ref={viewRef}
                 onClick={onCanvasClick}
                 className={cn(
-                  "block w-full h-auto touch-none select-none",
+                  "block w-full h-auto select-none",
+                  // `touch-none` SÓLO con el pincel activo, que es cuando hace falta quedarse
+                  // con el gesto para dibujar. Estaba puesto siempre, y como los handlers de
+                  // abajo salen temprano si el pincel está apagado, en el celular el canvas
+                  // se comía el gesto sin usarlo: no se podía scrollear la página arrastrando
+                  // encima, ni desplazar la foto con el zoom puesto (que la dejaba más grande
+                  // que la pantalla y sin forma de moverla).
+                  brush !== "off" ? "touch-none" : "touch-auto",
                   segmenting ? "cursor-wait" : brush !== "off" ? "cursor-crosshair" : "cursor-pointer",
                 )}
                 onPointerDown={(e) => {
@@ -510,12 +530,11 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
                   paintAt(e.clientX, e.clientY);
                 }}
                 onPointerMove={(e) => drawing.current && paintAt(e.clientX, e.clientY)}
-                onPointerUp={() => {
-                  if (!drawing.current) return;
-                  drawing.current = false;
-                  recomputeMaskDerived(true);
-                  repaint();
-                }}
+                onPointerUp={terminarTrazo}
+                // Sin estos dos, una llamada entrante o un gesto que el sistema se lleva dejan
+                // `drawing` en true: se vuelve a la pestaña y el pincel sigue pintando solo.
+                onPointerCancel={terminarTrazo}
+                onPointerLeave={terminarTrazo}
               />
 
               {/* Estado de carga: shimmer + spinner mientras el servidor procesa */}
