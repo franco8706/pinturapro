@@ -74,8 +74,13 @@ export default async function MarketplacePanelPage() {
               {/* KPIs */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-concrete/15 border border-concrete/15 mb-12">
                 {kpis.map((kpi) => (
-                  <div key={kpi.label} className="bg-plaster p-6 lg:p-8">
-                    <p className="font-display text-display-lg leading-none tabular-nums">{kpi.value}</p>
+                  <div key={kpi.label} className="bg-plaster p-4 sm:p-6 lg:p-8 min-w-0">
+                    {/* En 390px un monto como "$ 28.029.998" pedía 247px dentro de una celda
+                        de 130px: se cortaba y pisaba la celda de al lado, y la página entera
+                        scrolleaba de costado. El tamaño baja en móvil y sube desde `sm`. */}
+                    <p className="font-display text-display-md sm:text-display-lg leading-none tabular-nums break-words">
+                      {kpi.value}
+                    </p>
                     <p className="font-body text-body-sm text-concrete mt-2">{kpi.label}</p>
                   </div>
                 ))}

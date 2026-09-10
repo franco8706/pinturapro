@@ -96,7 +96,10 @@ export default async function PainterDashboardPage() {
                 </div>
               </div>
             </div>
-            <div className="flex gap-3">
+            {/* `flex-wrap`: son tres botones y en 390px la fila medía 440px, así que la
+                flecha de "Buscar trabajos" quedaba fuera de la pantalla y todo el panel
+                scrolleaba de costado. */}
+            <div className="flex flex-wrap gap-3">
               <MagneticButton href="/dashboard/perfil" variant="ghost">
                 Editar perfil
               </MagneticButton>
