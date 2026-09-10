@@ -69,15 +69,26 @@ export async function getPainters(): Promise<Painter[]> {
   if (!SUPA) return mockPainters;
   try {
     const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, full_name, avatar_url, location, verified, rating, rating_count, specialties, lat, lng")
-      .eq("type", "painter")
-      .order("rating", { ascending: false })
-      .limit(60); // tope: el directorio se sirve entero a un Client Component
+    // Las coordenadas ya no están en el grant de columna de `profiles` (0013): eran la casa
+    // de cada cliente, legible por cualquiera con la anon key. Se piden aparte, por una
+    // función que sólo devuelve pintores.
+    const [{ data, error }, geo] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, full_name, avatar_url, location, verified, rating, rating_count, specialties")
+        .eq("type", "painter")
+        .order("rating", { ascending: false })
+        .limit(60), // tope: el directorio se sirve entero a un Client Component
+      supabase.rpc("pintores_geolocalizados" as never),
+    ]);
     if (error || !data) {
       if (error) dbError("getPainters", error);
       return mockPainters;
+    }
+    if (geo.error) dbError("getPainters/geo", geo.error); // sin coords el mapa queda vacío, el directorio no
+    const coords = new Map<string, { lat: number | null; lng: number | null }>();
+    for (const g of (geo.data ?? []) as unknown as { id: string; lat: number; lng: number }[]) {
+      coords.set(g.id, { lat: g.lat, lng: g.lng });
     }
     const rows = data as unknown as {
       id: string;
@@ -88,8 +99,6 @@ export async function getPainters(): Promise<Painter[]> {
       rating: number;
       rating_count: number;
       specialties: string[] | null;
-      lat: number | null;
-      lng: number | null;
     }[];
     return rows.map((p) => ({
       id: p.id,
@@ -101,8 +110,8 @@ export async function getPainters(): Promise<Painter[]> {
       zone: p.location ?? "",
       image: p.avatar_url ?? "",
       portfolio: [],
-      lat: p.lat,
-      lng: p.lng,
+      lat: coords.get(p.id)?.lat ?? null,
+      lng: coords.get(p.id)?.lng ?? null,
     }));
   } catch (e) {
     dbError("getPainters", e);
