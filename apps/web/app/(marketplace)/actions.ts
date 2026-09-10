@@ -21,9 +21,36 @@ function slugify(s: string): string {
     .slice(0, 60);
 }
 
+/**
+ * Convierte lo que escribió una persona en un monto en pesos, o null si no es válido.
+ *
+ * La versión anterior era `parseInt(v.replace(/[^\d]/g, ""))`, o sea "borrá todo lo que no
+ * sea un dígito". Eso rompía de dos formas, las dos silenciosas:
+ *
+ *  · "-99999" → 99999. El signo desaparecía y la cotización salía POSITIVA. El pintor creía
+ *    haber mandado una cosa y al cliente le llegaba otra. Peor que rechazarlo.
+ *  · "320.000,50" → 32000050. Los separadores se pegaban y $320 mil se convertían en
+ *    $32 millones. Escribir el monto como se escribe en Argentina multiplicaba por 100.
+ *
+ * Ahora: el punto es separador de miles y la coma decimal (formato local), se descarta la
+ * fracción —los montos se guardan en pesos enteros— y un negativo se rechaza en vez de
+ * corregirse solo.
+ */
 function toInt(v: FormDataEntryValue | null): number | null {
-  const n = parseInt(String(v ?? "").replace(/[^\d]/g, ""), 10);
-  return Number.isFinite(n) && n > 0 ? n : null;
+  const crudo = String(v ?? "").trim();
+  if (!crudo) return null;
+  if (/^-/.test(crudo)) return null; // negativo explícito: se rechaza, no se "arregla"
+
+  const soloNumero = crudo.replace(/[^\d.,]/g, ""); // saca "$", espacios, letras
+  const sinMiles = soloNumero.replace(/\./g, ""); // el punto es separador de miles
+  const entero = sinMiles.split(",")[0]; // la coma abre los centavos: se descartan
+  if (!entero) return null;
+
+  const n = parseInt(entero, 10);
+  // Tope defensivo: más de mil millones de pesos en un trabajo de pintura es un error de
+  // tipeo, y `amount` es un int4 en la base (desborda arriba de 2.147.483.647).
+  if (!Number.isFinite(n) || n <= 0 || n > 1_000_000_000) return null;
+  return n;
 }
 
 /**
@@ -155,7 +182,11 @@ export async function dejarResena(formData: FormData): Promise<{ error?: string;
 
   const jobId = String(formData.get("job_id") ?? "").trim();
   const painterId = String(formData.get("painter_id") ?? "").trim();
-  const comment = String(formData.get("comment") ?? "").trim();
+  // Tope de largo: una reseña de 3.000 caracteres tapaba las otras siete en el perfil
+  // público del pintor y se colaba en el carrusel de la home. El `maxLength` del textarea es
+  // una comodidad del navegador; el corte de verdad va acá, que es lo que no se puede saltear
+  // mandando el POST a mano. Los formularios de leads ya cortaban así.
+  const comment = String(formData.get("comment") ?? "").trim().slice(0, 1000);
   const rating = parseInt(String(formData.get("rating") ?? ""), 10);
   if (!jobId || !painterId) return { error: "Faltan datos del trabajo." };
   if (!(rating >= 1 && rating <= 5)) return { error: "Elegí una calificación de 1 a 5 estrellas." };

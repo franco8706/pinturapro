@@ -74,6 +74,7 @@ export function ReviewForm({ jobId, painterId, painter }: { jobId: string; paint
       </div>
       <textarea
         name="comment"
+        maxLength={1000}
         rows={3}
         placeholder="Contá cómo fue el trabajo: prolijidad, plazos, trato…"
         className="w-full border border-concrete/30 bg-plaster px-3 py-2 font-body text-body-md text-ink focus:border-ink outline-none transition-colors resize-y"
