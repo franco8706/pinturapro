@@ -29,6 +29,10 @@ export const PUBLIC_ROUTES = [
   { path: "/trabajos", priority: 0.6, changeFrequency: "daily" },
   { path: "/nosotros", priority: 0.5, changeFrequency: "yearly" },
   { path: "/contacto", priority: 0.5, changeFrequency: "yearly" },
+  // Prioridad baja pero indexables a propósito: Facebook y Google verifican que la URL de
+  // la política de privacidad sea pública y accesible antes de aprobar la app OAuth.
+  { path: "/privacidad", priority: 0.3, changeFrequency: "yearly" },
+  { path: "/terminos", priority: 0.3, changeFrequency: "yearly" },
 ] as const;
 
 /** Rutas que nunca deben indexarse (sesión, paneles, flujos internos). */

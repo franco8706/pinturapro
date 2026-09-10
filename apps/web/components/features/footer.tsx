@@ -68,7 +68,19 @@ export function Footer() {
         </div>
 
         <div className="mt-16 pt-8 border-t border-bone/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <p className="font-mono text-mono-sm text-bone/40">© {year} Pintura Pro · Buenos Aires, Argentina</p>
+          {/* Los legales van acá y no en una columna temática: es donde los busca la gente, y
+              también donde los buscan los revisores de Facebook y Google, que no aprueban una
+              app OAuth para producción sin una URL de política de privacidad accesible. */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-mono-sm text-bone/40">
+            <p>© {year} Pintura Pro · Buenos Aires, Argentina</p>
+            <span aria-hidden className="text-bone/20">·</span>
+            <Link href="/privacidad" className="hover:text-bone transition-colors duration-300">
+              Privacidad
+            </Link>
+            <Link href="/terminos" className="hover:text-bone transition-colors duration-300">
+              Términos
+            </Link>
+          </div>
           <div className="flex gap-6 font-mono text-mono-sm text-bone/40">
             <a
               href="https://instagram.com"
