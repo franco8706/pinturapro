@@ -28,6 +28,8 @@ export default function PerfilScreen() {
   const [specialties, setSpecialties] = useState("");
   const [pros, setPros] = useState("");
   const [cons, setCons] = useState("");
+  // No se pudo leer el perfil: hay que impedir guardar, o se pisa con campos vacíos.
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     const uid = session?.user?.id;
@@ -37,7 +39,15 @@ export default function PerfilScreen() {
     }
     getMyProfile(uid)
       .then((p) => {
-        if (!p) return;
+        if (!p) {
+          // No se pudo leer el perfil (red caída, sesión vencida). Antes acá había un
+          // `return` a secas: el formulario quedaba con todos los campos vacíos y el botón
+          // habilitado, así que tocar "Guardar" pisaba el perfil real —nombre, bio, zona,
+          // especialidades— con cadenas vacías. Ahora se bloquea la edición y se avisa.
+          setLoadError(true);
+          return;
+        }
+        setLoadError(false);
         setFullName(p.fullName);
         setBio(p.bio);
         setLocation(p.location);
@@ -45,6 +55,7 @@ export default function PerfilScreen() {
         setPros(fromList(p.pros));
         setCons(fromList(p.cons));
       })
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [session?.user?.id]);
 
@@ -83,6 +94,20 @@ export default function PerfilScreen() {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator color={colors.ink} />
+      </View>
+    );
+  }
+
+  // Falla cerrada: mostrar el formulario vacío invitaría a guardar encima del perfil real.
+  if (loadError) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", padding: space.lg, gap: space.md }}>
+        <Text style={[type.displayMd, { color: colors.ink }]}>No pudimos cargar tu perfil</Text>
+        <Text style={[type.bodyMd, { color: colors.concrete }]}>
+          Fue un problema de conexión, no tuyo. Tus datos están intactos: no te dejamos editar
+          para no sobrescribirlos con un formulario en blanco.
+        </Text>
+        <Button label="Volver" onPress={() => router.back()} />
       </View>
     );
   }

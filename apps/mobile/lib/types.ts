@@ -36,7 +36,9 @@ export interface ServiceRequest {
   ownerName: string;
 }
 
-export type JobStatus = "quoted" | "accepted" | "completed" | "cancelled";
+// `in_progress` lo agregó la migración 0009. Sin él, un trabajo puesto en curso desde
+// la web mostraba el literal "in_progress" en pantalla y se quedaba sin acciones.
+export type JobStatus = "quoted" | "accepted" | "in_progress" | "completed" | "cancelled";
 
 /** Una cotización recibida por el cliente (job en estado quoted/accepted/completed). */
 export interface Quote {

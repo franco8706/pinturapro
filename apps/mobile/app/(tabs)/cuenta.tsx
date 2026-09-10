@@ -5,13 +5,14 @@ import { useAuth } from "@/context/auth";
 import { getQuotesForClient, getJobsForPainter, formatARS } from "@/lib/queries";
 import { aceptarCotizacion, marcarCompletado } from "@/lib/mutations";
 import type { Quote, PainterJob } from "@/lib/types";
-import { Avatar, Badge, Button, Card, Mono, Stars } from "@/components/ui";
+import { Avatar, Badge, Button, Card, Mono, Stars, Note } from "@/components/ui";
 import { colors, space, type } from "@/lib/theme";
 
 const ROLE_LABEL: Record<string, string> = { client: "Cliente", painter: "Pintor", company: "Empresa" };
 const STATUS_LABEL: Record<string, string> = {
   quoted: "Cotizado",
   accepted: "Aceptado",
+  in_progress: "En curso",
   completed: "Completado",
   cancelled: "Cancelado",
 };
@@ -42,24 +43,34 @@ export default function CuentaScreen() {
     }, [load]),
   );
 
+  const [actionError, setActionError] = useState("");
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await load();
     setRefreshing(false);
   }, [load]);
 
+  // El error se muestra: antes estas dos funciones hacían `if (!res.error) load()` y
+  // descartaban el fallo entero. El botón volvía a habilitarse, nada cambiaba en pantalla y
+  // la persona no tenía forma de saber por qué. Pasa de verdad: los triggers de la migración
+  // 0009 rechazan transiciones cuando la pantalla quedó desactualizada.
   async function onAccept(id: string) {
     setActingId(id);
+    setActionError("");
     const res = await aceptarCotizacion(id);
     setActingId(null);
-    if (!res.error) load();
+    if (res.error) return setActionError(res.error);
+    load();
   }
 
   async function onComplete(id: string) {
     setActingId(id);
+    setActionError("");
     const res = await marcarCompletado(id);
     setActingId(null);
-    if (!res.error) load();
+    if (res.error) return setActionError(res.error);
+    load();
   }
 
   if (loading) return null;
@@ -97,6 +108,8 @@ export default function CuentaScreen() {
         <Text style={[type.bodyMd, { color: colors.ink }]}>{email}</Text>
         {role ? <Mono>{ROLE_LABEL[role] ?? role}</Mono> : null}
       </Card>
+
+      {actionError ? <Note>{actionError}</Note> : null}
 
       {isClient && (
         <Button label="+ Publicar un trabajo" onPress={() => router.push("/publicar")} />
