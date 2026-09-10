@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { createClient } from "@/lib/supabase/server";
-import { getOwnProfile, getPainterExtras } from "@/lib/queries";
+import { getOwnProfile, getPainterExtras, getMiTelefono } from "@/lib/queries";
 import { PerfilForm } from "./perfil-form";
 
 export default async function PerfilPage() {
@@ -17,7 +17,7 @@ export default async function PerfilPage() {
   if (!profile || !profile.onboarded) redirect("/bienvenida");
   if (profile.type === "client") redirect("/cliente");
 
-  const extras = await getPainterExtras(user.id);
+  const [extras, telefono] = await Promise.all([getPainterExtras(user.id), getMiTelefono()]);
 
   return (
     <main>
@@ -37,6 +37,7 @@ export default async function PerfilPage() {
               name: profile.name,
               bio: profile.bio,
               zone: profile.zone,
+              phone: telefono,
               avatar: profile.image,
               specialty: profile.specialty,
               pros: extras.pros,

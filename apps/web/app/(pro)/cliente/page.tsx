@@ -4,11 +4,21 @@ import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { MagneticButton } from "@/components/features/magnetic-button";
 import { createClient } from "@/lib/supabase/server";
-import { getOwnProfile, getJobsForClient, getPedidosDelCliente, formatARS } from "@/lib/queries";
+import {
+  getOwnProfile,
+  getJobsForClient,
+  getPedidosDelCliente,
+  getContactoDelTrabajo,
+  getMiTelefono,
+  formatARS,
+} from "@/lib/queries";
 import { ReviewForm } from "./review-form";
 import { CancelButton } from "@/app/(marketplace)/cancel-button";
+import { ContactoTrabajo } from "@/app/(marketplace)/contacto-trabajo";
 
 const ACTIVE = ["published", "quoted", "accepted", "in_progress"];
+/** Estados en los que el trabajo ya es un trabajo y hay que poder coordinarlo. */
+const EN_MARCHA = ["accepted", "in_progress", "completed"];
 
 export default async function ClientePanelPage() {
   const supabase = await createClient();
@@ -25,7 +35,20 @@ export default async function ClientePanelPage() {
   // Los pedidos PUBLICADOS y los trabajos son dos cosas distintas: `jobs` sólo existe
   // cuando un pintor cotiza. Sin la primera lista, un cliente que acababa de publicar
   // veía "Todavía ningún pintor te cotizó" y muchos publicaban de nuevo, duplicando.
-  const [jobs, pedidos] = await Promise.all([getJobsForClient(user.id), getPedidosDelCliente(user.id)]);
+  const [jobs, pedidos, miTelefono] = await Promise.all([
+    getJobsForClient(user.id),
+    getPedidosDelCliente(user.id),
+    getMiTelefono(),
+  ]);
+
+  // Sólo los trabajos en marcha tienen contacto que mostrar, y se piden en paralelo.
+  const contactos = new Map(
+    await Promise.all(
+      jobs
+        .filter((j) => EN_MARCHA.includes(j.status))
+        .map(async (j) => [j.id, await getContactoDelTrabajo(j.id)] as const),
+    ),
+  );
   const activos = pedidos.filter((p) => p.published).length;
   const completados = jobs.filter((j) => j.status === "completed").length;
   const pintores = new Set(jobs.map((j) => j.painter).filter(Boolean)).size;
@@ -174,6 +197,15 @@ export default async function ClientePanelPage() {
                     <div className="mt-4">
                       <CancelButton jobId={job.id} label="Cancelar este trabajo" />
                     </div>
+                  )}
+                  {EN_MARCHA.includes(job.status) && job.painter && (
+                    <ContactoTrabajo
+                      jobId={job.id}
+                      contraparte={job.painter}
+                      telefonoContraparte={contactos.get(job.id)?.telefono ?? null}
+                      miTelefono={miTelefono}
+                      rol="pintor"
+                    />
                   )}
                 </div>
               ))}

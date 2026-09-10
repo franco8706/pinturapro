@@ -8,13 +8,19 @@ import { createClient } from "@/lib/supabase/server";
 import { PortfolioActions } from "./portfolio-actions";
 import { CompleteButton } from "./complete-button";
 import { CancelButton } from "@/app/(marketplace)/cancel-button";
+import { ContactoTrabajo } from "@/app/(marketplace)/contacto-trabajo";
 import {
   getOwnProfile,
   getProjectsByOwner,
   getReviewsForPainter,
   getJobsForPainter,
+  getContactoDelTrabajo,
+  getMiTelefono,
   formatARS,
 } from "@/lib/queries";
+
+/** Estados en los que el trabajo ya es un trabajo y hay que poder coordinarlo. */
+const EN_MARCHA = ["accepted", "in_progress", "completed"];
 
 export default async function PainterDashboardPage() {
   const supabase = await createClient();
@@ -32,11 +38,21 @@ export default async function PainterDashboardPage() {
   const roleLabel = isCompany ? "Panel de empresa" : "Panel de pintor";
   const painter = profile;
 
-  const [projects, reviews, jobs] = await Promise.all([
+  const [projects, reviews, jobs, miTelefono] = await Promise.all([
     getProjectsByOwner(user.id),
     getReviewsForPainter(user.id),
     getJobsForPainter(user.id),
+    getMiTelefono(),
   ]);
+
+  // El contacto se pide sólo para los trabajos en marcha, y en paralelo: en serie, un pintor
+  // con varios trabajos pagaba una ida y vuelta por cada uno antes de pintar la página.
+  const enMarcha = jobs.filter((j) => EN_MARCHA.includes(j.status));
+  const contactos = new Map(
+    await Promise.all(
+      enMarcha.map(async (j) => [j.id, await getContactoDelTrabajo(j.id)] as const),
+    ),
+  );
 
   const completados = jobs.filter((j) => j.status === "completed").length;
   const activos = jobs.filter((j) => ["accepted", "in_progress", "quoted"].includes(j.status)).length;
@@ -140,6 +156,15 @@ export default async function PainterDashboardPage() {
                       <CompleteButton jobId={job.id} />
                       <CancelButton jobId={job.id} label="No puedo tomarlo" />
                     </div>
+                  )}
+                  {EN_MARCHA.includes(job.status) && (
+                    <ContactoTrabajo
+                      jobId={job.id}
+                      contraparte={job.client}
+                      telefonoContraparte={contactos.get(job.id)?.telefono ?? null}
+                      miTelefono={miTelefono}
+                      rol="cliente"
+                    />
                   )}
                   {/* Retirar una cotización que todavía nadie aceptó: sin esto el pintor
                       quedaba clavado con un precio equivocado y sin poder recotizar

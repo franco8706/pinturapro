@@ -1146,3 +1146,163 @@ export async function getPedidosDelCliente(clientId: string): Promise<PedidoProp
     return [];
   }
 }
+
+export interface ContactoContraparte {
+  nombre: string;
+  telefono: string | null;
+}
+
+/**
+ * El teléfono de la otra parte de un trabajo en marcha.
+ *
+ * Va por la función `contacto_del_trabajo` (migración 0011) y no por un select a `profiles`
+ * porque 0006 le revocó `phone` a authenticated: la RLS de perfiles es `using (true)`, así
+ * que devolver la columna sería publicar el teléfono de todos. La función es
+ * `security definer` y decide por vínculo — sos parte de ESE trabajo y el trabajo ya arrancó.
+ *
+ * Devuelve null si no corresponde mostrarlo (no sos parte, o el trabajo sigue en 'quoted').
+ */
+export async function getContactoDelTrabajo(jobId: string): Promise<ContactoContraparte | null> {
+  if (!SUPA) return null;
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("contacto_del_trabajo", { job_id: jobId } as never);
+    if (error) {
+      dbError("getContactoDelTrabajo", error);
+      return null;
+    }
+    const filas = (data ?? []) as unknown as { nombre: string | null; telefono: string | null }[];
+    if (filas.length === 0) return null;
+    return { nombre: filas[0].nombre ?? "La otra parte", telefono: filas[0].telefono };
+  } catch (e) {
+    dbError("getContactoDelTrabajo", e);
+    return null;
+  }
+}
+
+/**
+ * El teléfono propio, para precargar el formulario.
+ *
+ * Hace falta una función aparte por lo mismo que arriba: ni el dueño puede leer su propio
+ * `phone` con un select normal. Sin esto el campo aparecería vacío siempre y la persona
+ * lo pisaría sin querer creyendo que nunca lo cargó.
+ */
+export async function getMiTelefono(): Promise<string> {
+  if (!SUPA) return "";
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("mi_telefono" as never);
+    if (error) {
+      dbError("getMiTelefono", error);
+      return "";
+    }
+    return (data as unknown as string | null) ?? "";
+  } catch (e) {
+    dbError("getMiTelefono", e);
+    return "";
+  }
+}
+
+export interface MetricasPlataforma {
+  pedidosPublicados: number;
+  cotizaciones: number;
+  trabajosCompletados: number;
+  volumen: number;
+  comision: number;
+}
+
+export interface MesVolumen {
+  mes: string;
+  /** Inicial del mes en español, para el eje del gráfico. */
+  inicial: string;
+  total: number;
+}
+
+export interface ActividadItem {
+  titulo: string;
+  fecha: string;
+  cotizaciones: number;
+}
+
+const INICIAL_MES = ["E", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
+
+/**
+ * Los números del panel analítico.
+ *
+ * Van por `metricas_plataforma` (migración 0012) porque la RLS de `jobs` sólo muestra los
+ * trabajos propios: ni el admin puede contar los de toda la plataforma con su sesión. La
+ * función chequea `is_admin` adentro, así que un no-admin recibe cero filas y acá se traduce
+ * a null — la página muestra el panel vacío en vez de ceros, que parecerían datos reales.
+ */
+export async function getMetricasPlataforma(): Promise<MetricasPlataforma | null> {
+  if (!SUPA) return null;
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("metricas_plataforma" as never);
+    if (error) {
+      dbError("getMetricasPlataforma", error);
+      return null;
+    }
+    const filas = (data ?? []) as unknown as {
+      pedidos_publicados: number;
+      cotizaciones: number;
+      trabajos_completados: number;
+      volumen: number;
+      comision: number;
+    }[];
+    if (filas.length === 0) return null;
+    const m = filas[0];
+    return {
+      pedidosPublicados: Number(m.pedidos_publicados),
+      cotizaciones: Number(m.cotizaciones),
+      trabajosCompletados: Number(m.trabajos_completados),
+      volumen: Number(m.volumen),
+      comision: Number(m.comision),
+    };
+  } catch (e) {
+    dbError("getMetricasPlataforma", e);
+    return null;
+  }
+}
+
+/** Los 12 meses del gráfico de volumen, ceros incluidos. */
+export async function getVolumenMensual(): Promise<MesVolumen[]> {
+  if (!SUPA) return [];
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("volumen_mensual" as never);
+    if (error) {
+      dbError("getVolumenMensual", error);
+      return [];
+    }
+    return ((data ?? []) as unknown as { mes: string; total: number }[]).map((r) => ({
+      mes: r.mes,
+      inicial: INICIAL_MES[new Date(`${r.mes}T00:00:00`).getMonth()],
+      total: Number(r.total),
+    }));
+  } catch (e) {
+    dbError("getVolumenMensual", e);
+    return [];
+  }
+}
+
+/** Últimos pedidos publicados en la plataforma, con cuántas cotizaciones recibió cada uno. */
+export async function getActividadReciente(limite = 6): Promise<ActividadItem[]> {
+  if (!SUPA) return [];
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("actividad_reciente", { limite } as never);
+    if (error) {
+      dbError("getActividadReciente", error);
+      return [];
+    }
+    return ((data ?? []) as unknown as { titulo: string; creado: string; cotizaciones: number }[]).map((r) => ({
+      titulo: r.titulo,
+      fecha: monthYear(r.creado),
+      cotizaciones: Number(r.cotizaciones),
+    }));
+  } catch (e) {
+    dbError("getActividadReciente", e);
+    return [];
+  }
+}

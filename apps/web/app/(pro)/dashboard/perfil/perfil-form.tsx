@@ -19,6 +19,7 @@ interface Initial {
   name: string;
   bio: string;
   zone: string;
+  phone: string;
   avatar: string;
   specialty: string[];
   pros: string[];
@@ -106,6 +107,15 @@ export function PerfilForm({ initial }: { initial: Initial }) {
 
       <Field name="full_name" label="Nombre y apellido" defaultValue={initial.name} required />
       <Field name="location" label="Zona / Ubicación" placeholder="Belgrano, CABA" defaultValue={initial.zone} />
+      {/* El cliente lo ve recién cuando te acepta una cotización, nunca en el directorio
+          público: lo entrega `contacto_del_trabajo` (0011) sólo a la contraparte. */}
+      <Field
+        name="phone"
+        label="Teléfono de contacto"
+        placeholder="11 5555-5555"
+        defaultValue={initial.phone}
+        hint="Se lo mostramos únicamente al cliente que te contrata, para coordinar el trabajo."
+      />
 
       <div>
         <Label>Bio</Label>
@@ -215,12 +225,15 @@ function Field({
   placeholder,
   defaultValue,
   required,
+  hint,
 }: {
   name: string;
   label: string;
   placeholder?: string;
   defaultValue?: string;
   required?: boolean;
+  /** Aclaración bajo el campo. Existe para el teléfono: quien lo carga merece saber quién lo ve. */
+  hint?: string;
 }) {
   return (
     <label className="block">
@@ -232,6 +245,7 @@ function Field({
         defaultValue={defaultValue}
         className="mt-2 w-full border border-concrete/30 bg-plaster px-3 py-2.5 font-body text-body-md text-ink focus:border-ink outline-none transition-colors"
       />
+      {hint && <span className="mt-1.5 block font-body text-body-sm text-concrete">{hint}</span>}
     </label>
   );
 }

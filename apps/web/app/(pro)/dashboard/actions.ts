@@ -275,10 +275,16 @@ export async function updateProfile(formData: FormData): Promise<{ error?: strin
     // si viene mal, lo dejamos vacío en vez de romper
   }
 
+  // El teléfono nunca sale en el directorio público: 0006 le revocó la columna a
+  // authenticated y sólo lo entrega `contacto_del_trabajo` a la contraparte de un trabajo
+  // ya adjudicado. Vacío lo deja en null en vez de guardar "".
+  const phone = String(formData.get("phone") ?? "").trim().slice(0, 40);
+
   const update: Record<string, unknown> = {
     full_name,
     bio: bio || null,
     location: location || null,
+    phone: phone || null,
     specialties,
   };
 
@@ -308,4 +314,40 @@ export async function updateProfile(formData: FormData): Promise<{ error?: strin
   revalidatePath("/pintores");
   revalidatePath(`/pintor/${user.id}`);
   redirect("/dashboard");
+}
+
+/**
+ * Guardar el teléfono de contacto propio.
+ *
+ * Vive aparte de `updateProfile` porque se usa desde los paneles, sobre la tarjeta del
+ * trabajo ya adjudicado: pedirlo ahí, cuando la persona lo necesita para coordinar, funciona
+ * mejor que esconderlo en un formulario de perfil al que el cliente ni siquiera entra
+ * (/dashboard/perfil es sólo para pintores y empresas).
+ *
+ * Escribir `phone` sí está permitido por RLS (`profiles_update_own`) y el trigger de
+ * campos congelados no lo toca. Leerlo es lo que necesita la función `mi_telefono()`.
+ */
+export async function guardarTelefono(telefono: string): Promise<{ error?: string; ok?: boolean }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Tenés que iniciar sesión." };
+
+  const limpio = telefono.trim().slice(0, 40);
+  // Laxo a propósito: acá entran celulares con 0 y 15, fijos con característica, y gente que
+  // escribe "+54 9 11". Validar el formato argentino de verdad rechazaría números válidos.
+  if (limpio.replace(/\D/g, "").length < 8) {
+    return { error: "Ingresá un teléfono con al menos 8 dígitos." };
+  }
+
+  const { error } = await supabase.from("profiles").update({ phone: limpio } as never).eq("id", user.id);
+  if (error) {
+    console.error("[guardarTelefono] error:", error.message);
+    return { error: "No pudimos guardar el teléfono. Probá de nuevo." };
+  }
+
+  revalidatePath("/cliente");
+  revalidatePath("/dashboard");
+  return { ok: true };
 }
