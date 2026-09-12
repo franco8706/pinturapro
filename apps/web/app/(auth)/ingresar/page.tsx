@@ -1,9 +1,9 @@
 "use client";
-
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { rutaInternaSegura } from "@/lib/redirect-seguro";
 import { SocialAuth, AuthDivider } from "@/components/features/social-auth";
 
 const READY = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -14,6 +14,19 @@ export default function IngresarPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // El callback de auth redirige acá con ?error=auth cuando el intercambio del enlace falla,
+  // pero nadie leía ese parámetro: la persona aterrizaba en el formulario pelado, sin saber
+  // por qué. El caso más común no es un ataque sino abrir el mail en otro dispositivo.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("error") !== "auth") return;
+    setError(
+      params.get("motivo") === "enlace"
+        ? "El enlace no se pudo validar. Suele pasar al abrirlo en otro dispositivo: abrilo en el mismo navegador donde te registraste, o pedí uno nuevo."
+        : "No pudimos completar el ingreso. Probá de nuevo.",
+    );
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,8 +43,10 @@ export default function IngresarPage() {
       setLoading(false);
       return;
     }
-    const next = new URLSearchParams(window.location.search).get("next") || "/mi-panel";
-    router.push(next.startsWith("/") ? next : "/mi-panel");
+    // `startsWith("/")` dejaba pasar "//sitio-malo.com", que el navegador resuelve como
+    // externo. El helper cubre ese caso y algunos más.
+    const next = rutaInternaSegura(new URLSearchParams(window.location.search).get("next"), "/mi-panel");
+    router.push(next);
     router.refresh();
   }
 
@@ -59,6 +74,11 @@ export default function IngresarPage() {
       </form>
 
       <p className="mt-6 font-body text-body-sm text-concrete">
+        <Link href="/recuperar" className="text-ink underline underline-offset-2">
+          Olvidé mi contraseña
+        </Link>
+      </p>
+      <p className="mt-2 font-body text-body-sm text-concrete">
         ¿No tenés cuenta?{" "}
         <Link href="/crear-cuenta" className="text-ink underline underline-offset-2">
           Creá una

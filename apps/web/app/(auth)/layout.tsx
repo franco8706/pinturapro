@@ -4,8 +4,10 @@ import type { Metadata } from "next";
 
 // Las pantallas de sesión no se indexan: no aportan nada en buscadores y exponen
 // la superficie de autenticación.
+//
+// El título va en cada página, no acá: cuando estaba en el layout, /crear-cuenta heredaba
+// "Ingresar | Pintura Pro" y la pestaña decía lo contrario de lo que hacía la pantalla.
 export const metadata: Metadata = {
-  title: "Ingresar",
   robots: { index: false, follow: false },
 };
 
