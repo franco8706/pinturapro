@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CONTACTO } from "@/lib/empresa";
 
 const columns = [
   {
@@ -50,7 +51,7 @@ export function Footer() {
 
           {columns.map((col) => (
             <div key={col.title} className="lg:col-span-2">
-              <p className="font-mono text-mono-sm text-bone/40 uppercase tracking-widest mb-5">{col.title}</p>
+              <p className="font-mono text-mono-sm text-bone/60 uppercase tracking-widest mb-5">{col.title}</p>
               <ul className="space-y-3">
                 {col.links.map((link) => (
                   <li key={link.href}>
@@ -71,7 +72,7 @@ export function Footer() {
           {/* Los legales van acá y no en una columna temática: es donde los busca la gente, y
               también donde los buscan los revisores de Facebook y Google, que no aprueban una
               app OAuth para producción sin una URL de política de privacidad accesible. */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-mono-sm text-bone/40">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-mono-sm text-bone/60">
             <p>© {year} Pintura Pro · Buenos Aires, Argentina</p>
             <span aria-hidden className="text-bone/20">·</span>
             <Link href="/privacidad" className="hover:text-bone transition-colors duration-300">
@@ -81,25 +82,32 @@ export function Footer() {
               Términos
             </Link>
           </div>
-          <div className="flex gap-6 font-mono text-mono-sm text-bone/40">
-            <a
-              href="https://instagram.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-bone transition-colors duration-300"
-            >
-              Instagram
-            </a>
-            <a
-              href="https://wa.me/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-bone transition-colors duration-300"
-            >
-              WhatsApp
-            </a>
-            <a href="mailto:hola@pinturapro.ar" className="hover:text-bone transition-colors duration-300">
-              hola@pinturapro.ar
+          {/* Instagram apuntaba a `https://instagram.com` (la portada de Instagram, no un
+              perfil) y WhatsApp a `https://wa.me/` sin número: los dos abrían una página
+              inútil. Ahora salen de lib/empresa.ts y el que no tiene valor no se muestra. */}
+          <div className="flex gap-6 font-mono text-mono-sm text-bone/60">
+            {CONTACTO.instagram && (
+              <a
+                href={`https://instagram.com/${CONTACTO.instagram.replace(/^@/, "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-bone transition-colors duration-300"
+              >
+                Instagram
+              </a>
+            )}
+            {CONTACTO.whatsapp && (
+              <a
+                href={`https://wa.me/${CONTACTO.whatsapp.replace(/\D/g, "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-bone transition-colors duration-300"
+              >
+                WhatsApp
+              </a>
+            )}
+            <a href={`mailto:${CONTACTO.email}`} className="hover:text-bone transition-colors duration-300">
+              {CONTACTO.email}
             </a>
           </div>
         </div>

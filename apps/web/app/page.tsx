@@ -11,7 +11,8 @@ import { Marquee } from "@/components/features/marquee";
 import { CountUp } from "@/components/features/count-up";
 import { HeroSpotlight } from "@/components/features/hero-spotlight";
 import { brands } from "@/lib/brands";
-import { getNews, getRecentReviews, getProjects } from "@/lib/queries";
+import { getNews, getRecentReviews, getProjects, getNumerosReales } from "@/lib/queries";
+import { DATOS_EMPRESA, type DatoEmpresa } from "@/lib/empresa";
 
 const services = [
   "Interior",
@@ -33,20 +34,36 @@ const steps = [
   { title: "Entrega", description: "Revisión final junto a vos. Garantía escrita sobre la mano de obra y los materiales." },
 ];
 
-const stats = [
-  { value: 340, prefix: "+", suffix: "", decimals: 0, label: "Obras entregadas" },
-  { value: 12, prefix: "", suffix: "", decimals: 0, label: "Años de oficio" },
-  { value: 4.9, prefix: "", suffix: "★", decimals: 1, label: "Promedio de clientes" },
-  { value: 100, prefix: "", suffix: "%", decimals: 0, label: "Garantía escrita" },
-];
 
 export default async function HomePage() {
   // Las obras salían de `mockProjects`, así que las tres tarjetas de la home linkeaban a
   // slugs que no existen (`demo-casa-barracas` → 404), mostraban el título con el prefijo
   // "Demo ·" y, donde va la foto, el nombre del archivo. La home es lo primero que ve
   // cualquiera: eran tres 404 en la portada.
-  const [news, testimonials, obras] = await Promise.all([getNews(), getRecentReviews(), getProjects()]);
+  const [news, testimonials, obras, numeros] = await Promise.all([
+    getNews(),
+    getRecentReviews(),
+    getProjects(),
+    getNumerosReales(),
+  ]);
   const obrasDestacadas = obras.slice(0, 3);
+
+  // Las cifras eran constantes escritas a mano: "+340 obras entregadas" con 3 obras en la
+  // base, "4,9★" sin mirar una sola reseña, y "100% garantía escrita" — un compromiso
+  // legal sin nada detrás. Ahora sale de la base lo que se puede contar, y lo que sólo
+  // sabe el dueño espera en lib/empresa.ts. Lo que no tiene dato real, no se muestra.
+  const stats: DatoEmpresa[] = [
+    ...(numeros.obras > 0
+      ? [{ value: numeros.obras, prefix: "", suffix: "", decimals: 0, label: "Obras en portfolio" }]
+      : []),
+    ...(numeros.trabajosCompletados > 0
+      ? [{ value: numeros.trabajosCompletados, prefix: "", suffix: "", decimals: 0, label: "Trabajos completados" }]
+      : []),
+    ...(numeros.promedio !== null
+      ? [{ value: numeros.promedio, prefix: "", suffix: "★", decimals: 1, label: `Promedio de ${numeros.resenias} reseñas` }]
+      : []),
+    ...DATOS_EMPRESA.filter((d) => d.value !== null),
+  ];
   return (
     <main>
       <Navbar />
@@ -97,7 +114,8 @@ export default async function HomePage() {
         </Marquee>
       </div>
 
-      {/* STATS */}
+      {/* STATS — se omite entera si no hay ni un número real que mostrar. */}
+      {stats.length > 0 && (
       <section className="border-y border-concrete/15 bg-mist">
         <div className="container-asymmetric grid grid-cols-2 lg:grid-cols-4">
           {stats.map((stat, i) => (
@@ -107,13 +125,14 @@ export default async function HomePage() {
               className="py-10 lg:py-14 px-2 border-r border-concrete/10 last:border-0"
             >
               <p className="font-display text-display-lg leading-none">
-                <CountUp value={stat.value} prefix={stat.prefix} suffix={stat.suffix} decimals={stat.decimals} />
+                <CountUp value={stat.value ?? 0} prefix={stat.prefix} suffix={stat.suffix} decimals={stat.decimals} />
               </p>
               <p className="font-body text-body-sm text-concrete mt-2">{stat.label}</p>
             </Reveal>
           ))}
         </div>
       </section>
+      )}
 
       {/* MARCAS Y COLORES */}
       <section className="py-section">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CONTACTO, whatsappLegible } from "@/lib/empresa";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { enviarConsulta } from "../actions";
@@ -28,11 +29,16 @@ export default function ContactoPage() {
               ¿Tenés un proyecto en mente o una consulta puntual? Escribinos y te respondemos dentro del día.
             </p>
             <dl className="space-y-6">
+              {/* Los datos salen de lib/empresa.ts y los que todavía no tienen valor real no
+                  se muestran. El WhatsApp que había acá era "+54 9 11 5555-0123", un número
+                  de ejemplo: alguien que quería contratar escribía a un número inexistente. */}
               {[
-                { label: "Email", value: "hola@pinturapro.ar" },
-                { label: "WhatsApp", value: "+54 9 11 5555-0123" },
-                { label: "Taller", value: "Barracas, CABA — con cita previa" },
-                { label: "Horario", value: "Lun a Vie, 8 a 18hs" },
+                { label: "Email", value: CONTACTO.email },
+                ...(CONTACTO.whatsapp
+                  ? [{ label: "WhatsApp", value: whatsappLegible(CONTACTO.whatsapp) }]
+                  : []),
+                { label: "Taller", value: CONTACTO.taller },
+                { label: "Horario", value: CONTACTO.horario },
               ].map((item) => (
                 <div key={item.label}>
                   <dt className="font-mono text-mono-sm text-concrete uppercase tracking-widest mb-1">{item.label}</dt>

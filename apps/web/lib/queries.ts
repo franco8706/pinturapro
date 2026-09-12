@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { unstable_rethrow } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { mockPainters, mockProjects, type Painter, type Project } from "@/lib/data";
@@ -177,7 +178,12 @@ function mapProject(p: ProjectRow): Project {
  * tope de filas de PostgREST (1000 por defecto) daba 404 aunque existiera y estuviera
  * publicada — y con la base caída servía una obra falsa con 200.
  */
-export async function getProjectBySlug(slug: string): Promise<Project | null> {
+/**
+ * `cache()` de React: `generateMetadata` y el cuerpo de la página piden la MISMA obra, así
+ * que sin esto cada visita a /obras/[slug] pegaba dos veces a la base para lo mismo. El
+ * cache dura lo que dura el render de ese request, no filtra entre usuarios.
+ */
+export const getProjectBySlug = cache(async (slug: string): Promise<Project | null> => {
   if (!SUPA) return mockProjects.find((p) => p.slug === slug) ?? null;
   try {
     const supabase = await createClient();
@@ -196,7 +202,7 @@ export async function getProjectBySlug(slug: string): Promise<Project | null> {
     dbError("getProjectBySlug", e);
     return null;
   }
-}
+});
 
 export interface PainterDetail extends Painter {
   bio: string;
@@ -212,7 +218,8 @@ export interface ReviewView {
 }
 
 /** Un pintor por id (perfil público). */
-export async function getPainterById(id: string): Promise<PainterDetail | null> {
+/** `cache()` por lo mismo que getProjectBySlug: metadata + cuerpo pedían el mismo pintor. */
+export const getPainterById = cache(async (id: string): Promise<PainterDetail | null> => {
   if (!SUPA) {
     const m = mockPainters.find((p) => p.id === id);
     return m ? { ...m, bio: "" } : null;
@@ -256,7 +263,7 @@ export async function getPainterById(id: string): Promise<PainterDetail | null> 
     dbError("getPainterById", e);
     return null;
   }
-}
+});
 
 /** Obras publicadas de un dueño (portfolio del pintor/empresa). */
 export async function getProjectsByOwner(ownerId: string): Promise<Project[]> {
@@ -1311,5 +1318,51 @@ export async function getActividadReciente(limite = 6): Promise<ActividadItem[]>
   } catch (e) {
     dbError("getActividadReciente", e);
     return [];
+  }
+}
+
+export interface NumerosReales {
+  /** Obras publicadas en el portfolio. */
+  obras: number;
+  /** Trabajos cerrados por la plataforma. */
+  trabajosCompletados: number;
+  /** Promedio de todas las reseñas, o null si todavía no hay ninguna. */
+  promedio: number | null;
+  resenias: number;
+}
+
+/**
+ * Los números que la home puede afirmar porque salen de la base.
+ *
+ * Las cifras de la portada eran constantes escritas a mano ("+340 obras entregadas", "4,9★")
+ * que no se correspondían con nada: el portfolio tiene 3 obras. Lo que se puede contar, se
+ * cuenta; lo que no (años de oficio, obras hechas fuera de la plataforma) vive en
+ * `lib/empresa.ts` esperando el dato real del dueño, y hasta entonces no se muestra.
+ */
+export async function getNumerosReales(): Promise<NumerosReales> {
+  const vacio: NumerosReales = { obras: 0, trabajosCompletados: 0, promedio: null, resenias: 0 };
+  if (!SUPA) return vacio;
+  try {
+    const supabase = await createClient();
+    const [obras, trabajos, resenias] = await Promise.all([
+      supabase.from("projects").select("id", { count: "exact", head: true }).eq("type", "portfolio").eq("published", true),
+      supabase.from("jobs").select("id", { count: "exact", head: true }).eq("status", "completed"),
+      supabase.from("reviews").select("rating"),
+    ]);
+    if (obras.error) dbError("getNumerosReales/obras", obras.error);
+    if (trabajos.error) dbError("getNumerosReales/trabajos", trabajos.error);
+    if (resenias.error) dbError("getNumerosReales/resenias", resenias.error);
+
+    const notas = ((resenias.data ?? []) as unknown as { rating: number }[]).map((r) => Number(r.rating));
+    const promedio = notas.length ? Math.round((notas.reduce((a, b) => a + b, 0) / notas.length) * 10) / 10 : null;
+    return {
+      obras: obras.count ?? 0,
+      trabajosCompletados: trabajos.count ?? 0,
+      promedio,
+      resenias: notas.length,
+    };
+  } catch (e) {
+    dbError("getNumerosReales", e);
+    return vacio;
   }
 }
