@@ -1,6 +1,15 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PublicarForm } from "./publicar-form";
+
+
+// Panel privado: título propio (antes usaba el genérico de la home) y fuera de
+// buscadores, como defensa en profundidad además del gate de sesión.
+export const metadata: Metadata = {
+  title: "Publicar un trabajo",
+  robots: { index: false, follow: false },
+};
 
 /**
  * Gate de sesión para publicar un pedido.

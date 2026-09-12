@@ -1,8 +1,10 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { SectionLabel } from "@/components/features/states";
 import { createClient } from "@/lib/supabase/server";
+
 import {
   getOwnProfile,
   getMetricasPlataforma,
@@ -10,6 +12,14 @@ import {
   getActividadReciente,
   formatARS,
 } from "@/lib/queries";
+
+
+// Panel privado: título propio (antes usaba el genérico de la home) y fuera de
+// buscadores, como defensa en profundidad además del gate de sesión.
+export const metadata: Metadata = {
+  title: "Panel analítico",
+  robots: { index: false, follow: false },
+};
 
 /**
  * Panel analítico del marketplace: información de negocio de la plataforma (volumen

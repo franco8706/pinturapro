@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/features/navbar";
@@ -9,6 +10,7 @@ import { PortfolioActions } from "./portfolio-actions";
 import { CompleteButton } from "./complete-button";
 import { CancelButton } from "@/app/(marketplace)/cancel-button";
 import { ContactoTrabajo } from "@/app/(marketplace)/contacto-trabajo";
+
 import {
   getOwnProfile,
   getProjectsByOwner,
@@ -18,6 +20,14 @@ import {
   getMiTelefono,
   formatARS,
 } from "@/lib/queries";
+
+
+// Panel privado: título propio (antes usaba el genérico de la home) y fuera de
+// buscadores, como defensa en profundidad además del gate de sesión.
+export const metadata: Metadata = {
+  title: "Mi panel profesional",
+  robots: { index: false, follow: false },
+};
 
 /** Estados en los que el trabajo ya es un trabajo y hay que poder coordinarlo. */
 const EN_MARCHA = ["accepted", "in_progress", "completed"];

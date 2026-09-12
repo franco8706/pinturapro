@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/features/navbar";
@@ -6,6 +7,14 @@ import { LevelBadge } from "@/components/features/level-badge";
 import { createClient } from "@/lib/supabase/server";
 import { getOwnProfile, getQuotesForClient, formatARS } from "@/lib/queries";
 import { AcceptButton } from "./accept-button";
+
+
+// Panel privado: título propio (antes usaba el genérico de la home) y fuera de
+// buscadores, como defensa en profundidad además del gate de sesión.
+export const metadata: Metadata = {
+  title: "Mis cotizaciones",
+  robots: { index: false, follow: false },
+};
 
 export default async function CotizacionesPage() {
   const supabase = await createClient();

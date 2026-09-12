@@ -497,10 +497,13 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
           <span className="font-display text-display-md text-concrete mb-2">＋</span>
           <span className="font-body text-body-md text-ink">Subí una foto de tu ambiente</span>
           <span className="font-body text-body-sm text-concrete mt-1">JPG o PNG · pared, frente o fachada</span>
+          {/* `sr-only` y no `hidden`: display:none saca el input del orden de tabulación, así
+              que NO había forma de subir una foto con el teclado. sr-only lo oculta a la vista
+              pero lo deja alcanzable y enfocable. */}
           <input
             type="file"
             accept="image/*"
-            className="hidden"
+            className="sr-only"
             onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
           />
         </label>

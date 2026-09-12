@@ -10,7 +10,10 @@ const config: Config = {
       colors: {
         plaster: "#EDEBE6",
         ink: "#141414",
-        concrete: "#6B6B6B",
+        // #6B6B6B daba 4.47:1 sobre plaster — justo por debajo del 4.5 que pide WCAG AA, y es
+        // el color de 238 textos secundarios. Un paso más oscuro lo lleva a 4.68 sin que se
+        // note la diferencia de diseño.
+        concrete: "#686868",
         mist: "#F5F4F0",
         bone: "#FFFFFF",
       },
