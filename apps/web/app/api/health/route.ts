@@ -7,12 +7,31 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/health — ¿la base responde de verdad?
  *
- * Existe porque el resto del sitio miente cuando Supabase se cae: las páginas devuelven
- * 200 y sirven los mocks. Este endpoint hace una consulta real y devuelve 503 si falla,
- * así un monitor externo (o vos) se entera. Es la única ruta que NO tiene fallback.
+ * Existe porque el resto del sitio miente cuando Supabase falla: las páginas devuelven 200 y
+ * sirven mocks o listas vacías. Este endpoint es el canario, y es la única ruta sin respaldo.
  *
- * No expone detalle de la infraestructura: sólo estado y latencia.
+ * Antes probaba SÓLO `profiles`, y eso lo dejaba ciego justo donde ocurrieron los dos
+ * incidentes reales de este proyecto: los dos fueron permisos mal puestos sobre UNA tabla o
+ * UNA función, con el resto de la base perfecta. En esa situación el endpoint decía "ok"
+ * mientras un pintor con nueve trabajos leía "todavía no tenés trabajos".
+ *
+ * Ahora prueba una superficie de cada tipo —tablas y funciones `security definer`— y reporta
+ * cuál falló. No expone detalle de infraestructura: sólo el nombre de la sonda y el estado.
  */
+
+/** Cada sonda cubre un permiso distinto; si una sola falla, el sitio ya está mintiendo. */
+const SONDAS = [
+  { nombre: "profiles", tipo: "tabla" as const },
+  { nombre: "projects", tipo: "tabla" as const },
+  { nombre: "jobs", tipo: "tabla" as const },
+  { nombre: "reviews", tipo: "tabla" as const },
+  // Las funciones tienen su propio GRANT, que es exactamente lo que se rompió dos veces.
+  { nombre: "pedidos_abiertos", tipo: "funcion" as const, args: { limite: 1 } },
+  { nombre: "pintores_geolocalizados", tipo: "funcion" as const, args: {} },
+];
+
+const TIMEOUT_MS = 8_000;
+
 export async function GET() {
   const started = Date.now();
 
@@ -25,20 +44,48 @@ export async function GET() {
 
   try {
     const supabase = await createClient();
-    // head:true = sólo cuenta, no trae filas. Barato y suficiente para saber si responde.
-    const { error } = await supabase.from("profiles").select("id", { count: "exact", head: true }).limit(1);
-    const ms = Date.now() - started;
 
-    if (error) {
-      console.error(`[health] la base respondió con error: ${error.message}`);
+    // Con timeout: sin esto, una base lenta deja al monitor colgado en vez de avisar.
+    const conTimeout = <T,>(p: PromiseLike<T>): Promise<T | "timeout"> =>
+      Promise.race([
+        Promise.resolve(p),
+        new Promise<"timeout">((r) => setTimeout(() => r("timeout"), TIMEOUT_MS)),
+      ]);
+
+    const resultados = await Promise.all(
+      SONDAS.map(async (s) => {
+        const r = await conTimeout(
+          s.tipo === "tabla"
+            ? supabase.from(s.nombre).select("id", { count: "exact", head: true }).limit(1)
+            : supabase.rpc(s.nombre as never, (s.args ?? {}) as never),
+        );
+        if (r === "timeout") return { nombre: s.nombre, ok: false, motivo: "timeout" };
+        const error = (r as { error: { message?: string } | null }).error;
+        return { nombre: s.nombre, ok: !error, motivo: error?.message };
+      }),
+    );
+
+    const ms = Date.now() - started;
+    const fallaron = resultados.filter((r) => !r.ok);
+
+    if (fallaron.length > 0) {
+      // El motivo va al log del servidor, no a la respuesta: puede traer nombres de tablas.
+      for (const f of fallaron) console.error(`[health] sonda "${f.nombre}" falló: ${f.motivo}`);
       return NextResponse.json(
-        { status: "degraded", database: "error", servingMockData: true, latencyMs: ms },
+        {
+          status: fallaron.length === resultados.length ? "down" : "degraded",
+          database: fallaron.length === resultados.length ? "inalcanzable" : "parcial",
+          // Qué sondas fallaron sí se dice: es lo que hace accionable la alerta.
+          failing: fallaron.map((f) => f.nombre),
+          servingMockData: true,
+          latencyMs: ms,
+        },
         { status: 503, headers: { "Cache-Control": "no-store" } },
       );
     }
 
     return NextResponse.json(
-      { status: "ok", database: "up", servingMockData: false, latencyMs: ms },
+      { status: "ok", database: "up", checks: resultados.length, servingMockData: false, latencyMs: ms },
       { status: 200, headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {

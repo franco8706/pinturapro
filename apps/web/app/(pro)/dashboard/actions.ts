@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { mensajeDeError } from "@/lib/errores-db";
 
 function slugify(s: string): string {
   return s
@@ -86,7 +87,11 @@ async function uploadImage(
 
   const admin = createAdminClient();
   const { error } = await admin.storage.from(bucket).upload(path, bytes, { contentType, upsert: false });
-  if (error) return { error: "No se pudo subir la imagen: " + error.message };
+  // Sin traducir, acá salía el error crudo del Storage al usuario.
+  if (error) {
+    console.error("[uploadImage] error:", error.message);
+    return { error: "No pudimos subir la imagen. Probá con otra o más liviana." };
+  }
   return { url: admin.storage.from(bucket).getPublicUrl(path).data.publicUrl };
 }
 
@@ -158,7 +163,7 @@ export async function createObra(formData: FormData): Promise<{ error?: string }
 
   // Cast: la inferencia del insert con el Database hecho a mano colapsa a `never`.
   const { error } = await supabase.from("projects").insert(payload as never);
-  if (error) return { error: error.message };
+  if (error) return { error: mensajeDeError(error) };
 
   revalidatePath("/dashboard");
   revalidatePath("/obras");
@@ -212,7 +217,7 @@ export async function updateObra(formData: FormData): Promise<{ error?: string }
     .eq("id", id)
     .eq("owner_id", user.id)
     .select("id, slug");
-  if (error) return { error: error.message };
+  if (error) return { error: mensajeDeError(error) };
   const rows = (data ?? []) as unknown as { id: string; slug: string | null }[];
   if (rows.length === 0) return { error: "No se encontró la obra o no es tuya." };
 
@@ -240,7 +245,7 @@ export async function deleteObra(id: string): Promise<{ error?: string }> {
     .maybeSingle();
 
   const { error } = await supabase.from("projects").delete().eq("id", id).eq("owner_id", user.id);
-  if (error) return { error: error.message };
+  if (error) return { error: mensajeDeError(error) };
 
   const cover = (pre as unknown as { cover_url: string | null } | null)?.cover_url ?? null;
   await deleteCoverIfOwn(cover, user.id);
@@ -296,7 +301,7 @@ export async function updateProfile(formData: FormData): Promise<{ error?: strin
   }
 
   const { error } = await supabase.from("profiles").update(update as never).eq("id", user.id);
-  if (error) return { error: error.message };
+  if (error) return { error: mensajeDeError(error) };
 
   // Pros/cons en una escritura aparte: si las columnas todavía no existen (migración 0005
   // sin aplicar), el error se ignora para no romper la edición del resto del perfil.
