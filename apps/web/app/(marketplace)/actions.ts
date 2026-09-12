@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { notifyUser, emailLayout, html } from "@/lib/email";
 import { commissionFor } from "@/lib/utils";
+import { mensajeDeError } from "@/lib/errores-db";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 const ars = (n: number) => "$" + n.toLocaleString("es-AR");
@@ -159,7 +160,10 @@ export async function marcarCompletado(jobId: string): Promise<{ error?: string;
     .update({ status: "completed" } as never)
     .eq("id", jobId)
     .eq("painter_id", user.id)
-    .eq("status", "accepted")
+    // `in_progress` también: filtrando sólo por 'accepted', un trabajo puesto en curso
+    // quedaba en un callejón sin salida — la acción afectaba 0 filas y no había forma de
+    // completarlo nunca más.
+    .in("status", ["accepted", "in_progress"])
     .select("id");
   if (error) return { error: mensajeDeError(error) };
   if (((data ?? []) as unknown[]).length === 0) return { error: "No se encontró el trabajo o no está en curso." };
@@ -254,36 +258,6 @@ export async function aceptarCotizacion(jobId: string): Promise<{ error?: string
   return { ok: true };
 }
 
-/**
- * Traduce el error de la base a algo que una persona pueda entender.
- *
- * Antes se devolvía `error.message` tal cual, así que el usuario veía en pantalla cosas
- * como "new row violates row-level security policy for table \"jobs\"" o el nombre de un
- * índice. Además de ser incomprensible, filtra nombres de tablas, constraints y policies.
- */
-function mensajeDeError(error: { message?: string; code?: string }): string {
-  const m = error?.message ?? "";
-  const code = error?.code ?? "";
-
-  if (code === "23505" || /duplicate key/i.test(m)) {
-    if (/uniq_jobs_quote_viva/.test(m)) return "Ya enviaste una cotización para este pedido.";
-    return "Ese registro ya existe.";
-  }
-  if (code === "42501" || /row-level security/i.test(m)) {
-    return "No podés hacer esa acción sobre este trabajo.";
-  }
-  if (/Transición no permitida/i.test(m)) {
-    return "Ese cambio de estado no está permitido para este trabajo.";
-  }
-  if (/monto|comisión/i.test(m) && /no puede|no corresponde|fuera de rango/i.test(m)) {
-    return m; // los raise del trigger ya están escritos para el usuario
-  }
-  if (/fetch failed|network|ENOTFOUND/i.test(m)) {
-    return "No pudimos conectar con el servidor. Probá de nuevo en un momento.";
-  }
-  console.error("[accion] error sin traducir:", m);
-  return "No pudimos completar la acción. Probá de nuevo.";
-}
 
 /**
  * Cancelar un trabajo. Lo puede hacer cualquiera de las dos partes.
