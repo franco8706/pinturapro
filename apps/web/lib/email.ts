@@ -11,6 +11,15 @@ import { escapeHtml } from "@/lib/utils";
 const RESEND_KEY = process.env.RESEND_API_KEY;
 const FROM = process.env.RESEND_FROM ?? "Pintura Pro <onboarding@resend.dev>";
 
+/**
+ * A dónde van los avisos de leads (presupuestos, contacto, postulaciones).
+ *
+ * Antes el destinatario salía de buscar el primer perfil con `is_admin`, y el único que
+ * existe es el sembrado `empresa@pinturapro.demo`. `.demo` no es un TLD real: cada aviso
+ * rebotaba duro, sin que nadie se enterara de que llegó un cliente.
+ */
+const LEADS_TO = process.env.LEADS_NOTIFY_EMAIL?.trim() || null;
+
 export const EMAIL_READY = !!RESEND_KEY;
 
 /** Email del usuario (vive en auth.users → solo accesible con service-role). */
@@ -26,21 +35,51 @@ async function getUserEmail(userId: string): Promise<string | null> {
 
 async function send(to: string, subject: string, html: string): Promise<void> {
   try {
-    await fetch("https://api.resend.com/emails", {
+    // Con timeout: sin esto, un Resend lento dejaba colgada la Server Action que lo espera,
+    // y con ella la pantalla del usuario.
+    const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${RESEND_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({ from: FROM, to, subject, html }),
+      signal: AbortSignal.timeout(8_000),
     });
-  } catch {
-    // Un email que falla no debe romper el flujo (cotizar/aceptar igual se completan).
+    // El status se miraba: antes un 403 por dominio no verificado, o un 422, se descartaban
+    // en silencio y nadie se enteraba de que los emails no estaban saliendo.
+    if (!res.ok) {
+      const detalle = await res.text().catch(() => "");
+      console.error(`[email] Resend respondió ${res.status}: ${detalle.slice(0, 200)}`);
+    }
+  } catch (e) {
+    // Un email que falla no debe romper el flujo (cotizar/aceptar igual se completan),
+    // pero sí tiene que quedar registrado.
+    console.error("[email] no se pudo enviar:", e instanceof Error ? e.message : String(e));
   }
 }
 
 /** Notifica a un usuario por email. No-op si Resend no está configurado. */
 export async function notifyUser(userId: string, subject: string, html: string): Promise<void> {
-  if (!RESEND_KEY) return;
+  if (!RESEND_KEY) {
+    console.warn("[email] RESEND_API_KEY sin configurar: no se envió el aviso —", subject);
+    return;
+  }
   const to = await getUserEmail(userId);
   if (to) await send(to, subject, html);
+}
+
+/**
+ * Avisa a la casilla de la empresa. Devuelve true si había a dónde mandarlo.
+ *
+ * Prefiere `LEADS_NOTIFY_EMAIL` sobre el perfil admin justamente para no depender de un dato
+ * sembrado: el llamador usa el perfil como respaldo sólo si la variable no está.
+ */
+export async function notifyLeadsInbox(subject: string, html: string): Promise<boolean> {
+  if (!LEADS_TO) return false;
+  if (!RESEND_KEY) {
+    console.warn("[email] RESEND_API_KEY sin configurar: no se envió el lead —", subject);
+    return true; // había destinatario; lo que falta es la key
+  }
+  await send(LEADS_TO, subject, html);
+  return true;
 }
 
 /**

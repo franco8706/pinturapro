@@ -3,7 +3,7 @@
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notifyUser, emailLayout, html } from "@/lib/email";
+import { notifyUser, notifyLeadsInbox, emailLayout, html } from "@/lib/email";
 import { SITE_URL } from "@/lib/site";
 
 /**
@@ -110,20 +110,6 @@ async function avisarAEmpresa(input: {
   details: Record<string, unknown>;
 }): Promise<void> {
   try {
-    const admin = createAdminClient();
-    // Antes buscaba "el primer perfil type=company", sin orden: con más de una empresa el
-    // destinatario era indeterminado, y si no había ninguna el aviso no se mandaba en silencio.
-    const { data } = await admin
-      .from("profiles")
-      .select("id")
-      .eq("is_admin", true)
-      .order("created_at", { ascending: true })
-      .limit(1);
-    const destinatario = (data as unknown as { id: string }[] | null)?.[0];
-    if (!destinatario) {
-      console.warn("[leads] no hay ningún perfil con is_admin: el aviso del lead no se envió");
-      return;
-    }
 
     const titulos = {
       quote: "Nuevo pedido de presupuesto",
@@ -135,20 +121,38 @@ async function avisarAEmpresa(input: {
       .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== "")
       .map(([k, v]) => html`<br/><strong>${k}:</strong> ${String(v)}`);
 
-    await notifyUser(
-      destinatario.id,
-      `${titulos[input.kind]} — ${input.name}`,
-      emailLayout(
-        titulos[input.kind],
-        html`<strong>${input.name}</strong>${input.email ? html` · ${input.email}` : html``}${input.phone
-          ? html` · ${input.phone}`
-          : html``}${input.message ? html`<br/><br/>${input.message}` : html``}${detalles.reduce(
-          (acc, d) => html`${acc}${d}`,
-          html``,
-        )}`,
-        { label: "Ver en el panel", href: `${SITE_URL}/admin` },
-      ),
+    const asunto = `${titulos[input.kind]} — ${input.name}`;
+    const cuerpo = emailLayout(
+      titulos[input.kind],
+      html`<strong>${input.name}</strong>${input.email ? html` · ${input.email}` : html``}${input.phone
+        ? html` · ${input.phone}`
+        : html``}${input.message ? html`<br/><br/>${input.message}` : html``}${detalles.reduce(
+        (acc, d) => html`${acc}${d}`,
+        html``,
+      )}`,
+      { label: "Ver en el panel", href: `${SITE_URL}/admin` },
     );
+
+    // Primero la casilla configurada. El perfil admin queda de respaldo porque el único que
+    // existe hoy es el sembrado `empresa@pinturapro.demo`, y `.demo` no es un TLD real: cada
+    // aviso rebotaba duro y nadie se enteraba de que había entrado un cliente.
+    if (await notifyLeadsInbox(asunto, cuerpo)) return;
+
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("is_admin", true)
+      .order("created_at", { ascending: true })
+      .limit(1);
+    const destinatario = (data as unknown as { id: string }[] | null)?.[0];
+    if (!destinatario) {
+      console.warn(
+        "[leads] sin LEADS_NOTIFY_EMAIL y sin ningún perfil is_admin: el aviso del lead no se envió",
+      );
+      return;
+    }
+    await notifyUser(destinatario.id, asunto, cuerpo);
   } catch (e) {
     console.error("[leads] no se pudo avisar a la empresa:", e instanceof Error ? e.message : String(e));
   }
