@@ -265,6 +265,49 @@ export const getPainterById = cache(async (id: string): Promise<PainterDetail | 
   }
 });
 
+/**
+ * Datos PROPIOS de un panel que no se pudieron LEER (permisos, red, base caída).
+ * Distinto de "todavía no tenés nada".
+ *
+ * Es el mismo razonamiento de `ErrorDeLecturaDePerfil` (ver más abajo), aplicado a las listas
+ * de los paneles privados. Confundir las dos cosas ya hizo daño: con la base ARRIBA pero
+ * `jobs` sin grant, /dashboard devolvía 200 y le decía "Trabajos completados: 0 · Todavía no
+ * tenés trabajos" a un pintor con nueve trabajos terminados, mientras el portfolio y las
+ * reseñas cargaban al lado como si nada. Ni el pintor ni nosotros nos enterábamos. Una lista
+ * vacía es una respuesta; una lectura que falla tiene que verse.
+ *
+ * Sólo para los paneles privados, donde la persona mira SUS datos. Las páginas públicas
+ * (directorio, obras, faqs, novedades, recursos) siguen cayendo a mocks a propósito: ahí
+ * mostrar algo es mejor que romper la página.
+ */
+export class ErrorDeLecturaDeDatos extends Error {
+  constructor(fuente: string, causa: string) {
+    super(`No se pudieron leer los datos (${fuente}): ${causa}`);
+    this.name = "ErrorDeLecturaDeDatos";
+  }
+}
+
+/** Los errores de PostgREST no son `Error`, son objetos `{ message, code, details, hint }`. */
+function causaDe(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (e && typeof e === "object" && "message" in e) return String((e as { message?: unknown }).message);
+  return String(e);
+}
+
+/**
+ * Convierte un fallo de lectura de panel en excepción que llega a `app/error.tsx`.
+ *
+ * El orden no es casual: `dbError` arranca con `unstable_rethrow`, que relanza las señales de
+ * control de Next (redirect, notFound, render dinámico). Si tiráramos lo nuestro antes, una
+ * redirección perfectamente normal se mostraría como "algo se rompió".
+ *
+ * Devuelve `never`, así el llamador no necesita un `return` muerto detrás.
+ */
+function errorDeLectura(fuente: string, e: unknown): never {
+  dbError(fuente, e);
+  throw new ErrorDeLecturaDeDatos(fuente, causaDe(e));
+}
+
 /** Obras publicadas de un dueño (portfolio del pintor/empresa). */
 export async function getProjectsByOwner(ownerId: string): Promise<Project[]> {
   if (!SUPA) return [];
@@ -278,14 +321,16 @@ export async function getProjectsByOwner(ownerId: string): Promise<Project[]> {
       .eq("owner_id", ownerId)
       .order("created_at", { ascending: false })
       .limit(24); // tope: portfolio de un pintor
-    if (error || !data) {
-      if (error) dbError("getProjectsByOwner", error);
-      return [];
-    }
+    // Falló la lectura: es distinto de "no hay filas" y no se puede mostrar como si fuera lo mismo.
+    if (error) errorDeLectura("getProjectsByOwner", error);
+    // Sin error y sin filas: genuinamente no hay nada todavía. La lista vacía es correcta.
+    if (!data) return [];
     return (data as unknown as ProjectRow[]).map(mapProject);
   } catch (e) {
-    dbError("getProjectsByOwner", e);
-    return [];
+    // Sin esto, el catch se tragaría la excepción de arriba y la volvería a convertir en la
+    // lista vacía, que es justo el comportamiento que este cambio viene a sacar.
+    if (e instanceof ErrorDeLecturaDeDatos) throw e;
+    errorDeLectura("getProjectsByOwner", e);
   }
 }
 
@@ -414,10 +459,10 @@ export async function getJobsForClient(clientId: string): Promise<ClientJobView[
       .eq("client_id", clientId)
       .order("created_at", { ascending: false })
       .limit(50); // tope: los ids alimentan .in() derivados
-    if (error || !data) {
-      if (error) dbError("getJobsForClient", error);
-      return [];
-    }
+    // Falló la lectura: es distinto de "no hay filas" y no se puede mostrar como si fuera lo mismo.
+    if (error) errorDeLectura("getJobsForClient", error);
+    // Sin error y sin filas: el cliente genuinamente no pidió ningún trabajo todavía.
+    if (!data) return [];
     const rows = data as unknown as {
       id: string;
       status: string;
@@ -464,8 +509,10 @@ export async function getJobsForClient(clientId: string): Promise<ClientJobView[
       reviewed: reviewed.has(r.id),
     }));
   } catch (e) {
-    dbError("getJobsForClient", e);
-    return [];
+    // Sin esto, el catch se tragaría la excepción de arriba y la volvería a convertir en la
+    // lista vacía, que es justo el comportamiento que este cambio viene a sacar.
+    if (e instanceof ErrorDeLecturaDeDatos) throw e;
+    errorDeLectura("getJobsForClient", e);
   }
 }
 
@@ -529,10 +576,10 @@ export async function getReviewsForPainter(painterId: string): Promise<ReviewVie
       .eq("target_id", painterId)
       .order("created_at", { ascending: false })
       .limit(30); // tope: reseñas de un perfil
-    if (error || !data) {
-      if (error) dbError("getReviewsForPainter", error);
-      return [];
-    }
+    // Falló la lectura: es distinto de "no hay filas" y no se puede mostrar como si fuera lo mismo.
+    if (error) errorDeLectura("getReviewsForPainter", error);
+    // Sin error y sin filas: el pintor genuinamente no tiene reseñas todavía.
+    if (!data) return [];
     const rows = data as unknown as {
       id: string;
       rating: number;
@@ -556,8 +603,10 @@ export async function getReviewsForPainter(painterId: string): Promise<ReviewVie
       comment: r.comment ?? "",
     }));
   } catch (e) {
-    dbError("getReviewsForPainter", e);
-    return [];
+    // Sin esto, el catch se tragaría la excepción de arriba y la volvería a convertir en la
+    // lista vacía, que es justo el comportamiento que este cambio viene a sacar.
+    if (e instanceof ErrorDeLecturaDeDatos) throw e;
+    errorDeLectura("getReviewsForPainter", e);
   }
 }
 
@@ -597,10 +646,10 @@ export async function getJobsForPainter(painterId: string): Promise<JobView[]> {
       .eq("painter_id", painterId)
       .order("created_at", { ascending: false })
       .limit(50); // tope: los ids alimentan .in() derivados
-    if (error || !data) {
-      if (error) dbError("getJobsForPainter", error);
-      return [];
-    }
+    // Falló la lectura: es distinto de "no hay filas" y no se puede mostrar como si fuera lo mismo.
+    if (error) errorDeLectura("getJobsForPainter", error);
+    // Sin error y sin filas: el pintor genuinamente no tiene trabajos todavía.
+    if (!data) return [];
     const rows = data as unknown as {
       id: string;
       status: string;
@@ -630,8 +679,10 @@ export async function getJobsForPainter(painterId: string): Promise<JobView[]> {
       project: r.project_id ? titles.get(r.project_id) ?? null : null,
     }));
   } catch (e) {
-    dbError("getJobsForPainter", e);
-    return [];
+    // Sin esto, el catch se tragaría la excepción de arriba y la volvería a convertir en la
+    // lista vacía, que es justo el comportamiento que este cambio viene a sacar.
+    if (e instanceof ErrorDeLecturaDeDatos) throw e;
+    errorDeLectura("getJobsForPainter", e);
   }
 }
 
@@ -725,10 +776,10 @@ export async function getQuotesForClient(clientId: string): Promise<QuoteView[]>
       .in("status", ["quoted", "accepted"])
       .order("created_at", { ascending: false })
       .limit(50); // tope: los ids alimentan .in() derivados
-    if (error || !data) {
-      if (error) dbError("getQuotesForClient", error);
-      return [];
-    }
+    // Falló la lectura: es distinto de "no hay filas" y no se puede mostrar como si fuera lo mismo.
+    if (error) errorDeLectura("getQuotesForClient", error);
+    // Sin error y sin filas: el cliente genuinamente no recibió cotizaciones todavía.
+    if (!data) return [];
     const rows = data as unknown as {
       id: string;
       amount: number | null;
@@ -779,8 +830,10 @@ export async function getQuotesForClient(clientId: string): Promise<QuoteView[]>
       };
     });
   } catch (e) {
-    dbError("getQuotesForClient", e);
-    return [];
+    // Sin esto, el catch se tragaría la excepción de arriba y la volvería a convertir en la
+    // lista vacía, que es justo el comportamiento que este cambio viene a sacar.
+    if (e instanceof ErrorDeLecturaDeDatos) throw e;
+    errorDeLectura("getQuotesForClient", e);
   }
 }
 
@@ -1100,10 +1153,10 @@ export async function getPedidosDelCliente(clientId: string): Promise<PedidoProp
       .eq("type", "service")
       .order("created_at", { ascending: false })
       .limit(50);
-    if (error || !data) {
-      if (error) dbError("getPedidosDelCliente", error);
-      return [];
-    }
+    // Falló la lectura: es distinto de "no hay filas" y no se puede mostrar como si fuera lo mismo.
+    if (error) errorDeLectura("getPedidosDelCliente", error);
+    // Sin error y sin filas: el cliente genuinamente no publicó ningún pedido todavía.
+    if (!data) return [];
     const rows = data as unknown as {
       id: string;
       title: string;
@@ -1123,7 +1176,10 @@ export async function getPedidosDelCliente(clientId: string): Promise<PedidoProp
       .from("jobs")
       .select("project_id, status")
       .in("project_id", rows.map((r) => r.id));
-    if (errJobs) dbError("getPedidosDelCliente/jobs", errJobs);
+    // Esta lectura no es decorativa: de acá salen `cotizaciones` y `estado`. Si falla y
+    // seguimos, el panel dice "Cerrado · Sin cotizaciones aún" sobre un pedido adjudicado,
+    // que es exactamente la mentira que el comentario de arriba viene a evitar.
+    if (errJobs) errorDeLectura("getPedidosDelCliente/jobs", errJobs);
     for (const j of (js ?? []) as unknown as { project_id: string | null; status: string }[]) {
       if (!j.project_id) continue;
       if (j.status === "quoted") conteo.set(j.project_id, (conteo.get(j.project_id) ?? 0) + 1);
@@ -1156,8 +1212,10 @@ export async function getPedidosDelCliente(clientId: string): Promise<PedidoProp
       };
     });
   } catch (e) {
-    dbError("getPedidosDelCliente", e);
-    return [];
+    // Sin esto, el catch se tragaría la excepción de arriba y la volvería a convertir en la
+    // lista vacía, que es justo el comportamiento que este cambio viene a sacar.
+    if (e instanceof ErrorDeLecturaDeDatos) throw e;
+    errorDeLectura("getPedidosDelCliente", e);
   }
 }
 

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navbar } from "@/components/features/navbar";
@@ -6,6 +7,7 @@ import { LevelBadge } from "@/components/features/level-badge";
 import { MagneticButton } from "@/components/features/magnetic-button";
 import { ReviewSystem } from "@/components/features/review-system";
 import { SectionLabel } from "@/components/features/states";
+import { unstable_rethrow } from "next/navigation";
 import { getPainterById, getProjectsByOwner, getReviewsForPainter, getPainterExtras } from "@/lib/queries";
 
 import type { Metadata } from "next";
@@ -44,11 +46,32 @@ export default async function PainterProfilePage({ params }: { params: Promise<{
   const painter = await getPainterById(id);
   if (!painter) notFound();
 
-  const [portfolio, reviews, extras] = await Promise.all([
-    getProjectsByOwner(id),
-    getReviewsForPainter(id),
+  /**
+   * Este perfil es PÚBLICO, así que el criterio no es el de un panel privado.
+   *
+   * Si el portfolio o las reseñas no se pueden leer, mostrar "0 obras · 0 reseñas" le hace
+   * daño real al pintor: un cliente ve a alguien sin trabajo ni opiniones y sigue de largo.
+   * Pero tirar la página entera por eso también es de más — el nombre, la bio y la zona sí
+   * se leyeron bien.
+   *
+   * Se degrada por sección: lo que se pudo leer se muestra, y lo que falló lo dice.
+   */
+  const seccion = async <T,>(cargar: () => Promise<T>, vacio: T): Promise<{ datos: T; fallo: boolean }> => {
+    try {
+      return { datos: await cargar(), fallo: false };
+    } catch (e) {
+      unstable_rethrow(e); // no atrapar las señales de control de Next
+      return { datos: vacio, fallo: true };
+    }
+  };
+
+  const [portfolioRes, reviewsRes, extras] = await Promise.all([
+    seccion(() => getProjectsByOwner(id), [] as Awaited<ReturnType<typeof getProjectsByOwner>>),
+    seccion(() => getReviewsForPainter(id), [] as Awaited<ReturnType<typeof getReviewsForPainter>>),
     getPainterExtras(id),
   ]);
+  const portfolio = portfolioRes.datos;
+  const reviews = reviewsRes.datos;
   const hasPhoto = painter.image?.startsWith("http");
 
   return (
@@ -58,10 +81,17 @@ export default async function PainterProfilePage({ params }: { params: Promise<{
       <section className="pt-32 sm:pt-40 pb-section">
         <div className="container-asymmetric grid grid-cols-1 lg:grid-cols-12 gap-12">
           <div className="lg:col-span-5">
-            <div className="aspect-square bg-mist overflow-hidden flex items-center justify-center">
+            <div className="relative aspect-square bg-mist overflow-hidden flex items-center justify-center">
               {hasPhoto ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={painter.image} alt={painter.name} className="w-full h-full object-cover" />
+                <Image
+                  src={painter.image}
+                  alt={painter.name}
+                  fill
+                  /* Columna 5/12 desde lg: ~520px tope con el contenedor en 1440px. */
+                  sizes="(max-width: 1023px) 100vw, (max-width: 1535px) 40vw, 520px"
+                  priority
+                  className="object-cover"
+                />
               ) : (
                 <span className="font-display text-display-xl text-concrete/50">{initials(painter.name)}</span>
               )}
@@ -114,11 +144,13 @@ export default async function PainterProfilePage({ params }: { params: Promise<{
                   <Link key={proj.id} href={`/obras/${proj.slug}`} className="group block">
                     <div className="relative aspect-[4/3] bg-concrete/10 overflow-hidden flex items-center justify-center">
                       {cover?.startsWith("http") ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <Image
                           src={cover}
                           alt={proj.title}
-                          className="w-full h-full object-cover transition-transform duration-700 ease-expo-out group-hover:scale-105"
+                          fill
+                          /* Portfolio: 1 columna hasta sm, 2 arriba (gap-6). */
+                          sizes="(max-width: 639px) 100vw, (max-width: 1535px) 50vw, 644px"
+                          className="object-cover transition-transform duration-700 ease-expo-out group-hover:scale-105"
                         />
                       ) : (
                         <span className="font-mono text-mono-sm text-concrete">{proj.title}</span>
