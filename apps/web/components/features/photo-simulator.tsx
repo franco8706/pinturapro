@@ -11,6 +11,15 @@ interface PhotoSimulatorProps {
 }
 
 const MAX_DIM = 1024;
+/**
+ * Tope de megapíxeles de la foto que se acepta.
+ *
+ * No es un capricho: iOS Safari corta en 16.777.216 px por canvas y ~384 MB de memoria total
+ * de canvas. Una foto de 50 MP ocupa 200 MB sólo al decodificarse, y cuando el sistema mata
+ * la pestaña por memoria `img.onerror` no se dispara — la persona ve desaparecer todo sin
+ * ningún mensaje. Mejor rechazarla con una explicación.
+ */
+const MAX_MEGAPIXELES = 24;
 
 /**
  * Simulador de color sobre foto — arquitectura cliente-servidor.
@@ -60,14 +69,47 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
   // remoto de segmentación, más lento pero a veces mejor en superficies muy texturadas.
   const [useAI, setUseAI] = useState(false);
   const drawing = useRef(false);
+  /** Canvas reutilizable para redibujar máscaras (ver la nota en pickAt). */
+  const scratchCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  /** Permite cancelar el análisis en curso: sin esto, un 4G que se corta dejaba el spinner
+   *  girando para siempre y todos los botones deshabilitados. */
+  const abortRef = useRef<AbortController | null>(null);
 
   // ---- Cargar imagen ----
-  const onFile = useCallback((file: File) => {
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, MAX_DIM / Math.max(img.width, img.height));
-      const w = Math.round(img.width * scale);
-      const h = Math.round(img.height * scale);
+  const onFile = useCallback(async (file: File) => {
+    setErrorMsg("");
+    let bitmap: ImageBitmap;
+    try {
+      // `createImageBitmap` con `resizeWidth/Height` decodifica YA ESCALADO: nunca materializa
+      // el bitmap completo. Con `new Image()` una foto de cámara de 50 MP —lo normal en un
+      // Redmi Note o un Galaxy A— ocupa 200 MB al decodificarse, por encima del techo de
+      // canvas de iOS Safari: la pestaña se recargaba sola y `img.onerror` NO dispara en ese
+      // caso, así que el usuario veía desaparecer todo sin un solo mensaje.
+      const probe = await createImageBitmap(file);
+      const mp = (probe.width * probe.height) / 1_000_000;
+      if (mp > MAX_MEGAPIXELES) {
+        probe.close();
+        setErrorMsg(
+          `La foto es demasiado grande (${mp.toFixed(0)} megapíxeles). Probá con una más chica o sacale una captura.`,
+        );
+        setStatus("error");
+        return;
+      }
+      const escala = Math.min(1, MAX_DIM / Math.max(probe.width, probe.height));
+      const w0 = Math.max(1, Math.round(probe.width * escala));
+      const h0 = Math.max(1, Math.round(probe.height * escala));
+      bitmap = escala < 1 ? await createImageBitmap(probe, { resizeWidth: w0, resizeHeight: h0 }) : probe;
+      if (bitmap !== probe) probe.close();
+    } catch {
+      setErrorMsg("No pudimos leer esa imagen. Probá con un JPG o PNG.");
+      setStatus("error");
+      return;
+    }
+
+    {
+      const img = bitmap;
+      const w = img.width;
+      const h = img.height;
       const off = document.createElement("canvas");
       off.width = w;
       off.height = h;
@@ -104,14 +146,9 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
 
       setHasSelection(false);
       setErrorMsg("");
-      URL.revokeObjectURL(img.src);
+      bitmap.close(); // el bitmap ya se copió al canvas; sin esto queda vivo en paralelo
       setStatus("ready");
-    };
-    img.onerror = () => {
-      setErrorMsg("No pudimos cargar la imagen.");
-      setStatus("error");
-    };
-    img.src = URL.createObjectURL(file);
+    }
   }, []);
 
   // ---- Datos derivados de la máscara: luminancia promedio (regla 1) + feather (regla 3) ----
@@ -154,24 +191,57 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
     if (color) {
       const [tr, tg, tb] = hexToRgb(color);
       const [th, ts, tl] = rgbToHsl(tr, tg, tb);
-      const avg = avgLumaRef.current;
       // CONTRAST: cuánta textura/sombra del muro se conserva (1 = copia 1:1, irreal).
-      // BAND: tope de cuánto puede aclararse/oscurecerse respecto al color elegido →
-      // evita parches lavados (blancos) o ennegrecidos en zonas de luz/sombra fuerte.
       const CONTRAST = 0.6;
-      const BAND = 0.34;
+
+      /**
+       * Ancla adaptativa, en vez del promedio de la pared.
+       *
+       * El promedio deja la mitad de los píxeles por encima del color elegido y la mitad por
+       * debajo. Con un color extremo eso no entra: "Blanco Puro" tiene L = 0.974 y casi no
+       * queda lugar hacia arriba, así que TODA la mitad clara del muro terminaba en el mismo
+       * valor. Anclando en un percentil alto para los claros (y bajo para los oscuros), la
+       * pared cae hacia el lado donde sí hay recorrido.
+       */
+      const pct = Math.max(12, Math.min(88, 50 + (tl - 0.5) * 70));
+      let anchor = avgLumaRef.current;
+      {
+        const muestras: number[] = [];
+        // Muestreo: alcanza para estimar un percentil y evita ordenar un millón de valores.
+        const paso = Math.max(1, Math.floor(alpha.length / 20000));
+        for (let i = 0; i < alpha.length; i += paso) if (alpha[i] > 0.5) muestras.push(luma[i]);
+        if (muestras.length > 1) {
+          muestras.sort((x, y) => x - y);
+          const k = (muestras.length - 1) * (pct / 100);
+          const f = Math.floor(k);
+          const c = Math.min(f + 1, muestras.length - 1);
+          anchor = muestras[f] + (muestras[c] - muestras[f]) * (k - f);
+        }
+      }
+
+      /**
+       * Hombro suave en lugar de recorte duro.
+       *
+       * El clamp a [0.04, 0.97] no comprimía: cortaba. Todo lo que se pasaba quedaba en el
+       * mismo número, y con eso se perdía la sombra del mueble y el grano del revoque justo
+       * en los colores más vendidos —blancos y negros—. Medido sobre una pared con degradado:
+       * 4 de cada 11 píxeles distintos salían idénticos.
+       *
+       * `tanh` comprime de forma asintótica: la pendiente es 1 en el origen (los tonos medios
+       * se comportan igual que antes) y se va cerrando cerca de los extremos sin llegar nunca
+       * a aplastar. Ningún par de píxeles distintos termina en el mismo valor.
+       */
+      const up = 1 - tl;
+      const down = tl;
       for (let i = 0; i < alpha.length; i++) {
         const a0 = alpha[i];
         if (a0 <= 0) continue;
         const p = i * 4;
         const ol = luma[i];
-        // Sombreado del muro, comprimido y acotado alrededor de la L del color.
-        let shade = (ol - avg) * CONTRAST;
-        if (shade > BAND) shade = BAND;
-        else if (shade < -BAND) shade = -BAND;
-        let nl = tl + shade;
-        if (nl < 0.04) nl = 0.04;
-        else if (nl > 0.97) nl = 0.97;
+        const shade = (ol - anchor) * CONTRAST;
+        let nl: number;
+        if (shade >= 0) nl = up > 1e-6 ? tl + up * Math.tanh(shade / up) : tl;
+        else nl = down > 1e-6 ? tl - down * Math.tanh(-shade / down) : tl;
         // Saturación casi plena (mantiene el tono); sólo baja un poco si el RESULTADO
         // es muy claro/oscuro (donde el ojo no distingue color igual).
         const rd = Math.abs(nl - 0.5) * 2;
@@ -218,11 +288,19 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
     setStatus("segmenting");
     setErrorMsg("");
     try {
+      // Sin señal de cancelación, un 4G que se corta dejaba el spinner girando para siempre
+      // y todos los botones deshabilitados, sin ninguna salida. El tope de 70s cubre el
+      // arranque en frío del modelo y corta antes de que la plataforma mate la función.
+      abortRef.current?.abort();
+      const ctrl = new AbortController();
+      abortRef.current = ctrl;
+      const corte = setTimeout(() => ctrl.abort(), 70_000);
       const res = await fetch("/api/segment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image: imageUrlRef.current, point: { x: 0.5, y: 0.5 }, width: w, height: h }),
-      });
+        signal: ctrl.signal,
+      }).finally(() => clearTimeout(corte));
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
@@ -271,12 +349,21 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
       segmentedRef.current = bank.length > 0;
       return segmentedRef.current;
     } catch (e) {
+      if ((e as Error)?.name === "AbortError") {
+        // Lo canceló la persona, o venció el tope de 70s. No es un error que reportar.
+        return false;
+      }
       console.error(e);
       setErrorMsg("No se pudo contactar al servidor de segmentación. Usá el 🖌 Pincel.");
       return false;
     } finally {
       segmentingRef.current = false;
-      setStatus("ready");
+      abortRef.current = null;
+      // `setStatus("ready")` incondicional rompía el editor: si la persona tocaba "Cambiar
+      // foto" durante el análisis, `reset()` dejaba el estado en "empty" y este finally lo
+      // pisaba con "ready" — quedaba el editor montado con la foto en null, un canvas gris
+      // de 300×150 y sin forma de subir otra. Sólo se vuelve a "ready" si hay foto cargada.
+      if (baseImageData.current) setStatus("ready");
     }
   }, []);
 
@@ -320,10 +407,16 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
       // Redibujamos la ganadora a resolución plena y la SUMAMOS a la selección (clics acumulativos).
       const img = await loadImage(best.url).catch(() => null);
       if (!img) return false;
-      const fc = document.createElement("canvas");
-      fc.width = w;
-      fc.height = h;
+      // Un solo canvas reusado, no uno por clic: cada uno pesa ~3 MB y el navegador no los
+      // libera enseguida. Con setenta clics se llegaba al techo de memoria de canvas de iOS
+      // ("Total canvas memory exceeds the limit") y la pestaña moría.
+      const fc = scratchCanvasRef.current ?? (scratchCanvasRef.current = document.createElement("canvas"));
+      if (fc.width !== w || fc.height !== h) {
+        fc.width = w;
+        fc.height = h;
+      }
       const fctx = fc.getContext("2d", { willReadFrequently: true })!;
+      fctx.clearRect(0, 0, w, h);
       fctx.drawImage(img, 0, 0, w, h);
       const fd = fctx.getImageData(0, 0, w, h).data;
       for (let i = 0; i < w * h; i++) if (isSet(fd, i * 4)) out[i] = 1;
@@ -348,13 +441,18 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
   // ese estado previo es lo que permite mover el slider de sensibilidad y ver el resultado
   // recalcularse en vivo, sin perder los clics anteriores ni acumular basura.
   const applyWand = useCallback(
-    (nx: number, ny: number, tol: number): boolean => {
+    (nx: number, ny: number, tol: number, opts?: { rapido?: boolean }): boolean => {
       const wand = wandRef.current;
       const out = maskRef.current;
       const { w, h } = dims.current;
       if (!wand || !out) return false;
 
-      const region = magicWand(wand, nx * w, ny * h, { tolerance: tol });
+      // `rapido` = se está arrastrando el slider: se saltea el cierre de huecos, que es el
+      // 66% del costo. El resultado se ve casi igual y la mano no siente el tirón.
+      const region = magicWand(wand, nx * w, ny * h, {
+        tolerance: tol,
+        ...(opts?.rapido ? { fillHoles: 0 } : {}),
+      });
 
       // Un clic sobre un objeto pequeño y muy contrastado (un cuadro, un enchufe, una junta)
       // queda encerrado entre bordes y devuelve una región mínima. Eso no le sirve a nadie:
@@ -406,11 +504,24 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
       );
   };
 
-  // Mover la sensibilidad recalcula el último clic en vivo (no hace falta volver a tocar).
+  /**
+   * Mover la sensibilidad recalcula el último clic en vivo.
+   *
+   * `fillHoles: 0` mientras se arrastra: cerrar huecos es el 66% del costo de la varita y su
+   * precio es fijo, no depende del contenido. Con el cierre puesto, cada evento del slider
+   * bloqueaba ~390 ms en un celular de gama media y la pantalla quedaba congelada casi dos
+   * segundos durante un arrastre. Al soltar se recalcula una vez con la calidad completa.
+   */
   const onToleranceChange = (value: number) => {
     setTolerance(value);
     const last = lastClickRef.current;
-    if (last && status === "ready") applyWand(last.x, last.y, value);
+    if (last && status === "ready") applyWand(last.x, last.y, value, { rapido: true });
+  };
+
+  /** Al soltar el slider: una pasada con la calidad completa. */
+  const onToleranceCommit = () => {
+    const last = lastClickRef.current;
+    if (last && status === "ready") applyWand(last.x, last.y, tolerance);
   };
 
   // ---- Pincel (ajuste manual) ----
@@ -621,6 +732,10 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
                   max={70}
                   value={tolerance}
                   onChange={(e) => onToleranceChange(Number(e.target.value))}
+                  // Al soltar, una pasada con la calidad completa (ver onToleranceCommit).
+                  onPointerUp={onToleranceCommit}
+                  onKeyUp={onToleranceCommit}
+                  onBlur={onToleranceCommit}
                 />
                 <span className="tabular-nums w-6">{tolerance}</span>
               </label>
