@@ -3,13 +3,20 @@ import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 120; // tolera cold start del modelo en Replicate
+// 60 y no 120: es el techo del plan Hobby de Vercel, que recorta igual. Pedir 120 sólo
+// lograba que la plataforma matara la función a los 60 con un 504 opaco — se pagaba la GPU
+// y el usuario no veía ni un error propio. Con este número el presupuesto de polling de
+// abajo cierra dentro de la ventana real.
+export const maxDuration = 60;
 
 // ─────────────────────── Límites ───────────────────────
 // Cada request de este endpoint crea una predicción en Replicate, que se cobra. Sin sesión
 // ni cuota, cualquiera en internet puede vaciar la cuenta a fuerza de POSTs.
 const MAX_IMAGE_CHARS = 8_000_000; // ~6MB de foto en base64
-const MAX_MASKS = 80; // SAM-2 con points_per_side=32 puede devolver cientos
+const MAX_MASKS = 48; // SAM-2 con points_per_side=32 puede devolver cientos
+// Tope de bytes de la respuesta. Vercel corta en 4,5 MB: 48 máscaras en base64 pueden
+// pasarse, y entonces la respuesta se pierde entera en vez de llegar recortada.
+const MAX_RESPONSE_BYTES = 3_200_000;
 const MASK_CONCURRENCY = 6; // descargarlas todas a la vez es un pico de memoria
 const RATE_LIMIT = { max: 12, windowMs: 60 * 60 * 1000 }; // 12 análisis por hora y usuario
 
@@ -223,7 +230,7 @@ async function segmentWithReplicate(image: string, point: { x: number; y: number
 
     // Polling hasta resolver (presupuesto generoso por si la instancia está fría).
     let tries = 0;
-    while (pred?.status && pred.status !== "succeeded" && pred.status !== "failed" && tries < 45) {
+    while (pred?.status && pred.status !== "succeeded" && pred.status !== "failed" && tries < 20) {
       await sleep(2000);
       res = await fetch(pred.urls.get, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30_000) });
       pred = await res.json();
@@ -255,10 +262,24 @@ async function segmentWithReplicate(image: string, point: { x: number; y: number
         return null;
       }
     });
-    const valid = masks.filter((m): m is string => !!m);
+    // Presupuesto de bytes: se acumula hasta el tope y se corta. Antes se devolvían las 80
+    // sin mirar el tamaño, y si el total pasaba el límite de la plataforma el usuario no
+    // recibía NADA — ni una máscara, ni un error entendible.
+    const valid: string[] = [];
+    let bytes = 0;
+    let truncated = false;
+    for (const m of masks) {
+      if (!m) continue;
+      if (bytes + m.length > MAX_RESPONSE_BYTES) {
+        truncated = true;
+        break;
+      }
+      valid.push(m);
+      bytes += m.length;
+    }
     if (valid.length === 0) return NextResponse.json({ error: "mask_fetch_failed" }, { status: 502 });
 
-    return NextResponse.json({ masks: valid });
+    return NextResponse.json({ masks: valid, truncated });
   } catch (e) {
     const message = msg(e);
     return NextResponse.json({ error: /timeout|abort/i.test(message) ? "replicate_timeout" : "replicate_call_failed", message }, { status: 504 });
