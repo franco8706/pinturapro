@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/features/navbar";
@@ -85,8 +86,17 @@ export default async function PainterDashboardPage() {
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-full bg-mist overflow-hidden flex items-center justify-center font-display text-display-md">
                 {painter.image?.startsWith("http") ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={painter.image} alt={painter.name} className="w-full h-full object-cover" />
+                  /* Avatar de 56px fijos (w-14 h-14): con medidas explícitas next/image
+                     sirve 56 y 112px para 1x/2x en vez de la foto entera. Arriba del
+                     pliegue, así que va sin lazy. */
+                  <Image
+                    src={painter.image}
+                    alt={painter.name}
+                    width={56}
+                    height={56}
+                    priority
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   firstName[0]
                 )}
@@ -216,11 +226,13 @@ export default async function PainterDashboardPage() {
                     <Link href={`/obras/${proj.slug}`} className="block">
                       <div className="relative aspect-[4/3] bg-mist overflow-hidden flex items-center justify-center">
                         {cover?.startsWith("http") ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
+                          <Image
                             src={cover}
                             alt={proj.title}
-                            className="w-full h-full object-cover transition-transform duration-700 ease-expo-out group-hover:scale-105"
+                            fill
+                            /* 1 / 2 / 3 columnas con gap-6: (1312 - 48) / 3 = 421px. */
+                            sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, (max-width: 1535px) 33vw, 421px"
+                            className="object-cover transition-transform duration-700 ease-expo-out group-hover:scale-105"
                           />
                         ) : (
                           <span className="font-mono text-mono-sm text-concrete">{proj.title}</span>

@@ -3,6 +3,7 @@ import { Footer } from "@/components/features/footer";
 import { MagneticButton } from "@/components/features/magnetic-button";
 import { BeforeAfterSlider } from "@/components/features/before-after-slider";
 import { getProjectBySlug } from "@/lib/queries";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 
 import type { Metadata } from "next";
@@ -56,8 +57,15 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
             <div className="lg:col-span-7">
               <div className="relative aspect-[16/10] overflow-hidden bg-mist">
                 {hasImage ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={cover} alt={project.title} className="absolute inset-0 w-full h-full object-cover" />
+                  <Image
+                    src={cover}
+                    alt={project.title}
+                    fill
+                    /* Columna 7/12 desde lg dentro del contenedor de 1440px: ~740px tope. */
+                    sizes="(max-width: 1023px) 100vw, (max-width: 1535px) 55vw, 760px"
+                    priority
+                    className="object-cover"
+                  />
                 ) : (
                   <div className="absolute inset-0 bg-concrete/10 flex items-center justify-center">
                     <span className="font-mono text-mono-sm text-concrete">{cover}</span>

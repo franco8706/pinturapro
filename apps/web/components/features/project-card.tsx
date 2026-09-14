@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -12,9 +13,12 @@ interface ProjectCardProps {
   imageSrc: string;
   slug: string;
   index?: number;
+  /** Sólo la primera tarjeta de una grilla que arranca arriba del pliegue (el listado de
+   *  /obras). En la home estas tarjetas quedan muy abajo, así que ahí va en lazy. */
+  priority?: boolean;
 }
 
-export function ProjectCard({ title, location, category, accentColor, imageSrc, slug, index = 0 }: ProjectCardProps) {
+export function ProjectCard({ title, location, category, accentColor, imageSrc, slug, index = 0, priority = false }: ProjectCardProps) {
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -27,11 +31,15 @@ export function ProjectCard({ title, location, category, accentColor, imageSrc, 
     >
       <div className="relative aspect-[4/5] overflow-hidden bg-mist">
         {imageSrc && imageSrc.startsWith("http") ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={imageSrc}
             alt={title}
-            className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-expo-out group-hover:scale-105"
+            fill
+            /* 1 columna hasta md, 2 hasta lg, 3 arriba, con gap-12 en lg:
+               (1312 - 96) / 3 = 405px es el máximo real. */
+            sizes="(max-width: 767px) 100vw, (max-width: 1023px) 50vw, (max-width: 1535px) 33vw, 405px"
+            priority={priority}
+            className="object-cover transition-transform duration-700 ease-expo-out group-hover:scale-105"
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-concrete/10">

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
@@ -36,10 +37,16 @@ export default async function NovedadesPage() {
                 const accent = ACCENTS[idx % ACCENTS.length];
                 const inner = (
                   <article className="group border border-concrete/15 h-full flex flex-col hover:border-ink transition-colors">
-                    <div className="aspect-[16/10] overflow-hidden" style={{ backgroundColor: accent }}>
+                    <div className="relative aspect-[16/10] overflow-hidden" style={{ backgroundColor: accent }}>
                       {item.coverUrl?.startsWith("http") && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={item.coverUrl} alt="" className="w-full h-full object-cover" />
+                        <Image
+                          src={item.coverUrl}
+                          alt=""
+                          fill
+                          /* 1 / 2 / 3 columnas con gap-6: (1312 - 48) / 3 = 421px. */
+                          sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, (max-width: 1535px) 33vw, 421px"
+                          className="object-cover"
+                        />
                       )}
                     </div>
                     <div className="p-6 flex flex-col flex-1">

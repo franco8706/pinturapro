@@ -112,6 +112,8 @@ export function NuevaObraForm({ initial }: { initial?: ObraInitial }) {
         <Label>Foto de la obra</Label>
         <label className="mt-2 flex flex-col items-center justify-center aspect-[16/9] border-2 border-dashed border-concrete/30 bg-mist cursor-pointer hover:border-ink transition-colors overflow-hidden">
           {preview ? (
+            // `preview` es un data URL del redimensionado en el cliente (o la foto ya subida).
+            // next/image no optimiza data:/blob:, así que acá el <img> crudo es lo correcto.
             // eslint-disable-next-line @next/next/no-img-element
             <img src={preview} alt="Vista previa" className="w-full h-full object-cover" />
           ) : (

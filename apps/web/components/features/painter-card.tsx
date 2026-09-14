@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { Painter } from "@/lib/data";
 import { LevelBadge } from "@/components/features/level-badge";
@@ -11,11 +12,16 @@ export function PainterCard({ painter, index = 0 }: { painter: Painter; index?: 
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-mist">
         {painter.image && painter.image.startsWith("http") ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={painter.image}
             alt={painter.name}
-            className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-expo-out group-hover:scale-105"
+            fill
+            /* Grilla de /pintores: 1 columna hasta md, 2 hasta lg, 3 arriba. El contenedor
+               corta en 1440px (menos 128px de padding en 2xl), con gap-8: la tarjeta nunca
+               pasa de (1312 - 64) / 3 = 416px. */
+            sizes="(max-width: 767px) 100vw, (max-width: 1023px) 50vw, (max-width: 1535px) 33vw, 416px"
+            priority={index === 0}
+            className="object-cover transition-transform duration-700 ease-expo-out group-hover:scale-105"
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-concrete/10">

@@ -44,7 +44,7 @@ export default async function PortfolioPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-12">
             {projects.map((project, index) => (
-              <ProjectCard key={project.id} title={project.title} location={project.location} category={project.category} accentColor={project.accentColor} imageSrc={project.images[0]} slug={project.slug} index={index} />
+              <ProjectCard key={project.id} title={project.title} location={project.location} category={project.category} accentColor={project.accentColor} imageSrc={project.images[0]} slug={project.slug} index={index} priority={index === 0} />
             ))}
           </div>
           <div className="mt-16 text-center">

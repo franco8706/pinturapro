@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useRef, useState } from "react";
 
 interface BeforeAfterSliderProps {
@@ -56,8 +57,16 @@ export function BeforeAfterSlider({ beforeImage, afterImage, accentColor = "#141
       {/* Después (fondo completo) */}
       <div className="absolute inset-0 flex items-center justify-center bg-concrete/5">
         {afterImage.startsWith("http") ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={afterImage} alt="Después" className="absolute inset-0 w-full h-full object-cover" />
+          /* El recorte vive en el `clipPath` del div de "Antes", no en la imagen, así que
+             `fill` (position:absolute + inset:0) no lo toca: las dos capas siguen
+             superpuestas y alineadas al píxel. */
+          <Image
+            src={afterImage}
+            alt="Después"
+            fill
+            sizes="(max-width: 1535px) 100vw, 1312px"
+            className="object-cover"
+          />
         ) : (
           <span className="font-mono text-mono-sm text-concrete">{afterImage}</span>
         )}
@@ -70,8 +79,13 @@ export function BeforeAfterSlider({ beforeImage, afterImage, accentColor = "#141
         style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
       >
         {beforeImage.startsWith("http") ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={beforeImage} alt="Antes" className="absolute inset-0 w-full h-full object-cover grayscale" />
+          <Image
+            src={beforeImage}
+            alt="Antes"
+            fill
+            sizes="(max-width: 1535px) 100vw, 1312px"
+            className="object-cover grayscale"
+          />
         ) : (
           <span className="font-mono text-mono-sm text-concrete">{beforeImage}</span>
         )}

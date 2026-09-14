@@ -86,6 +86,8 @@ export function PerfilForm({ initial }: { initial: Initial }) {
       <div className="flex items-center gap-6">
         <div className="w-24 h-24 rounded-full bg-mist overflow-hidden flex items-center justify-center font-display text-display-lg shrink-0">
           {preview ? (
+            // `preview` es un data URL del redimensionado en el cliente (o la foto ya subida).
+            // next/image no optimiza data:/blob:, así que acá el <img> crudo es lo correcto.
             // eslint-disable-next-line @next/next/no-img-element
             <img src={preview} alt="Tu foto" className="w-full h-full object-cover" />
           ) : (

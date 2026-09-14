@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import type { NewsItem } from "@/lib/queries";
 
@@ -34,10 +35,20 @@ export function NewsCarousel({ items }: { items: NewsItem[] }) {
             const accent = ACCENTS[idx % ACCENTS.length];
             const card = (
               <div className="grid grid-cols-1 md:grid-cols-2 min-h-[20rem] border border-concrete/15">
-                <div className="hidden md:block" style={{ backgroundColor: accent }}>
+                <div className="relative hidden md:block" style={{ backgroundColor: accent }}>
                   {item.coverUrl?.startsWith("http") && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.coverUrl} alt="" className="w-full h-full object-cover" />
+                    <Image
+                      src={item.coverUrl}
+                      alt=""
+                      fill
+                      /* Media pantalla desde md (656px con el contenedor tope), y 1px abajo
+                         de md porque ahí la columna está oculta: no tiene sentido bajar una
+                         foto que nadie ve. Todas en lazy: el carrusel está al final de la
+                         home y el color de acento del fondo hace de placeholder mientras
+                         entra la diapositiva. */
+                      sizes="(max-width: 767px) 1px, (max-width: 1535px) 50vw, 656px"
+                      className="object-cover"
+                    />
                   )}
                 </div>
                 <div className="p-8 sm:p-12 flex flex-col justify-center bg-bone">
