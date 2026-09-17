@@ -143,7 +143,7 @@ export default async function HomePage() {
                   con Alba, Sherwin, Sinteplast y Plavicon que no existe. La paleta es propia. */}
               <SectionLabel className="mb-4">Paletas por marca</SectionLabel>
               <h2 className="font-display text-display-lg max-w-2xl text-balance">
-                Elegí tu color, de tu marca preferida.
+                Probá el color antes de pintar.
               </h2>
             </div>
             <MagneticButton href="/colores" variant="ghost">

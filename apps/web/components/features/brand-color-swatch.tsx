@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import type { BrandColor } from "@/lib/brands";
+import { PALETA_DEMO, type BrandColor } from "@/lib/brands";
 
 interface BrandColorSwatchProps {
   color: BrandColor;
@@ -9,7 +9,13 @@ interface BrandColorSwatchProps {
   onClick?: () => void;
 }
 
-/** Muestra de color de marca con nombre y código. */
+/**
+ * Muestra de color con nombre y código.
+ *
+ * Con la paleta de muestra se muestra el hex y no el código: los códigos son inventados, y
+ * alguien que los anota y los pide en la pinturería se lleva la pintura equivocada. El hex,
+ * en cambio, es exactamente lo que se ve en pantalla y no promete nada sobre un producto.
+ */
 export function BrandColorSwatch({ color, selected, onClick }: BrandColorSwatchProps) {
   return (
     <button
@@ -30,7 +36,9 @@ export function BrandColorSwatch({ color, selected, onClick }: BrandColorSwatchP
       />
       <div className="mt-2">
         <p className="font-body text-body-sm text-ink leading-tight truncate">{color.name}</p>
-        <p className="font-mono text-mono-sm text-concrete">{color.code ?? color.hex.toUpperCase()}</p>
+        <p className="font-mono text-mono-sm text-concrete">
+          {!PALETA_DEMO && color.code ? color.code : color.hex.toUpperCase()}
+        </p>
       </div>
     </button>
   );

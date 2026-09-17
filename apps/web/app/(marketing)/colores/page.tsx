@@ -6,7 +6,7 @@ import { Footer } from "@/components/features/footer";
 import { MagneticButton } from "@/components/features/magnetic-button";
 import { BrandColorSwatch } from "@/components/features/brand-color-swatch";
 import { Reveal, SectionLabel } from "@/components/features/states";
-import { brands } from "@/lib/brands";
+import { brands, PALETA_DEMO } from "@/lib/brands";
 import { cn } from "@/lib/utils";
 
 type UsageFilter = "todos" | "interior" | "exterior";
@@ -25,13 +25,16 @@ export default function ColoresPage() {
       <section className="pt-32 sm:pt-40 pb-section">
         <div className="container-asymmetric">
           <div className="mb-12 max-w-3xl">
-            <SectionLabel className="mb-4">Cartas de color</SectionLabel>
+            <SectionLabel className="mb-4">{PALETA_DEMO ? "Paleta de muestra" : "Cartas de color"}</SectionLabel>
             <h1 className="font-display text-display-xl text-balance mb-6">
-              Una paleta para elegir tu color, marca por marca.
+              Probá colores antes de pintar.
             </h1>
+            {/* Decía "Explorá las paletas de Alba, Sherwin Williams, Sinteplast y Plavicon": con la
+                paleta de muestra eso atribuía a cada marca colores que no son suyos. */}
             <p className="font-body text-body-lg text-concrete">
-              Explorá las paletas de Alba, Sherwin Williams, Sinteplast y Plavicon. Elegí tu color y probalo en tu
-              propia foto con el simulador.
+              {PALETA_DEMO
+                ? "Elegí un color de esta paleta de ejemplo y probalo en tu propia foto con el simulador."
+                : "Explorá las paletas de cada marca. Elegí tu color y probalo en tu propia foto con el simulador."}
             </p>
           </div>
 
@@ -85,7 +88,12 @@ export default function ColoresPage() {
                     <h2 className="font-display text-display-md">{brand.name}</h2>
                     <span className="font-body text-body-sm text-concrete">· {colors.length} colores</span>
                   </div>
-                  <p className="font-body text-body-md text-concrete max-w-xl mb-6">{brand.description}</p>
+                  {/* La descripción nombra líneas de producto REALES (Albalatex, Loxon, Kem…). Junto a colores
+                      de muestra sugería que cada color pertenece a esa línea, así que se oculta hasta
+                      que la paleta sea la oficial. */}
+                  {!PALETA_DEMO && (
+                    <p className="font-body text-body-md text-concrete max-w-xl mb-6">{brand.description}</p>
+                  )}
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
                     {colors.map((color) => (
                       <BrandColorSwatch key={`${brand.id}-${color.name}`} color={color} />
@@ -106,19 +114,25 @@ export default function ColoresPage() {
             </MagneticButton>
           </div>
 
-          {/* El disclaimer anterior sólo avisaba que el color en pantalla varía. Faltaba lo
-              más importante: esta paleta es propia, no es la carta oficial de nadie, y no hay
-              relación comercial con las marcas. Los sitios oficiales no publican sus cartas en
-              un formato consultable (ver lib/brands.ts), así que los tonos son aproximaciones
-              curadas a mano. Presentarlas como el catálogo oficial era atribuirle a cada marca
-              algo que no dijo. */}
-          <p className="font-mono text-mono-sm text-concrete/60 mt-8 max-w-3xl">
-            * Paleta orientativa de elaboración propia, inspirada en tonos habituales de cada marca.
-            No es la carta de color oficial y no tenemos relación comercial con Alba, Sherwin Williams,
-            Sinteplast ni Plavicon; las marcas se nombran sólo como referencia. Los tonos en pantalla
-            son una aproximación y varían según el monitor. <strong>Antes de comprar, confirmá el color
-            con la carta física y el código oficial en el comercio.</strong>
-          </p>
+          {/* Los colores de esta página son de MUESTRA: se crearon para el desarrollo del proyecto,
+              no los proveyó ninguna marca (ver lib/brands.ts). Un aviso anterior decía "inspirada
+              en tonos habituales de cada marca", que todavía sugería un origen que no tienen.
+              Además iba en concrete/60 —2,25:1 de contraste— así que el aviso más importante de
+              la página era el más difícil de leer. */}
+          {PALETA_DEMO ? (
+            <p className="font-body text-body-sm text-concrete mt-8 max-w-3xl border-l-2 border-ink pl-4">
+              <strong className="text-ink">Colores de muestra.</strong> Esta paleta es de ejemplo: los
+              tonos y los nombres no son las cartas de color de Alba, Sherwin Williams, Sinteplast ni
+              Plavicon, y no tenemos relación comercial con esas marcas. Sirve para probar cómo se ve un
+              color en tu ambiente. <strong className="text-ink">Para comprar, elegí el color en la
+              carta física de la pinturería</strong> y pedí su código oficial.
+            </p>
+          ) : (
+            <p className="font-body text-body-sm text-concrete mt-8 max-w-3xl">
+              Los tonos en pantalla son una aproximación y varían según el monitor. Antes de comprar,
+              confirmá el color con la carta física en el comercio.
+            </p>
+          )}
         </div>
       </section>
       <Footer />

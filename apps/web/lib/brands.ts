@@ -1,14 +1,30 @@
 /**
- * Catálogo de colores por marca.
+ * Paleta de colores agrupada por marca.
  *
- * ⚠️ FUENTE DE DATOS: los sitios oficiales (Alba, Sherwin, Sinteplast, Plavicon)
- * NO exponen sus cartas de color en HTML — las renderan con apps JS internas.
- * Por eso esta data es **curada**: nombres/códigos reales y hex fieles/aproximados.
- * Para reemplazarla por datos oficiales ver `scripts/scrape-brands.mjs`.
+ * ⚠️ ESTOS DATOS SON DE MUESTRA. Los colores, los nombres y los códigos se crearon a mano
+ * para el desarrollo del proyecto: NO son las cartas de color de Alba, Sherwin Williams,
+ * Sinteplast ni Plavicon, y las marcas no los proveyeron. Este comentario decía antes
+ * "nombres/códigos reales", y eso era falso.
  *
- * `usage` indica si el color/línea aplica a interior, exterior o ambos, para
- * poder filtrar según lo que el cliente quiera pintar.
+ * El riesgo concreto no es de marca sino práctico: los códigos (`AL-100`, `RC-01`…) van
+ * pegados a líneas de producto que SÍ existen (Albalatex, Albamur). Una persona que anota el
+ * código en el simulador y lo pide en la pinturería se lleva otra pintura, o nada. Por eso,
+ * mientras `PALETA_DEMO` sea true, la interfaz no muestra ni códigos ni líneas.
+ *
+ * Para cargar las cartas reales: conseguirlas de cada marca (con autorización para
+ * publicarlas), reemplazar `brands`, y pasar `PALETA_DEMO` a false. Hay un esqueleto de
+ * scraper en `scripts/scrape-brands.mjs`, pero los sitios oficiales no exponen sus cartas en
+ * HTML — y aunque lo hicieran, publicarlas requiere permiso.
+ *
+ * `usage` indica si el color/línea aplica a interior, exterior o ambos, para poder filtrar
+ * según lo que el cliente quiera pintar.
  */
+
+/**
+ * true mientras la paleta sea la de muestra. Controla que la interfaz no muestre códigos ni
+ * líneas de producto inventados, y que los avisos digan que los colores son de ejemplo.
+ */
+export const PALETA_DEMO = true;
 
 export type Usage = "interior" | "exterior" | "ambos";
 
