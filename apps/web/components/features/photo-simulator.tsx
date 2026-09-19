@@ -868,7 +868,19 @@ function featherMask(mask: Uint8Array, alpha: Float32Array, w: number, h: number
       sum += tmp[y * w + x];
     }
     for (let y = 0; y < h; y++) {
-      alpha[y * w + x] = sum / win;
+      const i = y * w + x;
+      // Difuminado SÓLO hacia adentro.
+      //
+      // El desenfoque de la máscara es simétrico: ablanda el borde hacia los dos lados, así
+      // que la pintura se pasaba ~2 px sobre lo que no es pared. Medido sobre una moldura
+      // clara de 22 px: el 16,8% de la moldura terminaba con color encima, y eso es
+      // exactamente lo que se ve mal en una foto de un ambiente, donde las molduras, los
+      // marcos de puerta y los zócalos son finitos.
+      //
+      // Anulando el alfa fuera de la máscara, la rampa suave queda del lado de la pared:
+      // el borde sigue sin escalonarse, pero la pintura no invade al vecino. Es lo que hace
+      // la cinta de enmascarar: el corte va justo en el filo.
+      alpha[i] = mask[i] ? sum / win : 0;
       const yin = y + radius + 1;
       const yout = y - radius;
       sum += tmp[(yin >= h ? h - 1 : yin) * w + x] - tmp[(yout < 0 ? 0 : yout) * w + x];
