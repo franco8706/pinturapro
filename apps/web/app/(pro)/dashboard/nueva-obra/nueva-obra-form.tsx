@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { createObra, updateObra } from "../actions";
 
@@ -42,8 +42,17 @@ export function NuevaObraForm({ initial }: { initial?: ObraInitial }) {
     }
   }
 
+  /**
+   * Cerrojo sincrónico contra el doble envío. `disabled={loading}` no alcanza: el estado de
+   * React recién se ve después de repintar, así que varios clics dentro del mismo instante
+   * entran todos. Medido en /contacto: tres clics seguidos crearon TRES consultas.
+   */
+  const enviando = useRef(false);
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (enviando.current) return;
+    enviando.current = true;
     setError("");
     setLoading(true);
     try {
@@ -60,6 +69,7 @@ export function NuevaObraForm({ initial }: { initial?: ObraInitial }) {
       if (res?.error) {
         setError(res.error);
         setLoading(false);
+        enviando.current = false;
       }
       // En éxito, el server action redirige al dashboard.
     } catch (e) {
@@ -71,6 +81,7 @@ export function NuevaObraForm({ initial }: { initial?: ObraInitial }) {
       console.error("[nueva-obra] falló:", e);
       setError("No pudimos guardar la obra. Revisá tu conexión y probá de nuevo.");
       setLoading(false);
+      enviando.current = false;
     }
   }
 

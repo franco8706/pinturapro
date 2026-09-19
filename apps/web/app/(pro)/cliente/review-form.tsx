@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { dejarResena } from "@/app/(marketplace)/actions";
 
 /** Formulario de reseña (estrellas + comentario) para un trabajo completado. */
@@ -12,12 +12,23 @@ export function ReviewForm({ jobId, painterId, painter }: { jobId: string; paint
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
 
+  /**
+   * Cerrojo sincrónico contra el doble envío. `disabled={loading}` no alcanza: el estado de
+   * React recién se ve después de repintar, así que varios clics dentro del mismo instante
+   * entran todos. Medido en /contacto: tres clics seguidos crearon TRES consultas.
+   */
+  const enviando = useRef(false);
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (enviando.current) return;
+    // La validación va ANTES de trabar: si no, salir por acá dejaría el cerrojo puesto para
+    // siempre y el formulario no volvería a enviarse nunca.
     if (!rating) {
       setError("Elegí una calificación.");
       return;
     }
+    enviando.current = true;
     setError("");
     setLoading(true);
     const fd = new FormData(e.currentTarget);
@@ -36,6 +47,7 @@ export function ReviewForm({ jobId, painterId, painter }: { jobId: string; paint
       setError("No pudimos guardar la reseña. Revisá tu conexión y probá de nuevo.");
     } finally {
       setLoading(false);
+      enviando.current = false;
     }
   }
 

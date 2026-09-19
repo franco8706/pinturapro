@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { updateProfile } from "../actions";
 
@@ -51,8 +51,17 @@ export function PerfilForm({ initial }: { initial: Initial }) {
     }
   }
 
+  /**
+   * Cerrojo sincrónico contra el doble envío. `disabled={loading}` no alcanza: el estado de
+   * React recién se ve después de repintar, así que varios clics dentro del mismo instante
+   * entran todos. Medido en /contacto: tres clics seguidos crearon TRES consultas.
+   */
+  const enviando = useRef(false);
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (enviando.current) return;
+    enviando.current = true;
     setError("");
     setLoading(true);
     try {
@@ -63,6 +72,7 @@ export function PerfilForm({ initial }: { initial: Initial }) {
       if (res?.error) {
         setError(res.error);
         setLoading(false);
+        enviando.current = false;
       }
       // En éxito redirige al panel.
     } catch (e) {
@@ -74,6 +84,7 @@ export function PerfilForm({ initial }: { initial: Initial }) {
       console.error("[perfil] falló:", e);
       setError("No pudimos guardar el perfil. Revisá tu conexión y probá de nuevo.");
       setLoading(false);
+      enviando.current = false;
     }
   }
 

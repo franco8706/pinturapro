@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { cotizar } from "../actions";
 
 /** Formulario inline para que un pintor cotice un pedido de trabajo. */
@@ -10,8 +10,17 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
 
+  /**
+   * Cerrojo sincrónico contra el doble envío. `disabled={loading}` no alcanza: el estado de
+   * React recién se ve después de repintar, así que varios clics dentro del mismo instante
+   * entran todos. Medido en /contacto: tres clics seguidos crearon TRES consultas.
+   */
+  const enviando = useRef(false);
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (enviando.current) return;
+    enviando.current = true;
     setError("");
     setLoading(true);
     const fd = new FormData(e.currentTarget);
@@ -30,6 +39,7 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
       setError("No pudimos enviar la cotización. Revisá tu conexión y probá de nuevo.");
     } finally {
       setLoading(false);
+      enviando.current = false;
     }
   }
 
