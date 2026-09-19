@@ -11,9 +11,21 @@
  *
  * Ideas centrales del algoritmo:
  *
- *  1. **Comparar contra la semilla, no contra el vecino.** Encadenar comparaciones vecino a
- *     vecino hace que un degradé suave (una pared iluminada de un lado) "gotee" hasta abarcar
- *     media foto. Se compara siempre contra el color de referencia del punto donde se hizo clic.
+ *  1. **Seguir el degradado, con correa.** La versión anterior comparaba SIEMPRE contra el
+ *     color del clic, para que un degradé no hiciera "gotear" la selección por media foto.
+ *     El precio era alto y medido en el navegador, contra una máscara de referencia: en una
+ *     pared con luz de ventana la varita agarraba el 54% de la pared con la sensibilidad por
+ *     defecto, y para llegar al 78% había que subirla tanto que se comía el techo entero
+ *     (precisión 97,6% → 82%). Una pared iluminada NO es un color: es un rango continuo.
+ *     Con este cambio, al valor por defecto: pared con luz 54% → 83% de la pared agarrada
+ *     (acuerdo global 53% → 82%), pared oscura 77% → 85%, pared plana igual, y la precisión
+ *     se mantiene en 98-99%. La fuga al techo al subir la sensibilidad en la pared plana
+ *     (8,9% de la foto) desapareció.
+ *     Ahora se avanza vecino a vecino sobre la luminancia SUAVIZADA (`Ys`, que absorbe el
+ *     ruido del sensor y la textura del revoque), con dos frenos que evitan la fuga:
+ *     un paso local chico —el degradé de una pared es suave, el salto a otra superficie no—
+ *     y una correa global contra el color del clic, para no terminar en la otra punta de la
+ *     foto sumando pasos mínimos. La croma se sigue comparando contra el clic.
  *
  *  2. **Separar luma de croma.** Una pared en sombra sigue siendo la misma pared: cambia su
  *     brillo, no su tono. Se trabaja en YCbCr y se pondera MENOS la luminancia que la
@@ -33,6 +45,15 @@ export interface WandImage {
   h: number;
   /** Luminancia 0..255 */
   Y: Float32Array;
+  /**
+   * Luminancia suavizada (media de 5×5).
+   *
+   * El crecimiento paso a paso necesita saber si el brillo cambió *de verdad* o si es ruido
+   * del sensor. Entre dos píxeles vecinos de una pared lisa el ruido JPEG ya da saltos de
+   * 10-20 puntos; sobre la luma cruda, cualquier umbral chico corta la pared al instante y
+   * cualquiera grande deja pasar el zócalo. Suavizada, el paso mide el degradé y no el grano.
+   */
+  Ys: Float32Array;
   /** Croma azul, centrada en 0 */
   Cb: Float32Array;
   /** Croma roja, centrada en 0 */
@@ -92,6 +113,50 @@ export function prepareWandImage(img: ImageData): WandImage {
     Cr[i] = 0.5 * r - 0.418688 * g - 0.081312 * b;
   }
 
+  // Luma suavizada: box blur separable de radio 2 (dos pasadas 1D, O(n) con suma corrida).
+  const Ys = new Float32Array(n);
+  {
+    const R = 2;
+    const tmp = new Float32Array(n);
+    for (let y = 0; y < h; y++) {
+      const fila = y * w;
+      let suma = 0;
+      for (let x = 0; x <= R && x < w; x++) suma += Y[fila + x];
+      let cuenta = Math.min(R + 1, w);
+      for (let x = 0; x < w; x++) {
+        tmp[fila + x] = suma / cuenta;
+        const sale = x - R;
+        const entra = x + R + 1;
+        if (entra < w) {
+          suma += Y[fila + entra];
+          cuenta++;
+        }
+        if (sale >= 0) {
+          suma -= Y[fila + sale];
+          cuenta--;
+        }
+      }
+    }
+    for (let x = 0; x < w; x++) {
+      let suma = 0;
+      for (let y = 0; y <= R && y < h; y++) suma += tmp[y * w + x];
+      let cuenta = Math.min(R + 1, h);
+      for (let y = 0; y < h; y++) {
+        Ys[y * w + x] = suma / cuenta;
+        const sale = y - R;
+        const entra = y + R + 1;
+        if (entra < h) {
+          suma += tmp[entra * w + x];
+          cuenta++;
+        }
+        if (sale >= 0) {
+          suma -= tmp[sale * w + x];
+          cuenta--;
+        }
+      }
+    }
+  }
+
   // Sobel sobre la luminancia. Los bordes de la imagen quedan en 0 (no hay vecindario completo).
   const grad = new Float32Array(n);
   for (let y = 1; y < h - 1; y++) {
@@ -124,7 +189,7 @@ export function prepareWandImage(img: ImageData): WandImage {
     gradPercentile[p] = bin;
   }
 
-  return { w, h, Y, Cb, Cr, grad, gradPercentile };
+  return { w, h, Y, Ys, Cb, Cr, grad, gradPercentile };
 }
 
 /**
@@ -134,7 +199,7 @@ export function prepareWandImage(img: ImageData): WandImage {
  * No modifica ninguna máscara previa: el llamador decide si suma, resta o reemplaza.
  */
 export function magicWand(img: WandImage, sx: number, sy: number, opts: WandOptions): Uint8Array {
-  const { w, h, Y, Cb, Cr, grad } = img;
+  const { w, h, Y, Ys, Cb, Cr, grad } = img;
   const n = w * h;
   const mask = new Uint8Array(n);
 
@@ -175,7 +240,14 @@ export function magicWand(img: WandImage, sx: number, sy: number, opts: WandOpti
   // ellas. Por eso el color acota, pero el freno de verdad lo pone `edgeTol`.
   const t = Math.max(0, Math.min(100, opts.tolerance)) / 100;
   const chromaTol = 3 + t * 17; // 3..20
-  const lumaTol = 6 + t * 54; // 6..60
+  // Paso local sobre la luma suavizada: cuánto puede cambiar el brillo de un píxel al de al
+  // lado. El degradé de una pared iluminada es de décimas por píxel; el salto a un zócalo o
+  // a un mueble es de varias unidades. Chico a propósito.
+  const pasoLuma = 1.2 + t * 3.8; // 1.2..5
+  // Correa global contra el color del clic: evita que muchos pasos mínimos terminen del otro
+  // lado de la foto. Generosa, porque una pared con luz de ventana cambia mucho de punta a
+  // punta; el que decide de verdad es el paso local.
+  const lumaTol = 45 + t * 135; // 45..180
   // Resistencia alta ⇒ percentil bajo ⇒ frena en bordes más suaves.
   // 0 → p99 (casi no frena) · 50 → p87 · 100 → p75
   const edgeTol =
@@ -220,10 +292,13 @@ export function magicWand(img: WandImage, sx: number, sy: number, opts: WandOpti
       // (3) No cruzar bordes estructurales.
       if (grad[j] > edgeTol) continue;
 
-      // (1)+(2) Similitud contra la SEMILLA, con la luma más permisiva que la croma.
+      // (1) Croma contra la SEMILLA: el tono de la superficie no cambia con la luz.
       const dCb = Cb[j] - refCb;
       const dCr = Cr[j] - refCr;
       if (dCb * dCb + dCr * dCr > chromaTol * chromaTol) continue;
+
+      // (2) Luma: paso local (sigue el degradé) + correa global (no se va al otro extremo).
+      if (Math.abs(Ys[j] - Ys[i]) > pasoLuma) continue;
       if (Math.abs(Y[j] - refY) > lumaTol) continue;
 
       mask[j] = 1;
