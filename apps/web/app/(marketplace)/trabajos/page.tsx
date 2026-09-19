@@ -3,7 +3,7 @@ import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { SectionLabel, EmptyState } from "@/components/features/states";
 import { createClient } from "@/lib/supabase/server";
-import { getOpenServiceRequests, formatARS } from "@/lib/queries";
+import { getOpenServiceRequests, getOwnProfile, formatARS } from "@/lib/queries";
 import { QuoteForm } from "./quote-form";
 
 import type { Metadata } from "next";
@@ -29,6 +29,19 @@ export default async function TrabajosPage() {
   } = await supabase.auth.getUser();
 
   const requests = await getOpenServiceRequests();
+
+  // Esta página es el lado de la oferta. A una cuenta de cliente se le mostraba el
+  // formulario de cotización sobre los pedidos ajenos, y la cotización se creaba de
+  // verdad (medido). Si el perfil no se puede leer, se muestra igual: la base rechaza
+  // al que no es pintor (policy jobs_insert_painter_quote, migración 0016).
+  let esCliente = false;
+  if (user) {
+    try {
+      esCliente = (await getOwnProfile(user.id))?.type === "client";
+    } catch {
+      esCliente = false;
+    }
+  }
 
   return (
     <main>
@@ -75,6 +88,13 @@ export default async function TrabajosPage() {
                       </Link>
                     ) : user.id === r.ownerId ? (
                       <p className="mt-4 font-body text-body-sm text-concrete">Este es tu pedido.</p>
+                    ) : esCliente ? (
+                      <p className="mt-4 font-body text-body-sm text-concrete">
+                        Las cotizaciones las envían los pintores.{" "}
+                        <Link href="/cliente" className="text-ink underline underline-offset-2">
+                          Volver a mi panel
+                        </Link>
+                      </p>
                     ) : (
                       <QuoteForm projectId={r.id} clientId={r.ownerId} />
                     )}

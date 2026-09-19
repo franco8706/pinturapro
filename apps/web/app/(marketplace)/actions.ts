@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { notifyUser, emailLayout, html } from "@/lib/email";
 import { commissionFor } from "@/lib/utils";
 import { mensajeDeError } from "@/lib/errores-db";
+import { getOwnProfile } from "@/lib/queries";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 const ars = (n: number) => "$" + n.toLocaleString("es-AR");
@@ -95,7 +96,8 @@ export async function publicarTrabajo(formData: FormData): Promise<{ error?: str
 
 /**
  * Un pintor envía una cotización (jobs status='quoted') a un pedido de trabajo.
- * RLS valida que painter_id = auth.uid() y que el pedido exista y sea del client_id declarado.
+ * RLS valida que painter_id = auth.uid(), que sea pintor (0016) y que el pedido
+ * exista y sea del client_id declarado.
  */
 export async function cotizar(formData: FormData): Promise<{ error?: string; ok?: boolean }> {
   const supabase = await createClient();
@@ -111,6 +113,21 @@ export async function cotizar(formData: FormData): Promise<{ error?: string; ok?
   if (!projectId || !clientId) return { error: "Faltan datos del pedido." };
   if (!amount) return { error: "Ingresá un monto válido." };
   if (clientId === user.id) return { error: "No podés cotizar tu propio pedido." };
+
+  // El rol también se verifica acá, no sólo en la base: la policy devuelve un error
+  // de permisos genérico y quien lo lea tiene que entender qué pasó. Medido: una
+  // cuenta de cliente podía cotizar el pedido de otro cliente y el trabajo se creaba.
+  // Si la lectura del perfil falla, no se bloquea por las dudas: la policy de la base
+  // ya rechaza al que no es pintor, y ésta es sólo la capa que explica el motivo.
+  let perfil = null;
+  try {
+    perfil = await getOwnProfile(user.id);
+  } catch {
+    perfil = null;
+  }
+  if (perfil && perfil.type === "client") {
+    return { error: "Las cotizaciones las envían los pintores. Tu cuenta es de cliente." };
+  }
 
   const commission_amount = commissionFor(amount);
   const payload = {

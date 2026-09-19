@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { CONTACTO, whatsappLegible } from "@/lib/empresa";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
@@ -10,6 +10,15 @@ export default function ContactoPage() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  /**
+   * Cerrojo sincrónico contra el doble envío.
+   *
+   * `disabled={pending}` no alcanza: `setPending(true)` recién se ve después de que React
+   * vuelve a pintar, así que varios clics dentro del mismo tick entran todos. Medido: tres
+   * clics seguidos en este formulario crearon TRES consultas idénticas en la base, que es
+   * lo que ve el dueño en su bandeja. Un ref se actualiza en el acto.
+   */
+  const enviando = useRef(false);
   const [form, setForm] = useState({ name: "", email: "", message: "" });
   // Campo trampa: invisible para una persona, los bots lo completan.
   const [website, setWebsite] = useState("");
@@ -62,6 +71,8 @@ export default function ContactoPage() {
                 noValidate
                 onSubmit={(e) => {
                   e.preventDefault();
+                  if (enviando.current) return;
+                  enviando.current = true;
                   setError("");
                   const fd = new FormData();
                   fd.set("name", form.name);
@@ -79,6 +90,7 @@ export default function ContactoPage() {
                       setError("No pudimos enviar el mensaje. Revisá tu conexión y probá de nuevo.");
                     } finally {
                       setPending(false);
+                      enviando.current = false;
                     }
                   })();
                 }}
