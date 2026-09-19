@@ -92,7 +92,10 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
         setErrorMsg(
           `La foto es demasiado grande (${mp.toFixed(0)} megapíxeles). Probá con una más chica o sacale una captura.`,
         );
-        setStatus("error");
+        // "empty" y no "error": el selector de archivos sólo se dibuja en "empty". Con
+        // "error" quedaba el editor abierto con el lienzo vacío y SIN forma de elegir otra
+        // foto — la única salida era recargar la página. Medido, reproducible 2 de 2.
+        setStatus("empty");
         return;
       }
       const escala = Math.min(1, MAX_DIM / Math.max(probe.width, probe.height));
@@ -102,7 +105,7 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
       if (bitmap !== probe) probe.close();
     } catch {
       setErrorMsg("No pudimos leer esa imagen. Probá con un JPG o PNG.");
-      setStatus("error");
+      setStatus("empty"); // mismo motivo: tiene que poder elegir otra foto (ver arriba)
       return;
     }
 
@@ -608,6 +611,11 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
           <span className="font-display text-display-md text-concrete mb-2">＋</span>
           <span className="font-body text-body-md text-ink">Subí una foto de tu ambiente</span>
           <span className="font-body text-body-sm text-concrete mt-1">JPG o PNG · pared, frente o fachada</span>
+          {/* El aviso de una foto rechazada se mostraba sólo dentro del editor, que en ese
+              caso no se llega a abrir: la persona volvía acá sin saber por qué. */}
+          {errorMsg && (
+            <span className="font-body text-body-sm text-[#C41E3A] mt-4 max-w-sm text-center px-4">{errorMsg}</span>
+          )}
           {/* `sr-only` y no `hidden`: display:none saca el input del orden de tabulación, así
               que NO había forma de subir una foto con el teclado. sr-only lo oculta a la vista
               pero lo deja alcanzable y enfocable. */}
