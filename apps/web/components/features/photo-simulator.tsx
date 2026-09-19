@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { prepareWandImage, magicWand, type WandImage } from "@/lib/magic-wand";
+import { rgbAOklab, rgbAOklch, oklabASrgb } from "@/lib/oklab";
 
 type Status = "empty" | "ready" | "segmenting" | "error";
 
@@ -38,10 +39,14 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
   const viewRef = useRef<HTMLCanvasElement>(null);
   const baseImageData = useRef<ImageData | null>(null);
   const compositeRef = useRef<ImageData | null>(null);
-  const lumaRef = useRef<Float32Array | null>(null); // luminancia HSL por píxel (cache)
+  const lumaRef = useRef<Float32Array | null>(null); // luminosidad perceptual (OKLab L) por píxel
+  /** Croma de la foto original en OKLab (a, b intercalados). Hace falta para mezclar la
+   *  pintura con la foto EN ESPACIO PERCEPTUAL: mezclar en sRGB, cerca del negro, hacía
+   *  que el 10% de foto original que deja la intensidad exagerara el grano del revoque. */
+  const cromaRef = useRef<Float32Array | null>(null);
   const maskRef = useRef<Uint8Array | null>(null); // máscara binaria
   const alphaRef = useRef<Float32Array | null>(null); // máscara con bordes difuminados (0..1)
-  const avgLumaRef = useRef(0.5); // luminancia promedio de la pared seleccionada
+  const avgLumaRef = useRef(0.5); // luminosidad perceptual promedio de la pared seleccionada
   const imageUrlRef = useRef<string>(""); // dataURL de la foto (para enviar al server)
   const dims = useRef({ w: 0, h: 0 });
   const segmentingRef = useRef(false); // guard anti clics múltiples
@@ -128,13 +133,21 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
       imageUrlRef.current = off.toDataURL("image/jpeg", 0.85); // para enviar al backend
       dims.current = { w, h };
 
-      // cache de luminancia (HSL L) por píxel, una sola vez
+      // Cache de luminosidad PERCEPTUAL (OKLab L) por píxel, una sola vez.
+      // Antes era la L de HSL —(max+min)/2—, que no mide lo que ve el ojo: la textura que
+      // sobrevivía al pintar dependía del color elegido (0,51 con Marfil, 1,04 con Negro
+      // Mate, cuando debería ser 0,6 siempre). Ver lib/oklab.ts.
       const luma = new Float32Array(w * h);
+      const croma = new Float32Array(w * h * 2);
       for (let i = 0; i < w * h; i++) {
         const p = i * 4;
-        luma[i] = (Math.max(base.data[p], base.data[p + 1], base.data[p + 2]) + Math.min(base.data[p], base.data[p + 1], base.data[p + 2])) / 2 / 255;
+        const [L, a, b] = rgbAOklab(base.data[p], base.data[p + 1], base.data[p + 2]);
+        luma[i] = L;
+        croma[i * 2] = a;
+        croma[i * 2 + 1] = b;
       }
       lumaRef.current = luma;
+      cromaRef.current = croma;
 
       // Preproceso de la varita: YCbCr + gradiente + percentiles (~25 ms). Se hace acá, una
       // sola vez, para que después cada clic sea instantáneo.
@@ -185,15 +198,20 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
     const canvas = viewRef.current;
     const composite = compositeRef.current;
     const luma = lumaRef.current;
+    const croma = cromaRef.current;
     const alpha = alphaRef.current;
-    if (!base || !canvas || !composite || !luma || !alpha) return;
+    if (!base || !canvas || !composite || !luma || !croma || !alpha) return;
     const src = base.data;
     const data = composite.data;
     data.set(src);
 
     if (color) {
       const [tr, tg, tb] = hexToRgb(color);
-      const [th, ts, tl] = rgbToHsl(tr, tg, tb);
+      // Tono y croma del color elegido se mantienen; lo único que varía píxel a píxel es la
+      // luminosidad, que es lo que hacen la luz y la sombra sobre una pared pintada.
+      const { L: tl, C: tc, h: th } = rgbAOklch(tr, tg, tb);
+      const cosH = Math.cos(th);
+      const senH = Math.sin(th);
       // CONTRAST: cuánta textura/sombra del muro se conserva (1 = copia 1:1, irreal).
       const CONTRAST = 0.6;
 
@@ -245,16 +263,23 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
         let nl: number;
         if (shade >= 0) nl = up > 1e-6 ? tl + up * Math.tanh(shade / up) : tl;
         else nl = down > 1e-6 ? tl - down * Math.tanh(-shade / down) : tl;
-        // Saturación casi plena (mantiene el tono); sólo baja un poco si el RESULTADO
-        // es muy claro/oscuro (donde el ojo no distingue color igual).
+        // El croma baja un poco en los extremos, donde el ojo distingue menos color y donde
+        // la pantalla tampoco lo puede mostrar. oklchASrgb además baja el croma lo justo para
+        // que el color entre en la gama en vez de recortar canales, que corre el tono.
         const rd = Math.abs(nl - 0.5) * 2;
-        const ns = ts * (1 - rd * rd * 0.35);
-        const [nr, ng, nb] = hslToRgb(th, ns, nl);
+        const nc = tc * (1 - rd * rd * 0.35);
         const a = a0 * strength; // intensidad regulable
         const ia = 1 - a;
-        data[p] = nr * a + src[p] * ia;
-        data[p + 1] = ng * a + src[p + 1] * ia;
-        data[p + 2] = nb * a + src[p + 2] * ia;
+        // La mezcla entre la pintura y la foto original va en OKLab, no en sRGB: es la misma
+        // razón por la que las cuentas de arriba dejaron HSL. Mezclando en sRGB, el resto de
+        // foto que deja la intensidad se percibía mucho más fuerte sobre un color oscuro.
+        const nr = nl * a + luma[i] * ia;
+        const na = nc * cosH * a + croma[i * 2] * ia;
+        const nb2 = nc * senH * a + croma[i * 2 + 1] * ia;
+        const [fr, fg, fb] = oklabASrgb(nr, na, nb2);
+        data[p] = fr;
+        data[p + 1] = fg;
+        data[p + 2] = fb;
       }
     } else {
       for (let i = 0; i < alpha.length; i++) {
@@ -587,6 +612,7 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
     maskRef.current = null;
     compositeRef.current = null;
     lumaRef.current = null;
+    cromaRef.current = null;
     alphaRef.current = null;
     imageUrlRef.current = "";
     maskBankRef.current = [];
