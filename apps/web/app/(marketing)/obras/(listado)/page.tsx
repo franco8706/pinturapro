@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { ProjectCard } from "@/components/features/project-card";
@@ -13,12 +14,28 @@ export const metadata: Metadata = {
   openGraph: { title: "Obras", description: "Portfolio de obras de pintura profesional: residencial, comercial e industrial. Antes y después de cada trabajo." },
 };
 
-const categories = ["Todas", "Residencial", "Comercial", "Industrial"];
-const colors = ["Todos", "Rojo", "Azul", "Verde", "Negro", "Blanco", "Tierra"];
-const zones = ["Todas", "CABA", "Zona Norte", "Zona Oeste", "Zona Sur"];
+/**
+ * Los filtros eran decorativos: `<button>{cat}</button>` sin `onClick` ni estado, así que
+ * apretar "Industrial" —una categoría sin ninguna obra— seguía mostrando las tres obras.
+ * Había además dos listas más, `colors` y `zones`, declaradas y nunca dibujadas.
+ *
+ * Ahora la categoría va en la dirección (`/obras?tipo=Comercial`): el filtrado ocurre en el
+ * servidor, el link se puede compartir y guardar, funciona sin JavaScript y no obliga a
+ * convertir toda la página en componente de cliente para un filtro de cuatro opciones.
+ */
+const CATEGORIAS = ["Todas", "Residencial", "Comercial", "Industrial"] as const;
 
-export default async function PortfolioPage() {
-  const projects = await getProjects();
+export default async function PortfolioPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tipo?: string }>;
+}) {
+  const { tipo } = await searchParams;
+  // Sólo se acepta un valor de la lista: cualquier otra cosa en la URL se ignora y se
+  // muestra todo, en vez de dejar la pantalla vacía sin explicación.
+  const activa = CATEGORIAS.find((c) => c === tipo) ?? "Todas";
+  const todas = await getProjects();
+  const projects = activa === "Todas" ? todas : todas.filter((p) => p.category === activa);
 
   return (
     <main>
@@ -36,12 +53,31 @@ export default async function PortfolioPage() {
             <div className="flex flex-col gap-2">
               <span className="font-mono text-mono-sm text-concrete uppercase">Tipo</span>
               <div className="flex flex-wrap gap-2">
-                {categories.map((cat) => (
-                  <button key={cat} className="px-4 py-2 font-body text-body-sm border border-concrete/30 text-ink hover:bg-ink hover:text-bone transition-colors duration-300">{cat}</button>
+                {CATEGORIAS.map((cat) => (
+                  <Link
+                    key={cat}
+                    href={cat === "Todas" ? "/obras" : `/obras?tipo=${encodeURIComponent(cat)}`}
+                    aria-current={activa === cat ? "page" : undefined}
+                    className={
+                      activa === cat
+                        ? "px-4 py-2 font-body text-body-sm border border-ink bg-ink text-bone transition-colors duration-300"
+                        : "px-4 py-2 font-body text-body-sm border border-concrete/30 text-ink hover:bg-ink hover:text-bone transition-colors duration-300"
+                    }
+                  >
+                    {cat}
+                  </Link>
                 ))}
               </div>
             </div>
           </div>
+          {projects.length === 0 && (
+            <p className="font-body text-body-lg text-concrete">
+              Todavía no hay obras de tipo {activa.toLowerCase()}.{" "}
+              <Link href="/obras" className="text-ink underline underline-offset-2">
+                Ver todas
+              </Link>
+            </p>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-12">
             {projects.map((project, index) => (
               <ProjectCard key={project.id} title={project.title} location={project.location} category={project.category} accentColor={project.accentColor} imageSrc={project.images[0]} slug={project.slug} index={index} priority={index === 0} />
