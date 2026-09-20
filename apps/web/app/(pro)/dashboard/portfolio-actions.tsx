@@ -21,9 +21,11 @@ export function PortfolioActions({ id, slug }: { id: string; slug: string }) {
 
   return (
     <div className="mt-2 flex items-center gap-4 font-mono text-mono-sm">
+      {/* `py-2`: estos dos median 17 px de alto, medido. Son las acciones de editar y
+          BORRAR una obra, o sea lo último que conviene errar con el dedo. */}
       <Link
         href={`/dashboard/editar/${slug}`}
-        className="text-concrete hover:text-ink underline underline-offset-2 transition-colors"
+        className="inline-flex items-center py-2 text-concrete hover:text-ink underline underline-offset-2 transition-colors"
       >
         Editar
       </Link>
@@ -33,7 +35,7 @@ export function PortfolioActions({ id, slug }: { id: string; slug: string }) {
         onBlur={() => !pending && setConfirming(false)}
         disabled={pending}
         aria-busy={pending}
-        className="text-concrete hover:text-[#C41E3A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="inline-flex items-center py-2 text-concrete hover:text-[#C41E3A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {pending ? "Borrando…" : confirming ? "¿Confirmar?" : "Borrar"}
       </button>

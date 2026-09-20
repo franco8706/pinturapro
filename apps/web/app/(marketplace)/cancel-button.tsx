@@ -22,7 +22,8 @@ export function CancelButton({ jobId, label = "Cancelar" }: { jobId: string; lab
         onBlur={() => !pending && setConfirming(false)}
         disabled={pending}
         aria-busy={pending}
-        className="font-mono text-mono-sm text-concrete hover:text-[#C41E3A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        /* Medía 17 px de alto y retira una cotización: demasiado fácil de errar. */
+        className="inline-flex items-center py-2 font-mono text-mono-sm text-concrete hover:text-[#C41E3A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {pending ? "Cancelando…" : confirming ? "¿Confirmar cancelación?" : label}
       </button>

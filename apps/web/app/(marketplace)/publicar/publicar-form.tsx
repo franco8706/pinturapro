@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useBorrador } from "@/hooks/use-borrador";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { MultiStepForm, type FormStep } from "@/components/features/multi-step-form";
@@ -27,6 +28,21 @@ export function PublicarForm() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
 
+  // Recargar a mitad del formulario borraba todo sin avisar (medido). Ver use-borrador.ts.
+  const borrador = useMemo(() => ({ title, tipo, surface, zone, budget }), [title, tipo, surface, zone, budget]);
+  const limpiarBorrador = useBorrador(
+    "pinturapro:publicar",
+    borrador,
+    (v) => {
+      if (typeof v.title === "string") setTitle(v.title);
+      if (typeof v.tipo === "string") setTipo(v.tipo);
+      if (typeof v.surface === "string") setSurface(v.surface);
+      if (typeof v.zone === "string") setZone(v.zone);
+      if (typeof v.budget === "string") setBudget(v.budget);
+    },
+    { activo: !done },
+  );
+
   async function onComplete() {
     setError("");
     const [bMin, bMax] = BUDGETS[budget] ?? [null, null];
@@ -39,7 +55,10 @@ export function PublicarForm() {
     try {
       const res = await publicarTrabajo(fd);
       if (res?.error) setError(res.error);
-      else setDone(true);
+      else {
+        setDone(true);
+        limpiarBorrador();
+      }
     } catch (err) {
       console.error("[publicar] falló:", err);
       setError("No pudimos publicar el trabajo. Revisá tu conexión y probá de nuevo.");

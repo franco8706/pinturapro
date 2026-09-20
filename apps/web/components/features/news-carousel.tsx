@@ -94,16 +94,24 @@ export function NewsCarousel({ items }: { items: NewsItem[] }) {
           >
             →
           </button>
-          <div className="mt-4 flex justify-center gap-2">
+          <div className="mt-1 flex justify-center gap-1">
             {items.map((_, idx) => (
               <button
                 key={idx}
                 type="button"
                 aria-label={`Ir a la noticia ${idx + 1}`}
                 onClick={() => setI(idx)}
-                className="h-1.5 transition-all"
-                style={{ width: idx === i ? 24 : 8, backgroundColor: idx === i ? "#141414" : "#C9C7C1" }}
-              />
+                /* El punto mide 6 px de alto: imposible de acertar con el dedo. Se agranda la
+                   ZONA TOCABLE con padding —44 px, que es lo que recomiendan las guías de
+                   iOS y Android— sin agrandar el punto, que es puro adorno. */
+                className="flex h-11 w-6 items-center justify-center"
+              >
+                <span
+                  aria-hidden="true"
+                  className="block h-1.5 transition-all"
+                  style={{ width: idx === i ? 24 : 8, backgroundColor: idx === i ? "#141414" : "#C9C7C1" }}
+                />
+              </button>
             ))}
           </div>
         </>

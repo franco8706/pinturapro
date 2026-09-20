@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useBorrador } from "@/hooks/use-borrador";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { MultiStepForm, type FormStep } from "@/components/features/multi-step-form";
@@ -27,6 +28,25 @@ export default function CotizarPage() {
   const [pending, setPending] = useState(false);
   const [website, setWebsite] = useState(""); // honeypot anti-bot
 
+  /**
+   * Borrador del formulario. Medido: completar el tipo y la superficie, recargar, y volver al
+   * paso 1 en blanco sin ningún aviso. Es el formulario con el que entran los clientes, así
+   * que cada recarga accidental era un presupuesto perdido. El honeypot NO se guarda: es una
+   * trampa para bots y restaurarlo podría marcar a una persona como bot.
+   */
+  const borrador = useMemo(() => ({ tipo, superficie, rooms, contact }), [tipo, superficie, rooms, contact]);
+  const limpiarBorrador = useBorrador(
+    "pinturapro:cotizar",
+    borrador,
+    (v) => {
+      if (typeof v.tipo === "string") setTipo(v.tipo);
+      if (typeof v.superficie === "string") setSuperficie(v.superficie);
+      if (Array.isArray(v.rooms)) setRooms(v.rooms as string[]);
+      if (v.contact && typeof v.contact === "object") setContact((c) => ({ ...c, ...(v.contact as typeof c) }));
+    },
+    { activo: !done },
+  );
+
   // El pedido se PERSISTE en `leads` y le avisa a la empresa. Antes este formulario
   // mostraba "¡Recibimos tu pedido!" y descartaba todo: cada visitante era un lead perdido.
   const enviar = async () => {
@@ -46,7 +66,10 @@ export default function CotizarPage() {
     try {
       const res = await pedirPresupuesto(fd);
       if (res?.error) setError(res.error);
-      else setDone(true);
+      else {
+        setDone(true);
+        limpiarBorrador(); // enviado: el borrador ya no sirve
+      }
     } catch (e) {
       console.error("[form] falló el envío:", e);
       setError("No pudimos enviar el formulario. Revisá tu conexión y probá de nuevo.");
