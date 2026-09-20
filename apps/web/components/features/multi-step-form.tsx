@@ -46,12 +46,27 @@ export function MultiStepForm({ steps, onComplete, submitLabel = "Enviar" }: Mul
    */
   const pasoRef = useRef<HTMLDivElement>(null);
   const primerRender = useRef(true);
+  /**
+   * Aviso de "falta completar", en lugar de un botón muerto.
+   *
+   * "Continuar" estaba `disabled` hasta que el paso fuera válido, y un botón deshabilitado NO
+   * se puede enfocar con el teclado: quien navega así no podía ni acercarse a averiguar qué
+   * faltaba. Tampoco lo anuncia un lector de pantalla. Ahora el botón se puede enfocar y
+   * apretar siempre; si el paso está incompleto, lo dice y manda el foco al paso.
+   */
+  const [faltaCompletar, setFaltaCompletar] = useState(false);
   const isLast = current === steps.length - 1;
   const step = steps[current];
   const canAdvance = step.isValid !== false;
 
   const next = async () => {
-    if (!canAdvance || submitting || enVuelo.current) return;
+    if (submitting || enVuelo.current) return;
+    if (!canAdvance) {
+      setFaltaCompletar(true);
+      pasoRef.current?.focus();
+      return;
+    }
+    setFaltaCompletar(false);
     if (!isLast) {
       setCurrent((c) => Math.min(steps.length - 1, c + 1));
       return;
@@ -77,6 +92,7 @@ export function MultiStepForm({ steps, onComplete, submitLabel = "Enviar" }: Mul
       return;
     }
     pasoRef.current?.focus();
+    setFaltaCompletar(false);
   }, [current]);
 
   return (
@@ -120,6 +136,12 @@ export function MultiStepForm({ steps, onComplete, submitLabel = "Enviar" }: Mul
         <div className="mt-8">{step.content}</div>
       </div>
 
+      {faltaCompletar && (
+        <p id="falta-completar" role="status" className="mt-8 font-body text-body-sm text-[#C41E3A]">
+          Para seguir, completá los datos de este paso.
+        </p>
+      )}
+
       {/* Navegación */}
       <div className="flex items-center justify-between mt-12 pt-8 border-t border-concrete/15">
         <button
@@ -133,11 +155,14 @@ export function MultiStepForm({ steps, onComplete, submitLabel = "Enviar" }: Mul
         <button
           type="button"
           onClick={() => void next()}
-          disabled={!canAdvance || submitting}
+          disabled={submitting}
+          aria-disabled={!canAdvance}
+          aria-describedby={faltaCompletar ? "falta-completar" : undefined}
           aria-busy={submitting}
           className={cn(
             "px-7 py-4 font-body text-body-sm bg-ink text-bone transition-all duration-300",
-            "hover:bg-ink/90 disabled:opacity-40 disabled:cursor-not-allowed",
+            "hover:bg-ink/90 disabled:cursor-not-allowed",
+            !canAdvance && "opacity-40",
           )}
         >
           {isLast ? submitLabel : "Continuar →"}

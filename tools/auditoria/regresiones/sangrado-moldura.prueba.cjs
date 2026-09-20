@@ -8,13 +8,19 @@
  * moldura terminaba con color encima. El arreglo anula el alfa fuera de la máscara
  * (`alpha[i] = mask[i] ? sum / win : 0`), dejando el difuminado sólo hacia ADENTRO: ahora 2,5%.
  *
- * Dos mediciones:
+ * Dos mediciones (confirmado con el bug reintroducido a mano: da 19,7% y rojo en el umbral):
  *  1. % de toda la franja de moldura con un cambio de color notorio (umbral 6%: si empeora,
- *     el difuminado volvió a ser simétrico).
- *  2. Perfil del filo: las dos columnas de moldura pegadas a la pared seleccionada (1 y 2 px
- *     "hacia afuera" de la máscara), en varias alturas — ahí no debería haber NINGÚN cambio,
- *     ni parcial. Es más exigente que el promedio: un filo manchado en una sola franja angosta
- *     puede diluirse en el porcentaje global y no en este perfil.
+ *     el difuminado volvió a ser simétrico). Es la que detecta el bug histórico.
+ *  2. Perfil del filo: 1 y 2 píxeles hacia adentro de la moldura, contados desde donde
+ *     EMPIEZA el color de la pintura en cada fila (no desde la coordenada fotográfica fija:
+ *     reducir la foto de 1200 a 1024 px ya mezcla ~1 píxel en cualquier borde nítido, pintura o
+ *     no, y eso no tiene nada que ver con el bug). Ahí no debería haber NINGÚN cambio, ni
+ *     parcial. Es un complemento más quirúrgico: como el filo se mide desde donde llegó la
+ *     pintura, un difuminado simétrico que corre el filo entero no lo hace fallar solo (para
+ *     eso está la medición 1), pero sí atraparía un sangrado asimétrico o localizado que el
+ *     promedio de toda la franja diluye. La moldura tiene pared pintada de los dos lados (arriba
+ *     de la moldura, entre el techo y ella, la pared es una sola franja continua), así que se
+ *     mide en ambos bordes.
  *
  * Necesita la foto 01-living-luz.jpg (pnpm fotos-prueba).
  */
@@ -86,20 +92,37 @@ module.exports = {
             }
           }
 
-          // Filo: última columna de moldura (toca la pared seleccionada) y la anterior,
-          // en 9 alturas repartidas en toda la franja.
-          const filo = x1;
+          // Filo, en 9 alturas repartidas en toda la franja. Se busca el borde REAL de la
+          // pintura desde el centro de la moldura hacia cada lado (no la coordenada fotográfica
+          // de generar.py: el resize a 1024 px ya mezcla ~1 píxel en el borde nítido, pintura o
+          // no) y se mide el cambio 1 y 2 píxeles más allá de ese borde, hacia adentro de la
+          // moldura — ahí tiene que ser exactamente cero.
+          const xMid = Math.round((x0 + x1) / 2);
           let maxCambioBorde = 0;
+          let bordesEncontrados = 0;
           for (let f = 0.1; f <= 0.9; f += 0.1) {
             const y = Math.round(y0 + f * (y1 - y0));
-            for (const dx of [0, 1]) {
-              const x = filo - dx;
-              if (x < 0) continue;
-              maxCambioBorde = Math.max(maxCambioBorde, cambio(x, y));
+
+            let edgeR = -1;
+            for (let x = xMid; x <= x1 + 15; x++) {
+              if (cambio(x, y) > 12) { edgeR = x; break; }
+            }
+            let edgeL = -1;
+            for (let x = xMid; x >= x0 - 15; x--) {
+              if (cambio(x, y) > 12) { edgeL = x; break; }
+            }
+
+            if (edgeR >= 0) {
+              bordesEncontrados++;
+              maxCambioBorde = Math.max(maxCambioBorde, cambio(edgeR - 1, y), cambio(edgeR - 2, y));
+            }
+            if (edgeL >= 0) {
+              bordesEncontrados++;
+              maxCambioBorde = Math.max(maxCambioBorde, cambio(edgeL + 1, y), cambio(edgeL + 2, y));
             }
           }
 
-          return { manchados, total, maxCambioBorde };
+          return { manchados, total, maxCambioBorde, bordesEncontrados };
         },
         { ORIG_W, ORIG_H, MOLDURA },
       );
@@ -107,7 +130,12 @@ module.exports = {
       const pct = medido.total ? medido.manchados / medido.total : 0;
       t.nota(
         `moldura manchada: ${(pct * 100).toFixed(1)}% (${medido.manchados}/${medido.total} px) · ` +
-          `máximo cambio en el filo, 1-2 px hacia afuera de la máscara: ${medido.maxCambioBorde.toFixed(1)}`,
+          `bordes de pintura encontrados: ${medido.bordesEncontrados}/18 · ` +
+          `máximo cambio 1-2 px hacia adentro de la moldura desde esos bordes: ${medido.maxCambioBorde.toFixed(1)}`,
+      );
+      t.cierto(
+        medido.bordesEncontrados >= 14,
+        `sólo encontré ${medido.bordesEncontrados}/18 bordes de pintura junto a la moldura: la selección no está llegando hasta ahí y el perfil del filo no está midiendo nada`,
       );
       t.cierto(
         pct <= UMBRAL_MANCHADO,
@@ -115,7 +143,7 @@ module.exports = {
       );
       t.cierto(
         medido.maxCambioBorde <= UMBRAL_FILO,
-        `el filo de la moldura (1-2 px hacia afuera de la máscara) cambió de color (delta ${medido.maxCambioBorde.toFixed(1)}, umbral ${UMBRAL_FILO}): el difuminado dejó de ser sólo hacia adentro`,
+        `1-2 px hacia adentro de la moldura desde el filo de la pintura cambiaron de color (delta ${medido.maxCambioBorde.toFixed(1)}, umbral ${UMBRAL_FILO}): el difuminado dejó de ser sólo hacia adentro de la máscara`,
       );
     } finally {
       await browser.close();

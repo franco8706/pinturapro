@@ -31,30 +31,34 @@ Estos ya no se reportan. `pnpm verificar` los revisa en cada corrida.
 | La textura dependía del color | 0,48 con Marfil, 0,79 con Negro Mate: con oscuros la pared salía más contrastada que la foto real | `simulador-calidad` |
 | Recargar borraba el formulario | /cotizar volvía al paso 1 en blanco, sin aviso | `borrador` |
 | Controles de 6 px | Los puntos de los carruseles; "Editar", "Borrar" y "Retirar cotización" de 17 px | `tactil` |
+| Foto de 30 MP dejaba sin salida | El rechazo abría el editor vacío sin selector de archivos: sólo se salía recargando | `foto-rechazada` |
+| La pintura se pasaba 2 px sobre molduras | De manchar el 16,8% de una moldura a 2,5% | `sangrado-moldura` |
+| Con teclado no se podía avanzar en /cotizar | Enter en "Continuar" mandaba el foco al `<body>` y tabear seguía a las preguntas frecuentes: el campo del paso nuevo nunca se alcanzaba | `accesibilidad` |
+| "Continuar" deshabilitado no se podía enfocar | Quien usa teclado no podía ni acercarse a averiguar qué faltaba | `accesibilidad` |
+| Los carruseles y el scroll ignoraban "reducir movimiento" | Seguían pasando solos cada 5-6 s con la preferencia activada | `accesibilidad` |
+| El menú del celular no cerraba con Escape | `aria-expanded` seguía en true | `accesibilidad` |
+| Texto por debajo del piso de contraste | Iniciales del pintor 2,38:1 e inicial del equipo 1,49:1, con piso de 3:1 | `accesibilidad` |
 
 ## Corregido, sin prueba todavía
 
 Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arriba.
 
-- **Foto de 30 MP dejaba sin salida** (20/9). El rechazo abría el editor vacío sin selector de
-  archivos: sólo se salía recargando. Cuesta automatizarlo porque hace falta generar la foto
-  gigante; se hace con `pnpm fotos-prueba`.
-- **La pintura se pasaba 2 px sobre molduras** (20/9). De manchar el 16,8% de una moldura a 2,5%.
-  Medible con la misma máquina que `simulador-calidad`.
+- **Guardar el perfil no avisaba** (20/9). Ahora el panel muestra "Listo, guardamos los cambios
+  de tu perfil". Verificado a mano, sin prueba automática.
+- **La base que falla ya no muestra pintores inventados** (20/9). Cuesta probarlo sin poder
+  cortarle la base a la app; se podría interceptar la conexión desde el navegador.
 
 ## Abierto
 
-- **Sin aviso de éxito al guardar el perfil.** Guarda y redirige en silencio; si alguien navega
-  antes de que termine, no sabe si se guardó. No se pierden datos (lo confirmamos), pero la
-  persona queda sin saber. **Severidad: menor.**
-- **Los carruseles y el scroll suave ignoran "reducir movimiento".** Quien tiene esa opción
-  activada por mareos igual ve todo moverse. **Severidad: menor, pero es accesibilidad.**
 - **En desarrollo, la consola muestra errores crudos de Postgres** (`invalid input syntax for type
   uuid`) al pedir un pintor con un id inventado. No se ve en pantalla. Falta confirmar que en
   producción no aparezca. **Severidad: menor.**
-- **23 de 25 consultas públicas caen a datos de demostración si la base falla.** Hoy es una red de
-  seguridad; el día que la base se caiga en producción, la web va a mostrar pintores inventados
-  como si fueran reales, sin decirlo. **Severidad: importante antes de publicar.**
+- **Quedan consultas públicas que caen a datos de demostración si la base falla.** Las dos que
+  más importan ya avisan en vez de inventar (el directorio de pintores y el portfolio, 20/9),
+  pero faltan repasar las demás: obras por slug, perfil de pintor, novedades y recursos.
+  **Severidad: importante antes de publicar.**
+- **`/simulador` no se puede usar con teclado.** El lienzo es un canvas y se pinta con clics: hoy
+  no hay ninguna alternativa ni aviso. **Severidad: importante, y no tiene arreglo rápido.**
 
 ## Descartado (se midió y no era)
 
