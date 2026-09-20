@@ -1,0 +1,13 @@
+{
+  "name": "@pinturapro/color",
+  "version": "0.1.0",
+  "description": "Motor de color del simulador: selección de paredes y aplicación de pintura en espacio perceptual. Sin dependencias del navegador ni de React.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

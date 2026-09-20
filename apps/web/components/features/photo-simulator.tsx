@@ -2,8 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { prepareWandImage, magicWand, type WandImage } from "@/lib/magic-wand";
-import { rgbAOklab, rgbAOklch, oklabASrgb } from "@/lib/oklab";
+import {
+  prepareWandImage,
+  magicWand,
+  rgbAOklab,
+  rgbAOklch,
+  oklabASrgb,
+  type WandImage,
+} from "@pinturapro/color";
 
 type Status = "empty" | "ready" | "segmenting" | "error";
 
