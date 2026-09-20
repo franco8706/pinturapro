@@ -748,6 +748,37 @@ export async function getOpenServiceRequests(): Promise<ServiceRequest[]> {
   }
 }
 
+/**
+ * Ids de los pedidos que ESTE pintor ya cotizó (cotización viva, no cancelada).
+ *
+ * Sin esto, /trabajos le ofrecía "Cotizar este trabajo" sobre un pedido que ya había
+ * cotizado: completaba el monto y la nota, apretaba enviar, y recién ahí la base lo frenaba
+ * con "Ya enviaste una cotización para este pedido". El trabajo perdido era del pintor.
+ *
+ * Devuelve un Set vacío ante cualquier error: la pantalla se comporta como antes (ofrece
+ * cotizar) y la base sigue siendo la que impide el duplicado de verdad.
+ */
+export async function getPedidosYaCotizados(painterId: string): Promise<Set<string>> {
+  if (!SUPA) return new Set();
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("jobs")
+      .select("project_id, status")
+      .eq("painter_id", painterId)
+      .in("status", ["quoted", "accepted", "in_progress", "completed"]);
+    if (error) {
+      dbError("getPedidosYaCotizados", error);
+      return new Set();
+    }
+    const rows = (data ?? []) as unknown as { project_id: string | null }[];
+    return new Set(rows.map((r) => r.project_id).filter((x): x is string => !!x));
+  } catch (e) {
+    dbError("getPedidosYaCotizados", e);
+    return new Set();
+  }
+}
+
 export interface QuoteView {
   id: string;
   /** El pedido al que pertenece. Necesario para no mezclar cotizaciones de

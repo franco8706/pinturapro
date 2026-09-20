@@ -3,7 +3,7 @@ import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { SectionLabel, EmptyState } from "@/components/features/states";
 import { createClient } from "@/lib/supabase/server";
-import { getOpenServiceRequests, getOwnProfile, formatARS } from "@/lib/queries";
+import { getOpenServiceRequests, getOwnProfile, getPedidosYaCotizados, formatARS } from "@/lib/queries";
 import { QuoteForm } from "./quote-form";
 
 import type { Metadata } from "next";
@@ -35,12 +35,14 @@ export default async function TrabajosPage() {
   // verdad (medido). Si el perfil no se puede leer, se muestra igual: la base rechaza
   // al que no es pintor (policy jobs_insert_painter_quote, migración 0016).
   let esCliente = false;
+  let yaCotizados = new Set<string>();
   if (user) {
     try {
       esCliente = (await getOwnProfile(user.id))?.type === "client";
     } catch {
       esCliente = false;
     }
+    if (!esCliente) yaCotizados = await getPedidosYaCotizados(user.id);
   }
 
   return (
@@ -88,6 +90,15 @@ export default async function TrabajosPage() {
                       </Link>
                     ) : user.id === r.ownerId ? (
                       <p className="mt-4 font-body text-body-sm text-concrete">Este es tu pedido.</p>
+                    ) : yaCotizados.has(r.id) ? (
+                      /* Antes mostraba el formulario igual: el pintor lo completaba entero y
+                         recién al enviar la base le decía que ya había cotizado. */
+                      <p className="mt-4 font-body text-body-sm text-concrete">
+                        Ya cotizaste este pedido.{" "}
+                        <Link href="/dashboard" className="text-ink underline underline-offset-2">
+                          Ver en mi panel
+                        </Link>
+                      </p>
                     ) : esCliente ? (
                       <p className="mt-4 font-body text-body-sm text-concrete">
                         Las cotizaciones las envían los pintores.{" "}
