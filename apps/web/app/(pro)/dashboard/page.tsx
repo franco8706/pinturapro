@@ -33,7 +33,12 @@ export const metadata: Metadata = {
 /** Estados en los que el trabajo ya es un trabajo y hay que poder coordinarlo. */
 const EN_MARCHA = ["accepted", "in_progress", "completed"];
 
-export default async function PainterDashboardPage() {
+export default async function PainterDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ guardado?: string }>;
+}) {
+  const { guardado } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -80,6 +85,17 @@ export default async function PainterDashboardPage() {
   return (
     <main>
       <Navbar />
+      {guardado === "perfil" && (
+        /* Antes guardaba y redirigía en silencio: la persona llegaba acá sin saber si su
+           cambio había entrado, y en la duda volvía a guardar. */
+        <div role="status" className="pt-24 sm:pt-28">
+          <div className="container-asymmetric">
+            <p className="border-l-2 border-ink bg-mist px-4 py-3 font-body text-body-sm text-ink">
+              Listo, guardamos los cambios de tu perfil.
+            </p>
+          </div>
+        </div>
+      )}
       <section className="pt-32 sm:pt-40 pb-section min-h-screen">
         <div className="container-asymmetric">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-12">

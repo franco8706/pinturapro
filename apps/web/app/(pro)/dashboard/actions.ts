@@ -324,7 +324,10 @@ export async function updateProfile(formData: FormData): Promise<{ error?: strin
   revalidatePath("/dashboard");
   revalidatePath("/pintores");
   revalidatePath(`/pintor/${user.id}`);
-  redirect("/dashboard");
+  // `?guardado=perfil`: guardaba y redirigía en silencio. La persona terminaba en otra
+  // pantalla sin saber si su cambio entró, y el único indicio era el botón diciendo
+  // "Guardando…" un instante. Un aviso cuesta nada y evita que vuelva a guardar por las dudas.
+  redirect("/dashboard?guardado=perfil");
 }
 
 /**
