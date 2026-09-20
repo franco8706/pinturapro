@@ -1,5 +1,7 @@
 "use client";
 
+import { usePrefersReducedMotion } from "@/hooks/use-media-query";
+
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import type { Testimonial } from "@/lib/queries";
@@ -9,13 +11,18 @@ export function TestimonialsCarousel({ items }: { items: Testimonial[] }) {
   const [i, setI] = useState(0);
   const [paused, setPaused] = useState(false);
   const n = items.length;
+  // "Reducir movimiento" no es una preferencia estética: quien la activa suele hacerlo porque
+  // el movimiento automático le da mareo o le dispara migraña. Medido con la preferencia
+  // puesta, este carrusel seguía pasando solo cada 6 segundos. Con ella activada se queda
+  // quieto y se mueve sólo cuando la persona lo pide con las flechas.
+  const sinMovimiento = usePrefersReducedMotion();
   const go = useCallback((d: number) => setI((p) => (p + d + n) % n), [n]);
 
   useEffect(() => {
-    if (paused || n <= 1) return;
+    if (paused || sinMovimiento || n <= 1) return;
     const t = setInterval(() => setI((p) => (p + 1) % n), 6000);
     return () => clearInterval(t);
-  }, [paused, n]);
+  }, [paused, sinMovimiento, n]);
 
   if (n === 0) return null;
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export interface FormStep {
@@ -31,6 +31,21 @@ export function MultiStepForm({ steps, onComplete, submitLabel = "Enviar" }: Mul
   // índice único de `slug` tampoco lo frenaba).
   const [submitting, setSubmitting] = useState(false);
   const enVuelo = useRef(false);
+  /**
+   * El foco tiene que viajar al paso nuevo.
+   *
+   * Medido con teclado: al apretar Enter sobre "Continuar", el botón se deshabilita en el
+   * acto —porque el paso siguiente arranca inválido, sin superficie ni ambientes— y el
+   * navegador manda el foco al `<body>`. Desde ahí, seguir tabeando hacia adelante saltaba
+   * directo a las preguntas frecuentes de más abajo: el campo del paso nuevo está ANTES en
+   * el documento, así que nunca se alcanzaba yendo hacia adelante. Quien usa sólo teclado no
+   * podía completar el formulario más largo del sitio, que es por donde entra un cliente.
+   *
+   * Se mueve el foco al encabezado del paso —no al primer campo— para que un lector de
+   * pantalla lea de qué paso se trata antes de empezar a pedir datos.
+   */
+  const pasoRef = useRef<HTMLDivElement>(null);
+  const primerRender = useRef(true);
   const isLast = current === steps.length - 1;
   const step = steps[current];
   const canAdvance = step.isValid !== false;
@@ -54,6 +69,16 @@ export function MultiStepForm({ steps, onComplete, submitLabel = "Enviar" }: Mul
 
   const back = () => setCurrent((c) => Math.max(0, c - 1));
 
+  useEffect(() => {
+    // En el primer dibujo no: robarle el foco a alguien que recién entra a la página es peor
+    // que no moverlo.
+    if (primerRender.current) {
+      primerRender.current = false;
+      return;
+    }
+    pasoRef.current?.focus();
+  }, [current]);
+
   return (
     <div>
       {/* Progreso */}
@@ -69,7 +94,7 @@ export function MultiStepForm({ steps, onComplete, submitLabel = "Enviar" }: Mul
             <span
               className={cn(
                 "font-mono text-mono-sm mt-2 block transition-colors",
-                i === current ? "text-ink" : "text-concrete/60",
+                i === current ? "text-ink" : "text-concrete",
               )}
             >
               {String(i + 1).padStart(2, "0")}
@@ -79,7 +104,14 @@ export function MultiStepForm({ steps, onComplete, submitLabel = "Enviar" }: Mul
       </div>
 
       {/* Paso actual */}
-      <div key={step.id} className="animate-[fadeIn_0.4s_ease-out]">
+      <div
+        key={step.id}
+        ref={pasoRef}
+        tabIndex={-1}
+        role="group"
+        aria-label={`Paso ${current + 1} de ${steps.length}: ${step.title}`}
+        className="animate-[fadeIn_0.4s_ease-out] outline-none"
+      >
         <p className="font-mono text-mono-sm text-concrete uppercase tracking-widest mb-3">
           Paso {current + 1} de {steps.length}
         </p>

@@ -32,6 +32,18 @@ export function Navbar() {
     setOpen(false);
   }, [pathname]);
 
+  // Escape cierra el menú. Medido: se abría bien y se recorría con Tab, pero Escape no hacía
+  // nada —`aria-expanded` seguía en true y el panel en pantalla—. Es el gesto que cualquiera
+  // que usa teclado prueba primero para salir de algo que se abrió encima.
+  useEffect(() => {
+    if (!open) return;
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", alTeclear);
+    return () => document.removeEventListener("keydown", alTeclear);
+  }, [open]);
+
   return (
     <header
       className={cn(

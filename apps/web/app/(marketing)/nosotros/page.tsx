@@ -67,11 +67,17 @@ export default function NosotrosPage() {
             {team.map((member, i) => (
               <Reveal key={member.name} delay={i * 0.06}>
                 <div className="aspect-[4/5] bg-mist mb-5 flex items-center justify-center">
-                  <span className="font-display text-display-xl text-concrete/30">{member.name.charAt(0)}</span>
+                  {/* La inicial repite el nombre que está justo abajo: para un lector de pantalla es
+                      ruido, así que se oculta. Y sube de `concrete/30` (1,49:1 medido) a un tono
+                      que se distingue del fondo para quien ve poco. */}
+                  <span aria-hidden="true" className="font-display text-display-xl text-concrete/70">
+                    {member.name.charAt(0)}
+                  </span>
                 </div>
                 <h3 className="font-display text-display-md">{member.name}</h3>
                 <p className="font-body text-body-sm text-concrete mt-1">{member.role}</p>
-                <p className="font-mono text-mono-sm text-concrete/60 mt-1">Desde {member.since}</p>
+                {/* Era `concrete/60`: 2,29:1. Es un dato real, no un adorno. */}
+                <p className="font-mono text-mono-sm text-concrete mt-1">Desde {member.since}</p>
               </Reveal>
             ))}
           </div>

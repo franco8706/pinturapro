@@ -4,7 +4,9 @@ type Level = "Silver" | "Gold" | "Master";
 
 const styles: Record<Level, { bg: string; text: string; dot: string }> = {
   Silver: { bg: "bg-concrete/10", text: "text-concrete", dot: "#9CA3AF" },
-  Gold: { bg: "bg-[#DAA520]/12", text: "text-[#B8860B]", dot: "#DAA520" },
+  // El dorado sobre dorado claro daba 2,96:1, por debajo del piso de 4,5:1 para texto chico.
+  // Se oscurece el texto y se deja el punto dorado, que es lo que da la identidad del nivel.
+  Gold: { bg: "bg-[#DAA520]/12", text: "text-[#6B4E00]", dot: "#DAA520" },
   Master: { bg: "bg-ink", text: "text-bone", dot: "#FFD700" },
 };
 

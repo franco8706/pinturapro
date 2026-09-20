@@ -115,7 +115,7 @@ export default async function HomePage() {
           {services.map((s) => (
             <span key={s} className="flex items-center">
               <span className="font-display text-display-md px-8 whitespace-nowrap">{s}</span>
-              <span className="text-bone/40">◆</span>
+              <span className="text-bone/40" aria-hidden="true">◆</span>
             </span>
           ))}
         </Marquee>

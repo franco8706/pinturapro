@@ -25,7 +25,10 @@ export function PainterCard({ painter, index = 0 }: { painter: Painter; index?: 
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-concrete/10">
-            <span className="font-display text-display-lg text-concrete/60">{initials(painter.name)}</span>
+            {/* Estaba en `concrete/60`: 2,38:1 medido, cuando el piso para texto grande es 3:1.
+                Son las iniciales que reemplazan a la foto del pintor, o sea contenido, no
+                decoración. En `ink/70` sobre el mismo fondo queda muy por encima. */}
+            <span className="font-display text-display-lg text-ink/70">{initials(painter.name)}</span>
           </div>
         )}
         <div className="absolute top-3 left-3">
