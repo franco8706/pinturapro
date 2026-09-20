@@ -48,7 +48,8 @@ function dbError(fn: string, e: unknown): void {
   console.error(`[db] ${fn} falló: ${msg}`);
 }
 
-// Si no hay Supabase configurado (o falla una query), caemos a los mocks → la web nunca se rompe.
+// Sin Supabase configurado (desarrollo local sin claves) se usan los datos de ejemplo.
+// Si la base ESTÁ configurada y falla, ver la nota sobre getPainters: se avisa, no se inventa.
 const SUPA = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 function levelFromRating(rating: number, verified: boolean): Painter["level"] {
@@ -65,7 +66,18 @@ function colorFor(seed: string): string {
   return PALETTE[h % PALETTE.length];
 }
 
-/** Pintores verificados (profiles type=painter), ordenados por rating. */
+/**
+ * Sin Supabase configurado (desarrollo local sin claves) se muestran los datos de ejemplo: es
+ * lo que permite trabajar en la interfaz sin base.
+ *
+ * Pero si la base SÍ está configurada y la lectura falla, caer a los datos de ejemplo es otra
+ * cosa: son pintores y obras INVENTADOS. En producción eso significa mostrarle a una persona
+ * un profesional que no existe, con un teléfono que no es de nadie, sin decirle que la base se
+ * cayó. Ahí es preferible avisar que no se pudo cargar —el error boundary de app/error.tsx ya
+ * dice "fue un problema nuestro, probá de nuevo"— que inventar.
+ *
+ * Pintores verificados (profiles type=painter), ordenados por rating.
+ */
 export async function getPainters(): Promise<Painter[]> {
   if (!SUPA) return mockPainters;
   try {
@@ -84,7 +96,7 @@ export async function getPainters(): Promise<Painter[]> {
     ]);
     if (error || !data) {
       if (error) dbError("getPainters", error);
-      return mockPainters;
+      throw new ErrorDeLecturaDeDatos("pintores", error?.message ?? "sin datos");
     }
     if (geo.error) dbError("getPainters/geo", geo.error); // sin coords el mapa queda vacío, el directorio no
     const coords = new Map<string, { lat: number | null; lng: number | null }>();
@@ -115,8 +127,9 @@ export async function getPainters(): Promise<Painter[]> {
       lng: coords.get(p.id)?.lng ?? null,
     }));
   } catch (e) {
+    if (e instanceof ErrorDeLecturaDeDatos) throw e;
     dbError("getPainters", e);
-    return mockPainters;
+    throw new ErrorDeLecturaDeDatos("pintores", String(e));
   }
 }
 
@@ -134,12 +147,13 @@ export async function getProjects(): Promise<Project[]> {
       .limit(60); // tope: el portfolio se sirve entero
     if (error || !data) {
       if (error) dbError("getProjects", error);
-      return mockProjects;
+      throw new ErrorDeLecturaDeDatos("obras", error?.message ?? "sin datos");
     }
     return (data as unknown as ProjectRow[]).map(mapProject);
   } catch (e) {
+    if (e instanceof ErrorDeLecturaDeDatos) throw e;
     dbError("getProjects", e);
-    return mockProjects;
+    throw new ErrorDeLecturaDeDatos("obras", String(e));
   }
 }
 

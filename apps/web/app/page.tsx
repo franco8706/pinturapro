@@ -40,10 +40,17 @@ export default async function HomePage() {
   // slugs que no existen (`demo-casa-barracas` → 404), mostraban el título con el prefijo
   // "Demo ·" y, donde va la foto, el nombre del archivo. La home es lo primero que ve
   // cualquiera: eran tres 404 en la portada.
+  // `getProjects()` ahora AVISA cuando la base falla, en vez de devolver obras inventadas.
+  // En /obras eso corresponde —la página entera es el portfolio— pero acá las obras son una
+  // sección entre varias: si la base tiene un hipo, no tiene sentido tirar abajo la portada.
+  // Se muestra el resto y la sección de obras queda vacía.
   const [news, testimonials, obras, numeros] = await Promise.all([
     getNews(),
     getRecentReviews(),
-    getProjects(),
+    getProjects().catch((e) => {
+      console.error("[home] no se pudieron cargar las obras:", e);
+      return [] as Awaited<ReturnType<typeof getProjects>>;
+    }),
     getNumerosReales(),
   ]);
   const obrasDestacadas = obras.slice(0, 3);
