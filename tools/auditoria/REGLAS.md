@@ -67,7 +67,22 @@ levantes vos.
 - Marcá qué es **medido/visto** y qué es **deducido**. Si no pudiste probar algo, decilo.
 - Lo que funciona bien, en una línea. No rellenes.
 
-## 5. Ya conocido — no lo reportes como nuevo
+## 5. Medir en desarrollo engaña
+
+El servidor compartido corre en modo **desarrollo**: compila cada ruta la primera vez que
+alguien la pide, y eso tarda segundos. Dos cosas que ya hicieron reportar bugs que no existen:
+
+- **Páginas en blanco que después se llenan.** Una 404 de `/obras/<slug-inexistente>` se ve vacía
+  al principio y completa un segundo después. En la compilación de producción aparece entera de
+  entrada. Si ves algo así, esperá y volvé a mirar antes de reportarlo.
+- **Clics que no hacen nada.** Si la página todavía no se "activó" (hidratación), un clic o un
+  archivo que manda el script cae en una página muerta. `k.ir()` ya espera eso; si armás tu propia
+  navegación, esperá igual.
+
+Y una trampa del propio script: si tocás un botón que desplaza la página, el `boundingBox()` que
+tomaste antes queda viejo y el clic siguiente cae en otro lado.
+
+## 6. Ya conocido — no lo reportes como nuevo
 
 - Todos los datos visibles (pintores, reseñas, obras) son de demostración.
 - La paleta de colores es de muestra (`PALETA_DEMO`), y la pantalla ya lo avisa.
@@ -76,10 +91,15 @@ levantes vos.
   molduras). Está planificado.
 - `/api/segment` usa una cuota en memoria (no Redis).
 - Los links del pie miden ~17px de alto. Ya está anotado; no hace falta repetirlo por pantalla.
-- **Corregido el 19/9, no lo reportes salvo que lo veas ROTO:**
-  · una cuenta de cliente podía cotizar pedidos ajenos y publicar obras de portfolio (ahora /trabajos
-    le dice "Las cotizaciones las envían los pintores");
-  · tres clics seguidos en /contacto creaban tres consultas (ahora una);
-  · la varita del simulador agarraba media pared con luz de ventana (ahora 83%).
+- **Corregido el 19 y 20 de septiembre. No lo reportes salvo que lo veas ROTO otra vez:**
+  · una cuenta de cliente podía cotizar pedidos ajenos y publicar obras de portfolio;
+  · tres clics seguidos creaban tres registros (hay cerrojo en contacto, perfil, nueva obra,
+    cotizar y reseña);
+  · un texto larguísimo estiraba las páginas públicas (topes en la base + corte de palabra);
+  · los filtros de categoría de /obras no filtraban (ahora van por `?tipo=`);
+  · el pintor no veía que ya había cotizado un pedido;
+  · una cuenta de cliente podía abrir el formulario de nueva obra;
+  · el simulador: agarraba media pared, aplanaba o exageraba la textura según el color, se pasaba
+    sobre las molduras, y una foto de 30 MP dejaba sin salida.
 - En `/publicar` no hay descripción libre ni presupuesto numérico: la descripción se arma sola y el
   presupuesto se elige de una lista. Es a propósito por ahora.
