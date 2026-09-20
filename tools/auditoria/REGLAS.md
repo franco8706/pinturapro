@@ -1,8 +1,12 @@
 # Reglas comunes para todos los agentes y sub-agentes — Pintura Pro
 
 Proyecto: `/workspaces/codespaces-blank/pinturapro` · app Next.js 15 en `apps/web` · Supabase vivo.
-Este archivo es obligatorio. Si sos un agente líder, **pasale esta ruta a cada sub-agente que lances**
-y decile que la lea con la herramienta Read antes de empezar.
+Este archivo es obligatorio, y junto con él **`tools/auditoria/BITACORA.md`**: ahí está lo que ya se
+encontró, lo que se arregló y lo que se descartó midiendo. Leerla evita reportar por tercera vez
+algo que ya está resuelto, que es tiempo y tokens tirados.
+
+Si sos un agente líder, **pasale las dos rutas a cada sub-agente que lances** y decile que las lea
+con la herramienta Read antes de empezar.
 
 Kit: `tools/auditoria/` **dentro del repositorio** (antes vivía en `/tmp` y el Codespace se lo
 llevó puesto dos veces).
@@ -82,24 +86,16 @@ alguien la pide, y eso tarda segundos. Dos cosas que ya hicieron reportar bugs q
 Y una trampa del propio script: si tocás un botón que desplaza la página, el `boundingBox()` que
 tomaste antes queda viejo y el clic siguiente cae en otro lado.
 
-## 6. Ya conocido — no lo reportes como nuevo
+## 6. Ya conocido — está en la BITÁCORA
 
-- Todos los datos visibles (pintores, reseñas, obras) son de demostración.
-- La paleta de colores es de muestra (`PALETA_DEMO`), y la pantalla ya lo avisa.
-- No hay `RESEND_API_KEY`: no salen emails.
-- El motor de color del simulador todavía no usa OKLab ni guided filter (los bordes sangran ~2px en
-  molduras). Está planificado.
-- `/api/segment` usa una cuota en memoria (no Redis).
-- Los links del pie miden ~17px de alto. Ya está anotado; no hace falta repetirlo por pantalla.
-- **Corregido el 19 y 20 de septiembre. No lo reportes salvo que lo veas ROTO otra vez:**
-  · una cuenta de cliente podía cotizar pedidos ajenos y publicar obras de portfolio;
-  · tres clics seguidos creaban tres registros (hay cerrojo en contacto, perfil, nueva obra,
-    cotizar y reseña);
-  · un texto larguísimo estiraba las páginas públicas (topes en la base + corte de palabra);
-  · los filtros de categoría de /obras no filtraban (ahora van por `?tipo=`);
-  · el pintor no veía que ya había cotizado un pedido;
-  · una cuenta de cliente podía abrir el formulario de nueva obra;
-  · el simulador: agarraba media pared, aplanaba o exageraba la textura según el color, se pasaba
-    sobre las molduras, y una foto de 30 MP dejaba sin salida.
-- En `/publicar` no hay descripción libre ni presupuesto numérico: la descripción se arma sola y el
-  presupuesto se elige de una lista. Es a propósito por ahora.
+La lista vive en `tools/auditoria/BITACORA.md`, con cuatro estados: `corregido`, `abierto`,
+`descartado` (se midió y no era un problema) y `decisión del dueño`.
+
+Leela antes de reportar. Y si encontrás algo que figura como **corregido**, no lo anotes como un
+hallazgo más: es una regresión, que es bastante más grave. Decilo así.
+
+## 7. Si arreglás algo, dejá una prueba
+
+`pnpm verificar` corre las pruebas de regresión en un navegador real. Cada cosa de esta lista se
+había roto sin que nadie se enterara, y se descubrió recién cuando una persona la probó a mano.
+Un arreglo sin prueba se vuelve a romper. El agente `regresiones` se ocupa de eso.

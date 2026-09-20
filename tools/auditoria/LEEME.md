@@ -9,6 +9,8 @@ sesión y sin que haya que explicarles el contexto cada vez.
 | `navegador.cjs` | Chrome propio por agente (Playwright como librería) + `auditar()` estándar. |
 | `generar.py` | Fotos de prueba: pared con luz de ventana, pared plana, pared oscura, y una de 30 MP. |
 | `mascara.py` | Dónde está la pared en cada foto, para medir aciertos y errores del simulador. |
+| `BITACORA.md` | La memoria: qué se encontró, qué se arregló, qué se descartó midiendo. |
+| `regresiones/` | Las pruebas que vigilan cada arreglo. Se corren con `pnpm verificar`. |
 
 ## Agentes disponibles
 
@@ -19,6 +21,22 @@ las instrucciones:
 - **formularios-hostiles** — datos inválidos, textos enormes, clics repetidos.
 - **simulador-color** — mide el simulador con números contra máscaras de referencia.
 - **seguridad-rls** — revisa que las reglas de la base frenen lo que prometen.
+- **regresiones** — corre `pnpm verificar`, decide si falló el producto o la prueba, y escribe
+  las pruebas que faltan.
+- **accesibilidad** — teclado, contraste, lectores de pantalla, reducir movimiento.
+
+## Cómo crece esto
+
+El círculo es corto y se cierra solo si se respeta:
+
+1. Un agente encuentra algo y lo reporta **medido**, no deducido.
+2. Se arregla.
+3. **El arreglo deja una prueba** en `regresiones/`, que se confirma rompiéndola a propósito.
+4. El hallazgo se anota en `BITACORA.md` con su estado.
+5. La ronda siguiente empieza leyendo la bitácora: no repite lo resuelto y sabe qué quedó abierto.
+
+Sin el paso 3 todo esto se vuelve a romper. Sin el paso 4, la ronda siguiente lo redescubre y se
+paga dos veces.
 
 ## Antes de llamarlos
 
