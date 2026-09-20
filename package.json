@@ -5,7 +5,9 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "verificar": "node tools/auditoria/regresiones/correr.cjs",
+    "fotos-prueba": "python3 tools/auditoria/generar.py --grande && python3 tools/auditoria/mascara.py"
   },
   "devDependencies": {
     "prettier": "^3.2.0",
@@ -13,7 +15,7 @@
     "typescript": "^5.4.0"
   },
   "packageManager": "pnpm@9.0.0",
-  "overridesReason": "Parches de seguridad sobre transitivas que el paquete padre todavía trae vulnerables (sharp/postcss llegan por next).",
+  "overridesReason": "Parches de seguridad sobre transitivas que el paquete padre todav\u00eda trae vulnerables (sharp/postcss llegan por next).",
   "pnpm": {
     "overrides": {
       "sharp": "^0.35.3",

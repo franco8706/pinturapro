@@ -6,9 +6,11 @@ La geometria es la misma que usa generar.py.
 """
 from PIL import Image, ImageDraw
 import json
+import os
 
 W, H = 1200, 800
-DEST = "/workspaces/codespaces-blank/.auditoria/fotos"
+DEST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".fotos-prueba")
+os.makedirs(DEST, exist_ok=True)
 
 
 def mascara_pared(con_mueble=True):

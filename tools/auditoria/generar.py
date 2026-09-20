@@ -5,11 +5,13 @@ textura de revoque, zócalo y moldura claros contra pared de color, y un mueble
 oscuro que toca la pared con su sombra.
 """
 from PIL import Image, ImageDraw, ImageFilter
+import os
 import random
 import sys
 
 W, H = 1200, 800
-DEST = "/workspaces/codespaces-blank/.auditoria/fotos"
+DEST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".fotos-prueba")
+os.makedirs(DEST, exist_ok=True)
 random.seed(7)
 
 

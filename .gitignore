@@ -44,3 +44,4 @@ next-env.d.ts
 
 # Cache de versión del CLI de Supabase (lo escribe `npx supabase`)
 supabase/.temp/
+.fotos-prueba/
