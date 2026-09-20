@@ -25,6 +25,23 @@
     @apply bg-plaster text-ink font-body;
   }
 
+  /*
+   * Ningún texto escrito por un usuario puede estirar la página.
+   *
+   * Medido: un pedido publicado con un título de 10.000 caracteres sin espacios dejó
+   * /trabajos —que es pública— en 254.443 px de ancho, con scroll horizontal, PARA TODOS
+   * los visitantes. Una sola fila rompía la pantalla de cualquiera.
+   *
+   * El tope de largo ya está en la base (migración 0017), que es la barrera de verdad.
+   * Esto es la segunda línea: aunque entre un texto raro —una URL larguísima pegada, un
+   * nombre sin espacios, datos viejos—, corta en vez de empujar. `anywhere` y no
+   * `break-word` porque sólo `anywhere` reduce también el ancho mínimo que el elemento le
+   * pide a su grilla o flex, que es lo que estiraba la página.
+   */
+  h1, h2, h3, h4, p, li, dd, dt, td, th, blockquote, figcaption {
+    overflow-wrap: anywhere;
+  }
+
   *:focus-visible {
     @apply outline-2 outline-offset-2 outline-ink;
   }

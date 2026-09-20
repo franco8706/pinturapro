@@ -37,6 +37,12 @@ function readFields(formData: FormData): { error: string } | { fields: ObraField
   const cover_url = String(formData.get("cover_url") ?? "").trim();
 
   if (title.length < 3) return { error: "El título es muy corto." };
+  // Las obras salen en /obras, que es pública: un título sin tope rompe el listado para
+  // todos los visitantes, no sólo para quien lo escribió (medido: 254.443 px de ancho de
+  // página con un título de 10.000 caracteres). El tope real está en la base (0017).
+  if (title.length > 120) return { error: "El título no puede superar los 120 caracteres." };
+  if (description.length > 2000) return { error: "La descripción no puede superar los 2000 caracteres." };
+  if (location.length > 120) return { error: "La ubicación no puede superar los 120 caracteres." };
   if (!CATEGORIES.includes(category)) return { error: "Categoría inválida." };
   if (cover_url && !/^https?:\/\//i.test(cover_url)) return { error: "La URL de imagen debe empezar con http(s)." };
 

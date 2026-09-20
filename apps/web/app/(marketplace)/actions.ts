@@ -72,6 +72,13 @@ export async function publicarTrabajo(formData: FormData): Promise<{ error?: str
   const budget_min = toInt(formData.get("budget_min"));
   const budget_max = toInt(formData.get("budget_max"));
   if (title.length < 4) return { error: "El título es muy corto." };
+  // Topes de largo. No es cosmético: /trabajos es PÚBLICA y muestra el título de cada
+  // pedido. Medido con un título de 10.000 caracteres sin espacios, la página quedó de
+  // 254.443 px de ancho —para todo el mundo, no sólo para quien lo publicó—. La base
+  // tiene el mismo tope (migración 0017), que es la barrera de verdad.
+  if (title.length > 120) return { error: "El título no puede superar los 120 caracteres." };
+  if (description.length > 2000) return { error: "La descripción no puede superar los 2000 caracteres." };
+  if (location.length > 120) return { error: "La ubicación no puede superar los 120 caracteres." };
 
   const slug = `${slugify(title) || "trabajo"}-${Math.random().toString(36).slice(2, 7)}`;
   const payload = {

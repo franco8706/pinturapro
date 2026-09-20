@@ -32,6 +32,22 @@ export function mensajeDeError(error: { message?: string; code?: string }): stri
   if (code === "40P01" || /deadlock detected/i.test(m)) {
     return "Alguien más estaba operando sobre este pedido. Actualizá la página y probá de nuevo.";
   }
+  // 23514: los topes de largo de la migración 0017. El nombre de la constraint dice qué
+  // campo es; sin traducir, la persona leía `violates check constraint
+  // "projects_title_largo"` y no tenía forma de saber que el problema era el título.
+  if (code === "23514" || /violates check constraint/i.test(m)) {
+    if (/title_largo/.test(m)) return "El título es demasiado largo (máximo 120 caracteres).";
+    if (/description_largo/.test(m)) return "La descripción es demasiado larga (máximo 2000 caracteres).";
+    if (/location_largo/.test(m)) return "La ubicación es demasiado larga (máximo 120 caracteres).";
+    if (/bio_largo/.test(m)) return "La descripción del perfil es demasiado larga (máximo 1200 caracteres).";
+    if (/full_name_largo/.test(m)) return "El nombre es demasiado largo (máximo 120 caracteres).";
+    if (/note_largo/.test(m)) return "El mensaje de la cotización es demasiado largo (máximo 1200 caracteres).";
+    if (/comment_largo/.test(m)) return "El comentario es demasiado largo (máximo 1200 caracteres).";
+    if (/message_largo/.test(m)) return "El mensaje es demasiado largo (máximo 4000 caracteres).";
+    if (/email_largo/.test(m)) return "El email es demasiado largo.";
+    if (/phone_largo/.test(m)) return "El teléfono es demasiado largo.";
+    return "Alguno de los datos es demasiado largo. Revisalo y probá de nuevo.";
+  }
   if (/monto|comisión/i.test(m) && /no puede|no corresponde|fuera de rango/i.test(m)) {
     return m; // los raise del trigger ya están escritos para el usuario
   }
