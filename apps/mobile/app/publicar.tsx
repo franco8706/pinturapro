@@ -47,15 +47,16 @@ export default function PublicarScreen() {
           </Text>
         </View>
 
-        <Field label="Título" value={title} onChangeText={setTitle} placeholder="Ej: Pintar living y cocina" />
+        <Field label="Título" value={title} onChangeText={setTitle} placeholder="Ej: Pintar living y cocina" maxLength={120} />
         <Field
           label="Descripción"
           value={description}
           onChangeText={setDescription}
           placeholder="Superficie, estado de las paredes, color, plazos…"
           multiline
+          maxLength={2000}
         />
-        <Field label="Zona" value={location} onChangeText={setLocation} placeholder="Ej: Caballito, CABA" />
+        <Field label="Zona" value={location} onChangeText={setLocation} placeholder="Ej: Caballito, CABA" maxLength={120} />
         <View style={{ flexDirection: "row", gap: space.md }}>
           <View style={{ flex: 1 }}>
             <Field label="Presup. mín" value={budgetMin} onChangeText={setBudgetMin} placeholder="$" keyboardType="numeric" />

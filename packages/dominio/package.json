@@ -1,0 +1,15 @@
+{
+  "name": "@pinturapro/dominio",
+  "version": "0.1.0",
+  "description": "Reglas de negocio compartidas por la web y la app m\u00f3vil: montos, topes de largo, traducci\u00f3n de errores de la base y permisos por rol.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "test": "node pruebas.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "type": "module"
+}

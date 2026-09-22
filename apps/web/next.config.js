@@ -39,7 +39,7 @@ const securityHeaders = [
 const nextConfig = {
   // El motor de color vive en packages/color como TypeScript sin compilar; Next tiene que
   // transpilarlo igual que al código de la app.
-  transpilePackages: ['@pinturapro/color'],
+  transpilePackages: ['@pinturapro/color', '@pinturapro/dominio'],
   reactStrictMode: true,
   poweredByHeader: false, // no anunciar la versión del framework
   images: {

@@ -70,6 +70,12 @@ importers:
 
   apps/web:
     dependencies:
+      '@pinturapro/color':
+        specifier: workspace:*
+        version: link:../../packages/color
+      '@pinturapro/dominio':
+        specifier: workspace:*
+        version: link:../../packages/dominio
       '@supabase/ssr':
         specifier: ^0.12.0
         version: 0.12.0(@supabase/supabase-js@2.108.2)
@@ -122,6 +128,18 @@ importers:
       tailwindcss:
         specifier: ^3.4.0
         version: 3.4.19
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+
+  packages/color:
+    devDependencies:
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+
+  packages/dominio:
+    devDependencies:
       typescript:
         specifier: ^5.0.0
         version: 5.9.3

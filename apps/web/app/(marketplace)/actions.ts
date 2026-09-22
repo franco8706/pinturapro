@@ -6,6 +6,7 @@ import { notifyUser, emailLayout, html } from "@/lib/email";
 import { commissionFor } from "@/lib/utils";
 import { mensajeDeError } from "@/lib/errores-db";
 import { getOwnProfile } from "@/lib/queries";
+import { montoDesdeTexto, revisarLargos, puedeCotizar, MOTIVO_NO_PUEDE_COTIZAR } from "@pinturapro/dominio";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 const ars = (n: number) => "$" + n.toLocaleString("es-AR");
@@ -24,35 +25,12 @@ function slugify(s: string): string {
 }
 
 /**
- * Convierte lo que escribió una persona en un monto en pesos, o null si no es válido.
- *
- * La versión anterior era `parseInt(v.replace(/[^\d]/g, ""))`, o sea "borrá todo lo que no
- * sea un dígito". Eso rompía de dos formas, las dos silenciosas:
- *
- *  · "-99999" → 99999. El signo desaparecía y la cotización salía POSITIVA. El pintor creía
- *    haber mandado una cosa y al cliente le llegaba otra. Peor que rechazarlo.
- *  · "320.000,50" → 32000050. Los separadores se pegaban y $320 mil se convertían en
- *    $32 millones. Escribir el monto como se escribe en Argentina multiplicaba por 100.
- *
- * Ahora: el punto es separador de miles y la coma decimal (formato local), se descarta la
- * fracción —los montos se guardan en pesos enteros— y un negativo se rechaza en vez de
- * corregirse solo.
+ * El parser de montos vive en `@pinturapro/dominio`, compartido con la app móvil: la copia
+ * del móvil se había quedado con la versión vieja, la que convertía "150.000,50" en
+ * $15.000.050. Una regla de plata en dos archivos termina diciendo dos cosas distintas.
  */
 function toInt(v: FormDataEntryValue | null): number | null {
-  const crudo = String(v ?? "").trim();
-  if (!crudo) return null;
-  if (/^-/.test(crudo)) return null; // negativo explícito: se rechaza, no se "arregla"
-
-  const soloNumero = crudo.replace(/[^\d.,]/g, ""); // saca "$", espacios, letras
-  const sinMiles = soloNumero.replace(/\./g, ""); // el punto es separador de miles
-  const entero = sinMiles.split(",")[0]; // la coma abre los centavos: se descartan
-  if (!entero) return null;
-
-  const n = parseInt(entero, 10);
-  // Tope defensivo: más de mil millones de pesos en un trabajo de pintura es un error de
-  // tipeo, y `amount` es un int4 en la base (desborda arriba de 2.147.483.647).
-  if (!Number.isFinite(n) || n <= 0 || n > 1_000_000_000) return null;
-  return n;
+  return montoDesdeTexto(v);
 }
 
 /**
@@ -72,13 +50,12 @@ export async function publicarTrabajo(formData: FormData): Promise<{ error?: str
   const budget_min = toInt(formData.get("budget_min"));
   const budget_max = toInt(formData.get("budget_max"));
   if (title.length < 4) return { error: "El título es muy corto." };
-  // Topes de largo. No es cosmético: /trabajos es PÚBLICA y muestra el título de cada
-  // pedido. Medido con un título de 10.000 caracteres sin espacios, la página quedó de
-  // 254.443 px de ancho —para todo el mundo, no sólo para quien lo publicó—. La base
-  // tiene el mismo tope (migración 0017), que es la barrera de verdad.
-  if (title.length > 120) return { error: "El título no puede superar los 120 caracteres." };
-  if (description.length > 2000) return { error: "La descripción no puede superar los 2000 caracteres." };
-  if (location.length > 120) return { error: "La ubicación no puede superar los 120 caracteres." };
+  // Topes de largo (espejo de los checks de la migración 0017, que es la barrera real).
+  // No es cosmético: /trabajos es PÚBLICA y muestra el título de cada pedido. Medido con un
+  // título de 10.000 caracteres sin espacios, la página quedó de 254.443 px de ancho, para
+  // todo el mundo y no sólo para quien lo publicó.
+  const largoMal = revisarLargos({ titulo: title, descripcion: description, ubicacion: location });
+  if (largoMal) return { error: largoMal };
 
   const slug = `${slugify(title) || "trabajo"}-${Math.random().toString(36).slice(2, 7)}`;
   const payload = {
@@ -120,6 +97,8 @@ export async function cotizar(formData: FormData): Promise<{ error?: string; ok?
   if (!projectId || !clientId) return { error: "Faltan datos del pedido." };
   if (!amount) return { error: "Ingresá un monto válido." };
   if (clientId === user.id) return { error: "No podés cotizar tu propio pedido." };
+  const notaMal = revisarLargos({ notaCotizacion: note });
+  if (notaMal) return { error: notaMal };
 
   // El rol también se verifica acá, no sólo en la base: la policy devuelve un error
   // de permisos genérico y quien lo lea tiene que entender qué pasó. Medido: una
@@ -132,8 +111,8 @@ export async function cotizar(formData: FormData): Promise<{ error?: string; ok?
   } catch {
     perfil = null;
   }
-  if (perfil && perfil.type === "client") {
-    return { error: "Las cotizaciones las envían los pintores. Tu cuenta es de cliente." };
+  if (perfil && !puedeCotizar(perfil.type)) {
+    return { error: MOTIVO_NO_PUEDE_COTIZAR };
   }
 
   const commission_amount = commissionFor(amount);

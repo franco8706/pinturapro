@@ -59,6 +59,7 @@ export default function CotizarScreen() {
           onChangeText={setNote}
           placeholder="Qué incluye, plazos, manos de pintura, marca…"
           multiline
+          maxLength={1200}
         />
 
         {error ? <Note>{error}</Note> : null}

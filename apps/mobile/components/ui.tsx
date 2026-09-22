@@ -69,6 +69,7 @@ export function Field({
   keyboardType,
   autoCapitalize = "sentences",
   hint,
+  maxLength,
 }: {
   label: string;
   value: string;
@@ -78,6 +79,11 @@ export function Field({
   keyboardType?: KeyboardTypeOptions;
   autoCapitalize?: "none" | "sentences" | "words";
   hint?: string;
+  /**
+   * Tope de caracteres. La base los rechaza (migración 0017) y cortar acá evita que alguien
+   * escriba 2.000 caracteres para enterarse al enviar de que no entran.
+   */
+  maxLength?: number;
 }) {
   return (
     <View style={{ gap: 6 }}>
@@ -90,6 +96,7 @@ export function Field({
         multiline={multiline}
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
+        maxLength={maxLength}
         style={[
           styles.input,
           multiline && { height: 110, textAlignVertical: "top", paddingTop: space.sm },
