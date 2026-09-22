@@ -207,14 +207,19 @@ export const getProjectBySlug = cache(async (slug: string): Promise<Project | nu
       .eq("slug", slug)
       .eq("published", true)
       .maybeSingle();
-    if (error || !data) {
-      if (error) dbError("getProjectBySlug", error);
-      return null;
+    // `null` significa "esta obra no existe" y la página responde 404. Un fallo de lectura NO
+    // es eso: decirle a la persona —y a Google— que la obra no existe porque la base tuvo un
+    // problema es mentira, y encima saca la página del buscador. Los dos casos se separan.
+    if (error) {
+      dbError("getProjectBySlug", error);
+      throw new ErrorDeLecturaDeDatos("la obra", error.message ?? "error de la base");
     }
+    if (!data) return null;
     return mapProject(data as unknown as ProjectRow);
   } catch (e) {
+    if (e instanceof ErrorDeLecturaDeDatos) throw e;
     dbError("getProjectBySlug", e);
-    return null;
+    throw new ErrorDeLecturaDeDatos("la obra", String(e));
   }
 });
 
@@ -233,11 +238,18 @@ export interface ReviewView {
 
 /** Un pintor por id (perfil público). */
 /** `cache()` por lo mismo que getProjectBySlug: metadata + cuerpo pedían el mismo pintor. */
+const ES_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const getPainterById = cache(async (id: string): Promise<PainterDetail | null> => {
   if (!SUPA) {
     const m = mockPainters.find((p) => p.id === id);
     return m ? { ...m, bio: "" } : null;
   }
+  // Un id que no tiene forma de uuid no puede existir: se contesta 404 sin molestar a la base.
+  // Antes se consultaba igual y Postgres devolvía `invalid input syntax for type uuid`, que
+  // quedaba escrito en la consola del navegador —estructura interna a la vista— y encima
+  // gastaba una consulta por cada URL inventada que alguien probara.
+  if (!ES_UUID.test(id)) return null;
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -246,10 +258,12 @@ export const getPainterById = cache(async (id: string): Promise<PainterDetail | 
       .eq("id", id)
       .in("type", ["painter", "company"])
       .maybeSingle();
-    if (error || !data) {
-      if (error) dbError("getPainterById", error);
-      return null;
+    // Igual que con las obras: "no existe" (404) y "no se pudo leer" no son lo mismo.
+    if (error) {
+      dbError("getPainterById", error);
+      throw new ErrorDeLecturaDeDatos("el pintor", error.message ?? "error de la base");
     }
+    if (!data) return null;
     const p = data as unknown as {
       id: string;
       full_name: string | null;
@@ -274,8 +288,9 @@ export const getPainterById = cache(async (id: string): Promise<PainterDetail | 
       bio: p.bio ?? "",
     };
   } catch (e) {
+    if (e instanceof ErrorDeLecturaDeDatos) throw e;
     dbError("getPainterById", e);
-    return null;
+    throw new ErrorDeLecturaDeDatos("el pintor", String(e));
   }
 });
 
