@@ -48,6 +48,15 @@ function dbError(fn: string, e: unknown): void {
   console.error(`[db] ${fn} falló: ${msg}`);
 }
 
+/**
+ * Lo que se muestra donde había un nombre y la persona se dio de baja.
+ *
+ * El trabajo y la reseña sobreviven a la baja de la otra parte (migración 0019) porque son
+ * también el registro de trabajo y la reputación de alguien más. Sin este texto, el fallback
+ * decía "Cliente", que da a entender que hay una persona ahí.
+ */
+const BAJA = "Cuenta dada de baja";
+
 // Sin Supabase configurado (desarrollo local sin claves) se usan los datos de ejemplo.
 // Si la base ESTÁ configurada y falla, ver la nota sobre getPainters: se avisa, no se inventa.
 const SUPA = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -616,7 +625,10 @@ export async function getReviewsForPainter(painterId: string): Promise<ReviewVie
       created_at: string;
       author_id: string;
     }[];
-    const authorIds = [...new Set(rows.map((r) => r.author_id))];
+    // `author_id` puede venir en NULL: quien escribió la reseña dio de baja su cuenta y la
+    // reseña quedó, sin nombre (migración 0019). Se filtran para no pedirle a la base un id
+    // que no existe.
+    const authorIds = [...new Set(rows.map((r) => r.author_id).filter(Boolean))] as string[];
     const names = new Map<string, string>();
     if (authorIds.length) {
       const { data: authors } = await supabase.from("profiles").select("id, full_name").in("id", authorIds);
@@ -626,7 +638,7 @@ export async function getReviewsForPainter(painterId: string): Promise<ReviewVie
     }
     return rows.map((r) => ({
       id: r.id,
-      author: names.get(r.author_id) ?? "Cliente",
+      author: r.author_id ? names.get(r.author_id) ?? "Cliente" : BAJA,
       rating: r.rating,
       date: monthYear(r.created_at),
       comment: r.comment ?? "",
@@ -686,7 +698,8 @@ export async function getJobsForPainter(painterId: string): Promise<JobView[]> {
       client_id: string;
       project_id: string | null;
     }[];
-    const clientIds = [...new Set(rows.map((r) => r.client_id))];
+    // Igual que con las reseñas: `client_id` en NULL es un cliente dado de baja.
+    const clientIds = [...new Set(rows.map((r) => r.client_id).filter(Boolean))] as string[];
     const projectIds = [...new Set(rows.map((r) => r.project_id).filter(Boolean))] as string[];
     const names = new Map<string, string>();
     const titles = new Map<string, string>();
@@ -704,7 +717,7 @@ export async function getJobsForPainter(painterId: string): Promise<JobView[]> {
       status: r.status,
       statusLabel: JOB_STATUS_LABEL[r.status] ?? r.status,
       amount: r.amount,
-      client: names.get(r.client_id) ?? "Cliente",
+      client: r.client_id ? names.get(r.client_id) ?? "Cliente" : BAJA,
       project: r.project_id ? titles.get(r.project_id) ?? null : null,
     }));
   } catch (e) {

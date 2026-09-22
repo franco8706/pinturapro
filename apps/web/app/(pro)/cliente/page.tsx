@@ -85,6 +85,10 @@ export default async function ClientePanelPage() {
               <MagneticButton href="/cotizaciones" variant="ghost">
                 Ver cotizaciones
               </MagneticButton>
+              {/* Ver el mismo comentario en el panel del pintor. */}
+              <MagneticButton href="/mi-cuenta" variant="ghost">
+                Mis datos
+              </MagneticButton>
               <MagneticButton href="/publicar" variant="primary">
                 Publicar trabajo
               </MagneticButton>

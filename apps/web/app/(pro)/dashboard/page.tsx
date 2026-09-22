@@ -139,6 +139,11 @@ export default async function PainterDashboardPage({
               <MagneticButton href="/dashboard/perfil" variant="ghost">
                 Editar perfil
               </MagneticButton>
+              {/* Descargar los propios datos y dar de baja la cuenta son derechos de la Ley
+                  25.326. Estaban sólo en la política de privacidad, y por correo. */}
+              <MagneticButton href="/mi-cuenta" variant="ghost">
+                Mis datos
+              </MagneticButton>
               {!isCompany && (
                 <MagneticButton href={`/pintor/${painter.id}`} variant="ghost">
                   Ver mi perfil

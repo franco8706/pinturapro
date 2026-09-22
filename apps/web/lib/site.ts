@@ -53,6 +53,9 @@ export const PRIVATE_PATHS = [
   // nada que buscar un buscador, y la de cambio llega con un token en la dirección.
   "/recuperar",
   "/nueva-contrasena",
+  // Pantallas de la cuenta: ni se buscan ni tienen sentido en un resultado de Google.
+  "/mi-cuenta",
+  "/cuenta-eliminada",
   "/auth/",
   "/api/",
 ];

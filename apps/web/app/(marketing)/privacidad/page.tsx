@@ -202,6 +202,17 @@ export default function PrivacidadPage() {
           </Seccion>
 
           <Seccion titulo="Tus derechos">
+            {/* Antes esta sección era sólo un email. Cumplía, pero dejaba el plazo de ley en
+                manos de que alguien atendiera a tiempo: ahora los dos derechos más pedidos
+                —ver lo que hay y borrarlo— se ejercen solos desde la cuenta. */}
+            <p>
+              Si tenés cuenta, desde{" "}
+              <a href="/mi-cuenta" className="text-ink underline underline-offset-2">
+                Mis datos y mi cuenta
+              </a>{" "}
+              podés <strong>descargar todo lo que tenemos sobre vos</strong> en un archivo y{" "}
+              <strong>eliminar tu cuenta</strong>, sin pedirle permiso a nadie y en el momento.
+            </p>
             <p>
               Podés pedirnos acceder a tus datos, corregirlos, actualizarlos o eliminarlos.
               Escribinos a{" "}
