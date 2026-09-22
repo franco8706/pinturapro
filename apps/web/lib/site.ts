@@ -49,6 +49,10 @@ export const PRIVATE_PATHS = [
   "/crear-cuenta",
   "/registro",
   "/publicar",
+  // Recuperar y cambiar la contraseña son de la misma familia que /ingresar: no tienen
+  // nada que buscar un buscador, y la de cambio llega con un token en la dirección.
+  "/recuperar",
+  "/nueva-contrasena",
   "/auth/",
   "/api/",
 ];

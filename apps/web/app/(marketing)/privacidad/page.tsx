@@ -29,9 +29,17 @@ export const metadata: Metadata = {
 const RESPONSABLE = {
   nombre: "Pintura Pro",
   email: "hola@pinturapro.ar",
-  // TODO(dueño): razón social, CUIT y domicilio legal. La Ley 25.326 exige identificar al
-  // responsable de la base de datos, y la AAIP pide domicilio para los reclamos.
+  // Completar estos tres y el aviso de abajo desaparece solo.
+  // La Ley 25.326 exige identificar al responsable de la base de datos, y la AAIP pide
+  // domicilio para los reclamos.
+  razonSocial: null as string | null,
+  cuit: null as string | null,
+  domicilio: null as string | null,
 };
+
+/** Mientras falten los datos legales, la página lo dice en vez de aparentar estar completa. */
+const FALTAN_DATOS_LEGALES =
+  !RESPONSABLE.razonSocial || !RESPONSABLE.cuit || !RESPONSABLE.domicilio;
 
 const ULTIMA_ACTUALIZACION = "10 de septiembre de 2026";
 
@@ -65,6 +73,21 @@ export default function PrivacidadPage() {
               </a>
               .
             </p>
+            {RESPONSABLE.razonSocial && (
+              <p>
+                {RESPONSABLE.razonSocial} · CUIT {RESPONSABLE.cuit} · {RESPONSABLE.domicilio}
+              </p>
+            )}
+            {/* El TODO estaba en el código y la pantalla mostraba la sección como si
+                estuviera completa: quien la leía no tenía forma de saber que falta el dato
+                que la ley exige. Mejor decirlo que aparentar. */}
+            {FALTAN_DATOS_LEGALES && (
+              <p className="border-l-2 border-ink pl-4">
+                <strong className="text-ink">Falta completar.</strong> Todavía no están
+                publicados la razón social, el CUIT ni el domicilio legal del responsable. Si
+                necesitás esos datos para un reclamo formal, pedilos por email y te los damos.
+              </p>
+            )}
           </Seccion>
 
           <Seccion titulo="Qué datos recolectamos">
@@ -150,6 +173,13 @@ export default function PrivacidadPage() {
               </li>
               <li>
                 <strong>Resend</strong> — envío de los emails de aviso.
+              </li>
+              <li>
+                {/* El mapa de /pintores carga los mosaicos desde los servidores de OSM, así que
+                    la dirección IP de cualquier visitante llega ahí, sin necesidad de tener
+                    cuenta. Es un tercero real y no estaba declarado. */}
+                <strong>OpenStreetMap</strong> — los mapas de la sección de pintores se cargan
+                desde sus servidores, así que reciben tu dirección IP al abrir esa página.
               </li>
               <li>
                 <strong>Google, Microsoft y Facebook</strong> — únicamente si elegís entrar con

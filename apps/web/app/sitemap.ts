@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { SITE_URL, PUBLIC_ROUTES } from "@/lib/site";
 import { getProjects, getPainters } from "@/lib/queries";
+import { DATOS_DEMO } from "@/lib/empresa";
 
 // El sitemap se regenera cada hora: las obras y los pintores cambian, pero no tanto
 // como para reconsultar la base en cada visita de un crawler.
@@ -9,9 +10,15 @@ export const revalidate = 3600;
 /**
  * Sitemap con las rutas públicas fijas más las dinámicas (obras y perfiles de pintor).
  *
- * Las dinámicas son best-effort a propósito: si Supabase no responde, `getProjects` y
- * `getPainters` caen a los mocks, y publicar URLs inventadas sería peor que no publicar
- * ninguna. Por eso se descarta lo que no parezca real.
+ * Las dinámicas son best-effort a propósito: si Supabase no responde se publican sólo las
+ * páginas fijas, porque un sitemap con direcciones que dan 404 es peor que uno corto.
+ *
+ * Y mientras el contenido sea de demostración, las obras y los pintores NO entran. El filtro
+ * que había —descartar slugs que empiecen con "demo-" e ids cortos— no alcanzaba: los
+ * pintores y las obras de ejemplo están cargados en la base como filas normales, con UUID y
+ * slug de verdad, así que lo pasaban sin problema. Medido: el sitemap listaba los 3 pintores
+ * y las 3 obras inventados. Mandar a Google a indexar profesionales que no existen es muy
+ * difícil de deshacer después: quedan en el caché y en los resultados por meses.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const estaticas: MetadataRoute.Sitemap = PUBLIC_ROUTES.map((r) => ({
@@ -21,6 +28,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   const dinamicas: MetadataRoute.Sitemap = [];
+
+  // Con datos de demostración, sólo las páginas fijas. Se destraba poniendo
+  // NEXT_PUBLIC_DATOS_DEMO=false, que es lo que hay que hacer el día que haya pintores y
+  // obras reales (ver docs/deploy.md).
+  if (DATOS_DEMO) return estaticas;
 
   try {
     const obras = await getProjects();

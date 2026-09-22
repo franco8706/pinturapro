@@ -97,6 +97,18 @@ export default function TerminosPage() {
               plataforma y por el medio que acuerden. Pintura Pro no cobra el trabajo, no lo retiene
               en garantía y no interviene si hay un desacuerdo sobre el pago.
             </p>
+            {/* Faltaba decirlo. Sobre cada cotización se calcula y se guarda un 10% de
+                comisión, y el texto anterior —"Pintura Pro no cobra el trabajo"— dejaba a un
+                pintor con la idea de que no se le cobra nada. Hoy es cierto que no se cobra,
+                porque todavía no hay medio de pago conectado, pero el porcentaje ya se
+                registra y se va a cobrar cuando lo haya. Se dice ahora, no después. */}
+            <p>
+              <strong>Comisión de la plataforma: 10%</strong> sobre el monto del trabajo
+              adjudicado, a cargo del pintor. Hoy ese porcentaje se calcula y queda registrado
+              en cada cotización, pero <strong>todavía no se cobra</strong>: no hay medio de
+              pago conectado. Cuando empiece a cobrarse te lo vamos a avisar antes, y va a
+              estar publicado acá.
+            </p>
           </Seccion>
 
           <Seccion titulo="Reseñas y calificaciones">

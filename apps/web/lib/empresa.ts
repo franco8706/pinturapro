@@ -26,6 +26,22 @@ export interface DatoEmpresa {
  * TODO(dueño): completar con los números reales y borrar los `null`.
  * Mientras estén en null, la home muestra sólo las métricas que salen de la base.
  */
+/**
+ * ¿El contenido que se ve es de demostración?
+ *
+ * Hoy los pintores, las obras y las reseñas son inventados: están cargados en la base como
+ * filas normales, con UUID y slug de verdad, así que ningún filtro los distingue de los
+ * reales. Esta bandera es la que lo sabe.
+ *
+ * Por ahora sólo gobierna el sitemap: mientras esté en true, no se manda a Google a indexar
+ * perfiles de profesionales que no existen. Eso, una vez hecho, no se deshace: quedan en el
+ * caché del buscador durante meses.
+ *
+ * El día que haya datos reales, va `NEXT_PUBLIC_DATOS_DEMO=false` en el entorno. Por defecto
+ * es true a propósito: olvidarse de activarlo no rompe nada, olvidarse de desactivarlo sí.
+ */
+export const DATOS_DEMO = process.env.NEXT_PUBLIC_DATOS_DEMO !== "false";
+
 export const DATOS_EMPRESA: DatoEmpresa[] = [
   // Años que la empresa lleva trabajando. Lo sabe el dueño; no hay forma de derivarlo.
   { value: null, prefix: "", suffix: "", decimals: 0, label: "Años de oficio" },

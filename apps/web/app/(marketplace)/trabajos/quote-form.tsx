@@ -69,10 +69,21 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
             inputMode="numeric"
             required
             placeholder="320000"
+            aria-describedby="aviso-comision"
             className="mt-1 w-full sm:w-44 border border-concrete/30 bg-plaster px-3 py-2 font-body text-body-md text-ink focus:border-ink outline-none transition-colors"
           />
         </label>
       </div>
+      {/* La plataforma calcula y guarda un 10% de comisión sobre este monto
+          (`commissionFor`, y la policy de la base lo exige), y la web no lo decía en NINGÚN
+          lado: ni acá, ni en el alta de pintor, ni en los términos. El único lugar donde
+          aparecía era el panel del administrador, que el pintor no ve. La app móvil sí lo
+          avisa en esta misma pantalla. Cobrarle a alguien un porcentaje que nunca se le dijo
+          no se arregla después. */}
+      <p id="aviso-comision" className="font-body text-body-sm text-concrete">
+        Poné el precio final para el cliente, con materiales y mano de obra. Pintura Pro cobra
+        una comisión del <strong className="text-ink">10%</strong> sobre el trabajo adjudicado.
+      </p>
       <label className="block">
         <span className="font-mono text-mono-sm uppercase tracking-widest text-concrete">Mensaje</span>
         <textarea
