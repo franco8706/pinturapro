@@ -38,6 +38,8 @@ Estos ya no se reportan. `pnpm verificar` los revisa en cada corrida.
 | Los carruseles y el scroll ignoraban "reducir movimiento" | Seguían pasando solos cada 5-6 s con la preferencia activada | `accesibilidad` |
 | El menú del celular no cerraba con Escape | `aria-expanded` seguía en true | `accesibilidad` |
 | Texto por debajo del piso de contraste | Iniciales del pintor 2,38:1 e inicial del equipo 1,49:1, con piso de 3:1 | `accesibilidad` |
+| El móvil convertía "150.000,50" en $15.000.050 | Copia vieja del parser de montos: cien veces más, en una cotización que el cliente acepta | `reglas-compartidas` |
+| El móvil no validaba largos ni traducía el error 23514 | Se escribían 2.000 caracteres para leer "No pudimos completar la acción" | `reglas-compartidas` |
 
 ## Corregido, sin prueba todavía
 
@@ -47,18 +49,35 @@ Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arri
   de tu perfil". Verificado a mano, sin prueba automática.
 - **La base que falla ya no muestra pintores inventados** (20/9). Cuesta probarlo sin poder
   cortarle la base a la app; se podría interceptar la conexión desde el navegador.
+- **Se podía cotizar con comisión cero** (22/9). Verificado contra la base: la policy había
+  perdido la aritmética de la comisión al reescribirse en 0015 y 0016. Migración **0018** la
+  restaura. Una prueba tendría que insertar por la API con la clave anon.
+- **`recalc_profile_rating` la ejecutaba cualquiera sin cuenta** (22/9). Revocado en 0018.
+- **Una base caída decía "esta página no existe"** (22/9): 404 para la persona y para Google,
+  cuando la página sí existe. Ahora se separa "no existe" de "no se pudo leer".
+- **El sitemap mandaba a indexar los pintores y obras inventados** (22/9). Con
+  `NEXT_PUBLIC_DATOS_DEMO` (true por defecto) sólo se publican las páginas fijas.
+- **Nadie le decía al pintor que se le cobra 10%** (22/9). Ahora está en el formulario de
+  cotizar y en /terminos.
+- **El simulador congelaba la pantalla 363 ms al cambiar de color** (22/9). Ahora 241 ms, con
+  las tablas de conversión. La prueba `simulador-calidad` ya vigila que el color no cambie;
+  faltaría una que vigile el tiempo.
 
 ## Abierto
 
-- **En desarrollo, la consola muestra errores crudos de Postgres** (`invalid input syntax for type
-  uuid`) al pedir un pintor con un id inventado. No se ve en pantalla. Falta confirmar que en
-  producción no aparezca. **Severidad: menor.**
-- **Quedan consultas públicas que caen a datos de demostración si la base falla.** Las dos que
-  más importan ya avisan en vez de inventar (el directorio de pintores y el portfolio, 20/9),
-  pero faltan repasar las demás: obras por slug, perfil de pintor, novedades y recursos.
-  **Severidad: importante antes de publicar.**
 - **`/simulador` no se puede usar con teclado.** El lienzo es un canvas y se pinta con clics: hoy
   no hay ninguna alternativa ni aviso. **Severidad: importante, y no tiene arreglo rápido.**
+- **El primer clic del simulador congela la pantalla ~400 ms** (medido en producción, celular de
+  gama media). Es la varita recorriendo la imagen. Se arreglaría de verdad moviendo el cálculo a
+  un Web Worker con OffscreenCanvas. **Severidad: menor, pero se nota.**
+- **La app móvil mantiene una copia de las reglas** en vez de importar `packages/dominio`: Metro
+  necesita configuración para resolver paquetes del monorepo, y no se puede probar sin levantar
+  la app. Hay una prueba que avisa si las dos copias se desincronizan. **Severidad: deuda.**
+- **Faltan datos legales del responsable** (razón social, CUIT, domicilio). La pantalla ahora lo
+  avisa en vez de aparentar estar completa, pero el dato lo tiene que poner el dueño.
+- **La ubicación del pintor no se redondea a nivel de zona**, aunque /privacidad dice que sí. Hoy
+  no es explotable porque ningún formulario carga coordenadas reales; conviene resolverlo antes
+  de que exista ese flujo. **Severidad: menor hoy, importante cuando se geocodifique.**
 
 ## Descartado (se midió y no era)
 
@@ -72,6 +91,11 @@ No los vuelvas a levantar sin evidencia nueva.
   toque siguiente caía en otro lado. Con un dedo real pinta el 56% de la pared.
 - **"Publicar obra duplica con tres clics".** Medido: crea una sola fila.
 - **"Secciones vacías en la home".** Son animaciones que aparecen al hacer scroll.
+- **"La web pesa 3 MB y tarda 18 segundos".** Era el modo desarrollo. Medido contra la
+  compilación de producción con 4G flojo y el procesador frenado cuatro veces: la home pesa
+  324 KB y carga en 2,2 s. Cualquier medición de peso o de carga hecha en desarrollo no sirve.
+- **"Hay claves filtradas en el repositorio".** Se escanearon los 82 commits del historial: no
+  hay ninguna. El único hallazgo era un ejemplo de documentación.
 
 ## Decisión del dueño (no son bugs)
 
