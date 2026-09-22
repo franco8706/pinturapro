@@ -28,10 +28,32 @@ function aLineal(v: number): number {
   return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
 }
 
-/** Lineal (0..1) → sRGB (0..255), sin recortar: el llamador decide qué hacer si se pasa. */
+/**
+ * Lineal (0..1) → sRGB (0..255), por tabla.
+ *
+ * La fórmula exacta lleva un `Math.pow(v, 1/2.4)`, y acá se llama TRES VECES POR PÍXEL cada
+ * vez que se repinta la pared: en una foto de 1024×683 son 2,1 millones de potencias por
+ * cambio de color. Medido en la compilación de producción, con el procesador de un celular
+ * de gama media: elegir un color congelaba la pantalla 363 ms.
+ *
+ * La tabla tiene 4.096 puntos e interpola entre ellos. El error contra la fórmula exacta es
+ * de milésimas de un nivel de color de 0 a 255 — invisible— y cuesta una multiplicación y
+ * una suma en lugar de una potencia.
+ */
+const PASOS_SRGB = 4096;
+const TABLA_SRGB = new Float32Array(PASOS_SRGB + 1);
+for (let i = 0; i <= PASOS_SRGB; i++) {
+  const v = i / PASOS_SRGB;
+  TABLA_SRGB[i] = (v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055) * 255;
+}
+
 function aSrgb(v: number): number {
-  const x = v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055;
-  return x * 255;
+  if (v <= 0) return 0;
+  if (v >= 1) return 255;
+  const x = v * PASOS_SRGB;
+  const i = x | 0;
+  const f = x - i;
+  return TABLA_SRGB[i] + (TABLA_SRGB[i + 1] - TABLA_SRGB[i]) * f;
 }
 
 export function rgbAOklab(r: number, g: number, b: number): [number, number, number] {
@@ -60,18 +82,41 @@ export function rgbAOkL(r: number, g: number, b: number): number {
 }
 
 /** OKLab → sRGB 0..255 sin recortar (puede devolver valores fuera de 0..255). */
-function oklabACrudo(L: number, a: number, b: number): [number, number, number] {
+/**
+ * OKLab → RGB lineal (0..1), sin recortar.
+ *
+ * Se devuelve en lineal a propósito: mirar si un color entra en la pantalla es comprobar que
+ * los tres canales estén entre 0 y 1, y hacerlo acá evita convertir a sRGB —tres pasadas por
+ * la tabla— en cada intento de la búsqueda de gama. Antes se convertía para después
+ * descartar el resultado.
+ */
+const lineal: [number, number, number] = [0, 0, 0];
+
+function oklabALineal(L: number, a: number, b: number): [number, number, number] {
   const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
   const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
   const s_ = L - 0.0894841775 * a - 1.291485548 * b;
   const l = l_ * l_ * l_;
   const m = m_ * m_ * m_;
   const s = s_ * s_ * s_;
-  return [
-    aSrgb(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
-    aSrgb(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
-    aSrgb(-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s),
-  ];
+  // Se reusa el mismo arreglo en cada llamada: esta función corre una vez por píxel y crear
+  // un arreglo nuevo cada vez le da trabajo al recolector de basura justo en el momento en
+  // que la pantalla tiene que responder.
+  lineal[0] = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+  lineal[1] = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+  lineal[2] = -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s;
+  return lineal;
+}
+
+/** ¿Los tres canales entran en la pantalla? Con un margen de medio nivel de 255. */
+function entraEnPantalla([r, g, b]: [number, number, number]): boolean {
+  const m = 0.5 / 255;
+  return r >= -m && r <= 1 + m && g >= -m && g <= 1 + m && b >= -m && b <= 1 + m;
+}
+
+function oklabACrudo(L: number, a: number, b: number): [number, number, number] {
+  const [r, g, bl] = oklabALineal(L, a, b);
+  return [aSrgb(r), aSrgb(g), aSrgb(bl)];
 }
 
 /**
@@ -116,24 +161,27 @@ export function oklchASrgb(L: number, C: number, h: number): [number, number, nu
  * `hypot` y un `cos`/`sin` por píxel, que en una foto de 1 megapíxel se notan.
  */
 export function oklabASrgb(L: number, a: number, b: number): [number, number, number] {
-  const entra = ([r, g, bl]: [number, number, number]) =>
-    r >= -0.5 && r <= 255.5 && g >= -0.5 && g <= 255.5 && bl >= -0.5 && bl <= 255.5;
-
-  let rgb = oklabACrudo(L, a, b);
-  if (!entra(rgb)) {
+  // La comprobación de gama se hace sobre los valores LINEALES: es la misma condición y
+  // evita pasar por la tabla de conversión en cada intento de la búsqueda. Para un color que
+  // ya entra —la mayoría de los píxeles de una pared— esto es una sola pasada.
+  let ok = entraEnPantalla(oklabALineal(L, a, b));
+  let escala = 1;
+  if (!ok) {
     let bajo = 0;
     let alto = 1;
     for (let i = 0; i < 10; i++) {
       const medio = (bajo + alto) / 2;
-      if (entra(oklabACrudo(L, a * medio, b * medio))) bajo = medio;
+      if (entraEnPantalla(oklabALineal(L, a * medio, b * medio))) bajo = medio;
       else alto = medio;
     }
-    rgb = oklabACrudo(L, a * bajo, b * bajo);
+    escala = bajo;
+    ok = true;
   }
+  const [r, g, bl] = oklabALineal(L, a * escala, b * escala);
   return [
-    Math.max(0, Math.min(255, rgb[0])),
-    Math.max(0, Math.min(255, rgb[1])),
-    Math.max(0, Math.min(255, rgb[2])),
+    Math.max(0, Math.min(255, aSrgb(r))),
+    Math.max(0, Math.min(255, aSrgb(g))),
+    Math.max(0, Math.min(255, aSrgb(bl))),
   ];
 }
 

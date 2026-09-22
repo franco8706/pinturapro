@@ -29,6 +29,29 @@ const MAX_DIM = 1024;
 const MAX_MEGAPIXELES = 24;
 
 /**
+ * `Math.tanh` por tabla.
+ *
+ * El hombro que comprime las luces y las sombras se calcula UNA VEZ POR PÍXEL: en una foto de
+ * 1024×683 son 700.000 llamadas cada vez que se cambia de color. Medido en la compilación de
+ * producción con el procesador frenado cuatro veces: el repintado congelaba la pantalla.
+ *
+ * `tanh` vale prácticamente 1 a partir de 4, así que la tabla cubre 0..4 con 2.048 puntos e
+ * interpola. El error es de una diezmilésima: invisible en un valor que después se multiplica
+ * por 255.
+ */
+const TANH_MAX = 4;
+const TANH_PASOS = 2048;
+const TABLA_TANH = new Float32Array(TANH_PASOS + 1);
+for (let i = 0; i <= TANH_PASOS; i++) TABLA_TANH[i] = Math.tanh((i / TANH_PASOS) * TANH_MAX);
+
+function tanhRapido(x: number): number {
+  if (x >= TANH_MAX) return 1;
+  const p = (x / TANH_MAX) * TANH_PASOS;
+  const i = p | 0;
+  return TABLA_TANH[i] + (TABLA_TANH[i + 1] - TABLA_TANH[i]) * (p - i);
+}
+
+/**
  * Simulador de color sobre foto — arquitectura cliente-servidor.
  *
  * La segmentación pesada (SAM) corre en el SERVIDOR (vía `/api/segment`), no en
@@ -267,8 +290,8 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
         const ol = luma[i];
         const shade = (ol - anchor) * CONTRAST;
         let nl: number;
-        if (shade >= 0) nl = up > 1e-6 ? tl + up * Math.tanh(shade / up) : tl;
-        else nl = down > 1e-6 ? tl - down * Math.tanh(-shade / down) : tl;
+        if (shade >= 0) nl = up > 1e-6 ? tl + up * tanhRapido(shade / up) : tl;
+        else nl = down > 1e-6 ? tl - down * tanhRapido(-shade / down) : tl;
         // El croma baja un poco en los extremos, donde el ojo distingue menos color y donde
         // la pantalla tampoco lo puede mostrar. oklchASrgb además baja el croma lo justo para
         // que el color entre en la gama en vez de recortar canales, que corre el tono.
