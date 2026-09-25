@@ -541,7 +541,15 @@ export async function getJobsForClient(clientId: string): Promise<ClientJobView[
       status: r.status,
       statusLabel: JOB_STATUS_LABEL[r.status] ?? r.status,
       amount: r.amount,
-      painter: r.painter_id ? names.get(r.painter_id) ?? "Pintor" : null,
+      // `null` significa "todavía nadie", y se muestra como "Esperando pintor". Pero un
+      // trabajo YA adjudicado cuyo pintor se dio de baja también llegaba con null, así que
+      // una tarjeta podía decir "Completado" y "Esperando pintor" al mismo tiempo. Son dos
+      // situaciones distintas y tienen que verse distinto.
+      painter: r.painter_id
+        ? names.get(r.painter_id) ?? "Pintor"
+        : r.status === "quoted"
+          ? null
+          : BAJA,
       painterId: r.painter_id,
       project: r.project_id ? titles.get(r.project_id) ?? null : null,
       reviewed: reviewed.has(r.id),

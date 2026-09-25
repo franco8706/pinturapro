@@ -24,6 +24,21 @@ export default function CrearCuentaPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  /**
+   * Declaración de mayoría de edad y aceptación de los textos legales.
+   *
+   * Los términos ya decían "personas mayores de 18 años", pero era letra muerta: el alta
+   * pedía nombre, email y contraseña, y nada más. Un chico de 15 se registraba sin ningún
+   * obstáculo, y acá eso no es un tema de contenidos — esta plataforma **coordina encuentros
+   * en domicilios**: un adulto desconocido va a la casa de alguien, o alguien va a la casa de
+   * un desconocido a trabajar.
+   *
+   * Una casilla no frena a un adolescente decidido a mentir. Lo que cambia es que deja de
+   * ser una cláusula escondida y pasa a ser un acto afirmativo, que es el estándar que el
+   * propio texto ya usa para todo lo demás. Y de paso los legales dejan de estar sólo en el
+   * pie de página: se muestran en el único momento en que importan.
+   */
+  const [acepta, setAcepta] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -34,6 +49,10 @@ export default function CrearCuentaPage() {
     }
     if (password.length < 6) {
       setError("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+    if (!acepta) {
+      setError("Para crear la cuenta tenés que ser mayor de 18 años y aceptar los términos.");
       return;
     }
     setLoading(true);
@@ -110,6 +129,26 @@ export default function CrearCuentaPage() {
         <Field label="Nombre y apellido" type="text" value={fullName} onChange={setFullName} autoComplete="name" />
         <Field label="Email" type="email" value={email} onChange={setEmail} autoComplete="email" />
         <Field label="Contraseña" type="password" value={password} onChange={setPassword} autoComplete="new-password" />
+
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={acepta}
+            onChange={(e) => setAcepta(e.target.checked)}
+            className="mt-1 h-4 w-4 shrink-0 accent-ink"
+          />
+          <span className="font-body text-body-sm text-concrete">
+            Soy mayor de 18 años y acepto los{" "}
+            <Link href="/terminos" className="text-ink underline underline-offset-2">
+              términos
+            </Link>{" "}
+            y la{" "}
+            <Link href="/privacidad" className="text-ink underline underline-offset-2">
+              política de privacidad
+            </Link>
+            .
+          </span>
+        </label>
 
         {error && <p role="alert" className="font-body text-body-sm text-[#C41E3A]">{error}</p>}
 

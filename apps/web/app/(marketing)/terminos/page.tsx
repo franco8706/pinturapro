@@ -141,6 +141,34 @@ export default function TerminosPage() {
               mostrarlos dentro de la plataforma para lo que fueron cargados: tu perfil, tu portfolio
               o tu pedido. Si borrás tu cuenta, dejamos de mostrarlos.
             </p>
+            {/* La frase de arriba, leída sola, promete que al borrar la cuenta desaparece
+                TODO lo que subiste. No es cierto para las reseñas, y es a propósito: son la
+                reputación del pintor, no sólo tu texto. Mejor decirlo acá que dejar que
+                alguien lo descubra después. */}
+            <p>
+              <strong>Una excepción: las reseñas que escribís.</strong> Si das de baja tu cuenta,
+              la reseña queda publicada sin tu nombre. Es la reputación del pintor que la recibió:
+              si se fuera con tu cuenta, cualquiera podría bajarle la calificación a un pintor
+              simplemente borrándose.
+            </p>
+          </Seccion>
+
+          {/* No había ningún camino declarado para pedir la baja de una reseña falsa, una
+              foto ajena o un texto difamatorio: ni botón, ni formulario, ni una línea en los
+              términos. El botón es producto y lleva tiempo; decir a dónde escribir no. */}
+          <Seccion titulo="Denunciar un contenido">
+            <p>
+              Si una reseña sobre vos es falsa o difamatoria, si alguien publicó una foto de un
+              trabajo que no hizo, o si un contenido usa datos personales de otra persona,{" "}
+              <strong>escribinos a <a href="mailto:hola@pinturapro.ar" className="text-ink underline underline-offset-2">hola@pinturapro.ar</a></strong>{" "}
+              con el enlace a la página y una explicación de por qué. Revisamos cada pedido y
+              respondemos; si el contenido incumple estas reglas, lo damos de baja.
+            </p>
+            <p>
+              Somos una plataforma de intermediación: no revisamos de antemano todo lo que se
+              publica. Por eso este canal existe, y por eso te pedimos que lo uses en vez de
+              resolverlo por tu cuenta.
+            </p>
           </Seccion>
 
           <Seccion titulo="Disponibilidad del servicio">

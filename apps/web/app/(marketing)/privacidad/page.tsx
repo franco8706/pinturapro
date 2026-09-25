@@ -147,10 +147,18 @@ export default function PrivacidadPage() {
               zona, especialidades, calificación y reseñas aparecen en el directorio y pueden ser
               indexados por buscadores. Tu ubicación aparece en el mapa a nivel de zona.
             </p>
+            {/* Decía "el pintor ve tu nombre en los pedidos que publicás", que suena a que
+                lo ve el pintor con el que tratás. La realidad es más amplia: cualquier
+                persona con cuenta —tenga o no un trabajo con vos— puede consultar el nombre
+                y la zona de los clientes. Es a propósito (la migración 0013 cortó el
+                rastreo anónimo y masivo, no el acceso de quien tiene cuenta), pero si la
+                política promete menos de lo que pasa, la política está mal. */}
             <p>
-              <strong>Si sos cliente,</strong> tu perfil no figura en ningún directorio público. Tu
-              nombre aparece como autor de las reseñas que escribís, y el pintor ve tu nombre en los
-              pedidos que publicás.
+              <strong>Si sos cliente,</strong> tu perfil no figura en ningún directorio público ni
+              aparece en buscadores. Tu nombre aparece como autor de las reseñas que escribís y en
+              los pedidos que publicás. Tené en cuenta que <strong>cualquier persona registrada en
+              el sitio puede ver tu nombre y tu zona</strong> —no sólo el pintor que contratás—,
+              aunque nunca tu teléfono, tu email ni tu dirección.
             </p>
             <p>
               <strong>Tu teléfono nunca es público.</strong> Se le muestra únicamente a la otra

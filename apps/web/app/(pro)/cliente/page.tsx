@@ -204,6 +204,17 @@ export default async function ClientePanelPage() {
                       <ReviewForm jobId={job.id} painterId={job.painterId} painter={job.painter ?? "el pintor"} />
                     )
                   )}
+                  {/* El pintor se dio de baja con el trabajo ya adjudicado: la tarjeta decía
+                      "Completado" y "Esperando pintor" al mismo tiempo. Acá se explica, y se
+                      ofrece lo único que sirve: volver a publicar el pedido. */}
+                  {!job.painterId && job.status !== "quoted" && (
+                    <p className="mt-3 font-body text-body-sm text-concrete">
+                      El pintor dio de baja su cuenta.{" "}
+                      {job.status === "completed"
+                        ? "Por eso no podés dejarle una reseña."
+                        : "Podés cancelar este trabajo y volver a publicar el pedido."}
+                    </p>
+                  )}
                   {/* Salida para el cliente: si el pintor abandona, sin esto el trabajo
                       quedaba trabado y el pedido no volvía nunca al tablero. */}
                   {["quoted", "accepted", "in_progress"].includes(job.status) && (
