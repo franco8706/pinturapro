@@ -40,6 +40,7 @@ Estos ya no se reportan. `pnpm verificar` los revisa en cada corrida.
 | Texto por debajo del piso de contraste | Iniciales del pintor 2,38:1 e inicial del equipo 1,49:1, con piso de 3:1 | `accesibilidad` |
 | El móvil convertía "150.000,50" en $15.000.050 | Copia vieja del parser de montos: cien veces más, en una cotización que el cliente acepta | `reglas-compartidas` |
 | El móvil no validaba largos ni traducía el error 23514 | Se escribían 2.000 caracteres para leer "No pudimos completar la acción" | `reglas-compartidas` |
+| "Publicar trabajo" quedaba cortado en el panel del cliente | La fila de tres botones medía 495 px en una pantalla de 390, sin scroll ni forma de llegar al botón: se veían sus primeros 41 px | `desborde-celular` |
 
 ## Corregido, sin prueba todavía
 
@@ -62,6 +63,16 @@ Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arri
 - **El simulador congelaba la pantalla 363 ms al cambiar de color** (22/9). Ahora 241 ms, con
   las tablas de conversión. La prueba `simulador-calidad` ya vigila que el color no cambie;
   faltaría una que vigile el tiempo.
+- **La ubicación del pintor salía con precisión de 11 metros** (25/9), aunque /privacidad promete
+  "a nivel de zona". Confirmado con la clave anon y sin sesión. Migración **0020** redondea a dos
+  decimales (~1,1 km) dentro de la función, no en la columna. De paso se sacó `projects` del
+  grant a nivel tabla: tiene las mismas dos columnas `lat`/`lng` que ya habían filtrado el
+  domicilio de los clientes en otra tabla. Probarlo pide la clave anon.
+- **La radiografía del kit no veía los desbordes** (25/9). `auditar()` comparaba contra
+  `window.innerWidth`, que el navegador agranda hasta el tamaño del contenido cuando algo se
+  desborda sin recorte: medía 495 en una pantalla de 390 y concluía que todo entraba. Ahora usa
+  `document.documentElement.clientWidth`. **Cualquier ronda anterior pudo haber dejado pasar
+  desbordes por esto.**
 
 ## Abierto
 
@@ -75,9 +86,6 @@ Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arri
   la app. Hay una prueba que avisa si las dos copias se desincronizan. **Severidad: deuda.**
 - **Faltan datos legales del responsable** (razón social, CUIT, domicilio). La pantalla ahora lo
   avisa en vez de aparentar estar completa, pero el dato lo tiene que poner el dueño.
-- **La ubicación del pintor no se redondea a nivel de zona**, aunque /privacidad dice que sí. Hoy
-  no es explotable porque ningún formulario carga coordenadas reales; conviene resolverlo antes
-  de que exista ese flujo. **Severidad: menor hoy, importante cuando se geocodifique.**
 
 ## Descartado (se midió y no era)
 

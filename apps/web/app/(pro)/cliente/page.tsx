@@ -81,7 +81,11 @@ export default async function ClientePanelPage() {
               <span className="font-mono text-mono-sm uppercase tracking-widest text-concrete">Panel de cliente</span>
               <h1 className="font-display text-display-lg leading-none mt-2">Hola, {firstName}</h1>
             </div>
-            <div className="flex gap-3">
+            {/* `flex-wrap` o en 390px la fila de tres botones mide 495px y "Publicar
+                trabajo" —la acción principal del panel— queda cortada, sin scroll posible
+                porque nada recorta el contenedor. Es el mismo bug que ya estaba resuelto en
+                el panel del pintor; al sumar acá el link "Mis datos" no se copió el wrap. */}
+            <div className="flex flex-wrap gap-3">
               <MagneticButton href="/cotizaciones" variant="ghost">
                 Ver cotizaciones
               </MagneticButton>

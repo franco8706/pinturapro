@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { eliminarMiCuenta } from "./actions";
+import { cn } from "@/lib/utils";
 
 /**
  * Confirmación de baja.
@@ -19,6 +20,7 @@ export function BorrarCuenta() {
   // Cerrojo sincrónico: `disabled` recién se ve al repintar, y acá un doble clic dispararía
   // dos bajas (ver el mismo patrón en /contacto).
   const enVuelo = useRef(false);
+  const confirmado = confirmacion.trim().toUpperCase() === "ELIMINAR";
 
   return (
     <form
@@ -70,11 +72,20 @@ export function BorrarCuenta() {
         </p>
       )}
 
+      {/* El botón se puede apretar siempre —deshabilitado no se enfoca con teclado, y quien
+          navega así no podría enterarse de qué falta— pero tiene que VERSE que todavía no
+          está listo. Sin esta pista, alguien que mira la pantalla no tiene forma de saber
+          que el texto está mal hasta que aprieta. */}
       <button
         type="submit"
         disabled={enviando}
-        aria-disabled={confirmacion.trim().toUpperCase() !== "ELIMINAR"}
-        className="inline-flex items-center px-6 py-3 border border-[#C41E3A] text-[#C41E3A] font-body text-body-sm hover:bg-[#C41E3A] hover:text-bone transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+        aria-disabled={!confirmado}
+        className={cn(
+          "inline-flex items-center px-6 py-3 border font-body text-body-sm transition-colors disabled:cursor-not-allowed",
+          confirmado
+            ? "border-[#C41E3A] text-[#C41E3A] hover:bg-[#C41E3A] hover:text-bone"
+            : "border-concrete/30 text-concrete",
+        )}
       >
         {enviando ? "Eliminando…" : "Eliminar mi cuenta definitivamente"}
       </button>

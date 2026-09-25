@@ -83,13 +83,25 @@ alguien la pide, y eso tarda segundos. Dos cosas que ya hicieron reportar bugs q
   archivo que manda el script cae en una página muerta. `k.ir()` ya espera eso; si armás tu propia
   navegación, esperá igual.
 
-Dos trampas más del propio script, que ya costaron tiempo:
+Y estas trampas del propio script, que ya costaron tiempo:
 
 - **`button[type=submit]` agarra el botón "Salir" del menú**, que también es un submit. El script
   cierra la sesión y termina en la portada, y parece que el formulario está roto. Buscá el botón
   DENTRO del formulario: `document.querySelector("textarea[name=bio]").closest("form")`.
 - Si tocás algo que **desplaza la página**, el `boundingBox()` que tomaste antes queda viejo y el
   clic siguiente cae en otro lado.
+- **`window.innerWidth` NO es el ancho de la pantalla cuando algo se desborda.** El navegador lo
+  agranda hasta el tamaño del contenido: en una pantalla de 390 px con una fila de 495, devuelve
+  495, y cualquier cuenta del tipo "¿entra todo?" da que sí. Usá
+  `document.documentElement.clientWidth`. Esto tapó un botón cortado durante varias rondas.
+- **Lo que está en -9999 px no siempre es un bug.** Los formularios tienen una trampa anti-spam:
+  un campo "No completar" con `aria-hidden="true"` parado fuera de la pantalla, que sólo llenan
+  los robots. Antes de reportar algo fuera de la pantalla, fijate si él o alguno de sus padres
+  tiene `aria-hidden="true"`.
+- **`/auth/signout` sólo acepta POST.** Visitarlo con `goto` devuelve 405 y deja la pestaña en un
+  documento de error, y la navegación siguiente se corta a la mitad con un
+  `chrome-error://chromewebdata`. Para cerrar sesión alcanza con borrar las cookies — es lo que
+  hace `k.salir()`.
 
 ## 6. Ya conocido — está en la BITÁCORA
 

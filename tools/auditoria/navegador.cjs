@@ -98,9 +98,16 @@ async function ingresar(page, rol) {
   return page.url();
 }
 
+/**
+ * Cerrar sesión. Lo que cierra la sesión es borrar las cookies, no la visita a
+ * `/auth/signout`: esa dirección sólo acepta POST y a un GET le contesta 405. Estuvo en el
+ * medio igual durante trece pruebas, sin hacer nada, hasta que dejó la pestaña parada en un
+ * documento de error y la siguiente navegación se cortó a la mitad. Se borran las cookies y
+ * se vuelve a la portada, que es una página de verdad.
+ */
 async function salir(page) {
-  await page.goto(BASE + "/auth/signout", { waitUntil: "domcontentloaded" }).catch(() => {});
   await page.context().clearCookies();
+  await page.goto(BASE + "/", { waitUntil: "domcontentloaded" }).catch(() => {});
 }
 
 function limpiarEventos(eventos) {
@@ -126,10 +133,18 @@ async function auditar(page, eventos) {
         chicos.push(`${(el.innerText || el.getAttribute("aria-label") || el.tagName).trim().slice(0, 28)} [${Math.round(r.width)}x${Math.round(r.height)}]`);
       }
     }
+    // El ancho de referencia es el del DOCUMENTO, no `window.innerWidth`.
+    //
+    // Cuando un contenedor se desborda sin que nada lo recorte, el navegador agranda
+    // `innerWidth` hasta el tamaño del contenido: con una fila de botones de 495 px en una
+    // pantalla de 390, `innerWidth` valía 495 y la comparación daba que todo entraba. Un
+    // agente midió a mano y encontró el botón principal del panel cortado, invisible para
+    // esta función. `clientWidth` del documento se queda en el ancho real de la pantalla.
+    const anchoReal = document.documentElement.clientWidth || window.innerWidth;
     const fuera = [];
     for (const el of document.querySelectorAll("body *")) {
       const r = el.getBoundingClientRect();
-      if (r.width > 0 && (r.right > window.innerWidth + 2 || r.left < -2)) {
+      if (r.width > 0 && (r.right > anchoReal + 2 || r.left < -2)) {
         fuera.push(`${el.tagName}.${String(el.className).slice(0, 30)}`);
         if (fuera.length > 6) break;
       }
@@ -137,7 +152,7 @@ async function auditar(page, eventos) {
     return {
       titulo: document.title,
       h1: [...document.querySelectorAll("h1")].map((h) => h.innerText.trim()),
-      scrollHorizontal: document.documentElement.scrollWidth > window.innerWidth + 2,
+      scrollHorizontal: document.documentElement.scrollWidth > anchoReal + 2,
       elementosFueraDePantalla: fuera,
       objetivosTactilesChicos: chicos,
       imagenesRotas: [...document.images].filter((i) => i.complete && i.naturalWidth === 0).map((i) => i.currentSrc.slice(0, 100)),
