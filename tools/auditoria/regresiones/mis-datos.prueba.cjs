@@ -58,10 +58,20 @@ module.exports = {
           "resenasQueEscribiste",
           "resenasQueRecibiste",
           "consultasYFormularios",
+          // Las fotos faltaron en la primera versión del archivo. Son el dato más personal
+          // que guarda el sitio —la cara de la persona y el interior de casas— y lo único
+          // que vive fuera de la base, así que son justo lo que más fácil se olvida.
+          "fotosQueSubiste",
         ]) {
           t.cierto(clave in datos, `el archivo no incluye "${clave}"`);
         }
         t.cierto(!!datos.cuenta?.email, "el archivo no trae el email de la cuenta");
+        for (const lista of ["fotoDePerfil", "fotosDeObrasYPedidos"]) {
+          t.cierto(
+            lista in (datos.fotosQueSubiste ?? {}),
+            `el archivo no dice nada sobre "${lista}"`,
+          );
+        }
         // Lo que NO tiene que estar: la contraseña, ni siquiera cifrada.
         const crudo = JSON.stringify(datos);
         t.cierto(

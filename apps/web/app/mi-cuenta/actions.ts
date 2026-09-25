@@ -89,6 +89,12 @@ export async function eliminarMiCuenta(confirmacion: string): Promise<{ error?: 
   }
 
   // ── 3. Las fotos del almacenamiento ──
+  //
+  // Se borran de verdad, pero la caché que las sirve devuelve una foto ya borrada hasta una
+  // hora más si se pide su dirección exacta (medido: borrada → 200; borrada con un parámetro
+  // distinto al final → 400). Nadie llega ahí sin haber guardado antes la dirección, y a la
+  // hora deja de responder. /privacidad lo dice con ese plazo en vez de prometer "al
+  // instante", que sería mentira.
   // Van antes que la fila: si se borra la fila primero y después falla el almacenamiento,
   // quedan archivos sin dueño y sin forma de encontrarlos. Al revés, si falla acá, la cuenta
   // sigue en pie y se puede reintentar.

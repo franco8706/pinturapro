@@ -221,6 +221,18 @@ export default function PrivacidadPage() {
               podés <strong>descargar todo lo que tenemos sobre vos</strong> en un archivo y{" "}
               <strong>eliminar tu cuenta</strong>, sin pedirle permiso a nadie y en el momento.
             </p>
+            {/* La caché del almacenamiento devuelve una foto ya borrada hasta una hora
+                después, si se pide su dirección exacta. Está medido: subir → 200, borrar →
+                200, borrar y pedir con un parámetro distinto → 400. Es acotado y le pasa a
+                cualquiera que sirva imágenes detrás de una caché, pero prometer "se borra al
+                instante" sería falso, y esta página no puede decir cosas que el código no
+                hace. Se dice el plazo real. */}
+            <p className="text-body-sm">
+              Una aclaración sobre las fotos: cuando borrás una, deja de estar en el sitio en el
+              acto, pero si alguien guardó su dirección exacta puede seguir abriéndola{" "}
+              <strong>hasta una hora</strong>, porque queda una copia temporal en la caché del
+              servicio que las entrega. Pasada esa hora, no responde más.
+            </p>
             <p>
               Podés pedirnos acceder a tus datos, corregirlos, actualizarlos o eliminarlos.
               Escribinos a{" "}

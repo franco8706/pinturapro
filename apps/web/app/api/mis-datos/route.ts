@@ -61,6 +61,36 @@ export async function GET() {
         : admin.from("leads").select("*").eq("user_id", yo),
     ]);
 
+    // ── Las fotos ──
+    // Faltaban, y son el dato más personal que hay acá: la foto de perfil es la cara de la
+    // persona, y las de las obras son el interior de casas —la suya o la de sus clientes—.
+    // Un pedido de acceso que devuelve el nombre y la zona pero omite las fotos está
+    // incompleto, y encima son lo único que sobrevive fuera de la base.
+    //
+    // Se listan con la dirección pública para que se puedan bajar de verdad: el bucket es
+    // público, así que la dirección no agrega ninguna exposición que no exista ya. Si falla
+    // el listado se dice en el archivo en vez de devolver una lista vacía, que se leería
+    // como "no hay ninguna".
+    const fotos: Record<string, unknown> = {};
+    for (const [bucket, nombre] of [
+      ["avatars", "fotoDePerfil"],
+      ["projects", "fotosDeObrasYPedidos"],
+    ] as const) {
+      try {
+        const { data: archivos, error } = await admin.storage.from(bucket).list(yo, { limit: 1000 });
+        if (error) throw error;
+        fotos[nombre] = (archivos ?? []).map((a) => ({
+          archivo: a.name,
+          subida: a.created_at ?? null,
+          tamanoBytes: (a.metadata as { size?: number } | null)?.size ?? null,
+          direccion: admin.storage.from(bucket).getPublicUrl(`${yo}/${a.name}`).data.publicUrl,
+        }));
+      } catch (e) {
+        console.error(`[mis-datos] no se pudo listar ${bucket}:`, e);
+        fotos[nombre] = "No pudimos leer esta lista. Escribinos y te la mandamos aparte.";
+      }
+    }
+
     const datos = {
       generado: new Date().toISOString(),
       aclaracion:
@@ -80,6 +110,7 @@ export async function GET() {
       resenasQueEscribiste: resenasEscritas.data ?? [],
       resenasQueRecibiste: resenasRecibidas.data ?? [],
       consultasYFormularios: consultas.data ?? [],
+      fotosQueSubiste: fotos,
     };
 
     const fecha = new Date().toISOString().slice(0, 10);

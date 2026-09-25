@@ -109,12 +109,16 @@ async function uploadImage(
  * bastaba con guardar una URL con la ruta de otro usuario para borrarle sus fotos.
  * Ahora se exige prefijo exacto de nuestro proyecto y que la ruta empiece con su user id.
  */
-async function deleteCoverIfOwn(coverUrl: string | null, userId: string) {
+async function deleteCoverIfOwn(
+  coverUrl: string | null,
+  userId: string,
+  bucket: "projects" | "avatars" = "projects",
+) {
   if (!coverUrl) return;
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!base) return;
 
-  const prefix = `${base.replace(/\/+$/, "")}/storage/v1/object/public/projects/`;
+  const prefix = `${base.replace(/\/+$/, "")}/storage/v1/object/public/${bucket}/`;
   if (!coverUrl.startsWith(prefix)) return;
 
   const path = decodeURIComponent(coverUrl.slice(prefix.length).split("?")[0]);
@@ -122,7 +126,7 @@ async function deleteCoverIfOwn(coverUrl: string | null, userId: string) {
   if (!path.startsWith(`${userId}/`) || path.includes("..")) return;
 
   try {
-    await createAdminClient().storage.from("projects").remove([path]);
+    await createAdminClient().storage.from(bucket).remove([path]);
   } catch {
     // best-effort: si falla, la fila ya se borró igual.
   }
@@ -202,6 +206,16 @@ export async function updateObra(formData: FormData): Promise<{ error?: string }
     location: f.location,
   };
 
+  // La portada que había antes, para poder limpiarla si se reemplaza. Se lee con la sesión:
+  // RLS y el filtro por `owner_id` se encargan de que sea una obra propia.
+  const { data: antes } = await supabase
+    .from("projects")
+    .select("cover_url")
+    .eq("id", id)
+    .eq("owner_id", user.id)
+    .maybeSingle();
+  const previo = (antes as unknown as { cover_url: string | null } | null)?.cover_url ?? null;
+
   // Portada: prioridad foto subida > URL pegada > sin cambios.
   let newCover = "";
   const file = formData.get("cover_file");
@@ -222,10 +236,21 @@ export async function updateObra(formData: FormData): Promise<{ error?: string }
     .update(update as never)
     .eq("id", id)
     .eq("owner_id", user.id)
-    .select("id, slug");
+    .select("id, slug, cover_url");
   if (error) return { error: mensajeDeError(error) };
-  const rows = (data ?? []) as unknown as { id: string; slug: string | null }[];
+  const rows = (data ?? []) as unknown as { id: string; slug: string | null; cover_url: string | null }[];
   if (rows.length === 0) return { error: "No se encontró la obra o no es tuya." };
+
+  // La foto reemplazada se va del Storage. `deleteObra` ya lo hacía, pero cambiar la portada
+  // dejaba la anterior viva y pública para siempre: la persona ve que su foto desapareció del
+  // sitio y sigue estando, en una dirección que cualquiera que la tenga puede abrir. Con diez
+  // ediciones de la misma obra quedaban nueve fotos de casas ajenas colgadas ahí.
+  //
+  // Va DESPUÉS de la escritura: si el update falla, la foto vieja sigue siendo la buena. Y va
+  // ANTES del redirect, que en Next lanza una excepción y nunca deja llegar a lo que sigue.
+  if (newCover && previo && previo !== newCover) {
+    await deleteCoverIfOwn(previo, user.id);
+  }
 
   revalidatePath("/dashboard");
   revalidatePath("/obras");
@@ -300,14 +325,26 @@ export async function updateProfile(formData: FormData): Promise<{ error?: strin
   };
 
   const file = formData.get("avatar_file");
+  let avatarPrevio: string | null = null;
   if (file instanceof File && file.size > 0) {
+    // Misma historia que la portada de las obras: cambiar la foto de perfil dejaba la
+    // anterior pública para siempre. Es la cara de la persona, así que pesa más todavía.
+    const { data: antes } = await supabase
+      .from("profiles")
+      .select("avatar_url")
+      .eq("id", user.id)
+      .maybeSingle();
+    avatarPrevio = (antes as unknown as { avatar_url: string | null } | null)?.avatar_url ?? null;
+
     const up = await uploadImage("avatars", user.id, file);
     if ("error" in up) return up;
     update.avatar_url = up.url;
+    if (avatarPrevio === up.url) avatarPrevio = null;
   }
 
   const { error } = await supabase.from("profiles").update(update as never).eq("id", user.id);
   if (error) return { error: mensajeDeError(error) };
+  if (avatarPrevio) await deleteCoverIfOwn(avatarPrevio, user.id, "avatars");
 
   // Pros/cons en una escritura aparte: si las columnas todavía no existen (migración 0005
   // sin aplicar), el error se ignora para no romper la edición del resto del perfil.
