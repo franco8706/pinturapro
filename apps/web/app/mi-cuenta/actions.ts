@@ -67,7 +67,28 @@ export async function eliminarMiCuenta(confirmacion: string): Promise<{ error?: 
     };
   }
 
-  // ── 2. Las fotos del almacenamiento ──
+  // ── 2. Las cotizaciones a medio camino se van con la persona ──
+  //
+  // Las claves foráneas dejan el trabajo en pie con las partes en NULL (0019), que es lo
+  // correcto para un trabajo YA HECHO: es el registro del otro. Pero una cotización todavía
+  // sin aceptar no es registro de nada, y dejarla huérfana hace daño de los dos lados:
+  //
+  //  · Si se va el cliente, su pedido desaparece y al pintor le queda una cotización colgada
+  //    de un pedido que ya no existe, sin título y sin nadie.
+  //  · Si se va el pintor, al cliente le queda una cotización de "Cuenta dada de baja" que
+  //    todavía puede aceptar, y aceptarla crearía un trabajo sin pintor.
+  //
+  // Se borran las suyas en estado 'quoted' y 'cancelled'. Las completadas quedan.
+  const { error: errorCotizaciones } = await admin
+    .from("jobs")
+    .delete()
+    .or(`client_id.eq.${yo},painter_id.eq.${yo}`)
+    .in("status", ["quoted", "cancelled"]);
+  if (errorCotizaciones) {
+    console.error("[eliminar-cuenta] cotizaciones a medio camino:", errorCotizaciones.message);
+  }
+
+  // ── 3. Las fotos del almacenamiento ──
   // Van antes que la fila: si se borra la fila primero y después falla el almacenamiento,
   // quedan archivos sin dueño y sin forma de encontrarlos. Al revés, si falla acá, la cuenta
   // sigue en pie y se puede reintentar.
@@ -84,14 +105,14 @@ export async function eliminarMiCuenta(confirmacion: string): Promise<{ error?: 
     }
   }
 
-  // ── 3. Las consultas enviadas por los formularios ──
+  // ── 4. Las consultas enviadas por los formularios ──
   if (user.email) {
     const { error } = await admin.from("leads").delete().eq("email", user.email);
     if (error) console.error("[eliminar-cuenta] consultas:", error.message);
   }
   await admin.from("leads").delete().eq("user_id", yo);
 
-  // ── 4. La cuenta ──
+  // ── 5. La cuenta ──
   // Borrar el usuario de autenticación arrastra el perfil (`profiles.id` referencia
   // `auth.users` en cascada), y con el perfil se van las obras y los pedidos. Los trabajos y
   // las reseñas quedan sin nombre, que es lo que arregló la migración 0019.

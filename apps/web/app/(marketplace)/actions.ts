@@ -234,6 +234,11 @@ export async function aceptarCotizacion(jobId: string): Promise<{ error?: string
     .eq("id", jobId)
     .eq("client_id", user.id)
     .eq("status", "quoted")
+    // Defensa en profundidad: una cotización sin pintor no se puede aceptar. La baja de
+    // cuenta ya borra las cotizaciones a medio camino de quien se va, pero si alguna
+    // quedara —por una baja a mano en la base, por ejemplo— aceptarla crearía un trabajo
+    // adjudicado a nadie, con su comisión y todo.
+    .not("painter_id", "is", null)
     .select("id, painter_id, amount");
   if (error) return { error: mensajeDeError(error) };
   const rows = (data ?? []) as unknown as { id: string; painter_id: string | null; amount: number | null }[];

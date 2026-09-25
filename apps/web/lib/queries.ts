@@ -1069,10 +1069,14 @@ export async function getRecentReviews(limit = 8): Promise<Testimonial[]> {
       id: string;
       rating: number;
       comment: string | null;
-      author_id: string;
+      author_id: string | null;
       target_id: string;
     }[];
-    const ids = [...new Set([...rows.map((r) => r.author_id), ...rows.map((r) => r.target_id)])];
+    // `author_id` puede ser NULL desde la migración 0019: la reseña sobrevive a la baja de
+    // quien la escribió. Se filtra para no mandarle NULL a la consulta, y más abajo esos
+    // casos se muestran como cuenta dada de baja en vez de "Cliente", que haría pensar que
+    // hay alguien ahí.
+    const ids = [...new Set([...rows.map((r) => r.author_id), ...rows.map((r) => r.target_id)].filter(Boolean))] as string[];
     const names = new Map<string, string>();
     if (ids.length) {
       const { data: ps } = await supabase.from("profiles").select("id, full_name").in("id", ids);
@@ -1083,7 +1087,7 @@ export async function getRecentReviews(limit = 8): Promise<Testimonial[]> {
       .filter((r) => (r.comment ?? "").trim().length > 0)
       .map((r) => ({
         id: r.id,
-        author: names.get(r.author_id) || "Cliente",
+        author: r.author_id ? names.get(r.author_id) || "Cliente" : BAJA,
         rating: r.rating,
         comment: (r.comment ?? "").trim(),
         painter: names.get(r.target_id) || "un pintor",
