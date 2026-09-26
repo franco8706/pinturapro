@@ -176,5 +176,75 @@ module.exports = {
         await browser.close();
       }
     }
+
+    // ── 5. La reseña: quién la escribe tiene que saber qué está por mandar ──
+    //
+    // Es el formulario donde alguien califica a una persona real, y era el menos accesible
+    // del sitio: las estrellas decían cuál era cada una ("3 estrellas") pero no cuál estaba
+    // ELEGIDA —la única señal era el color— y el campo de comentario no tenía más nombre que
+    // su `placeholder`, que desaparece apenas se escribe la primera letra.
+    {
+      const { browser, page } = await k.abrir({});
+      try {
+        // `cliente4` es la única cuenta demo con un trabajo terminado y SIN reseña: el botón
+        // "Calificar a…" sólo aparece ahí. Si esta prueba empieza a fallar diciendo que no hay
+        // nada para calificar, alguien le dejó una reseña a ese trabajo.
+        await k.ingresar(page, "cliente4");
+        await k.ir(page, "/cliente");
+
+        const abierto = await page.evaluate(() => {
+          const b = [...document.querySelectorAll("button")].find((x) => /Calificar a/i.test(x.textContent || ""));
+          if (!b) return false;
+          b.click();
+          return true;
+        });
+        if (!t.cierto(abierto, "el panel del cliente no ofrece calificar ningún trabajo")) return;
+        await page.waitForTimeout(500);
+
+        const campo = await page.evaluate(() => {
+          const ta = document.querySelector("textarea[name=comment]");
+          if (!ta) return null;
+          return {
+            conEtiqueta: ta.labels?.length > 0 || !!ta.getAttribute("aria-label") || !!ta.getAttribute("aria-labelledby"),
+          };
+        });
+        t.cierto(!!campo, "no apareció el campo de comentario de la reseña");
+        t.cierto(
+          campo && campo.conEtiqueta,
+          "el comentario de la reseña no tiene nombre accesible: su único nombre era el texto de ejemplo, que se va al escribir",
+        );
+
+        const hayEstrellas = await page.evaluate(() => {
+          const bs = [...document.querySelectorAll("button")].filter((b) => /estrella/i.test(b.getAttribute("aria-label") || ""));
+          if (bs.length < 5) return false;
+          bs[3].click();
+          return true;
+        });
+        // La lectura va en OTRA llamada, después de esperar: leer `aria-pressed` en el mismo
+        // tick del clic devuelve el DOM de antes, porque React todavía no repintó. La primera
+        // versión de esta prueba fallaba por eso y el producto estaba bien.
+        await page.waitForTimeout(400);
+        const estrellas = hayEstrellas
+          ? await page.evaluate(() => {
+              const bs = [...document.querySelectorAll("button")].filter((b) => /estrella/i.test(b.getAttribute("aria-label") || ""));
+              return { cual: bs.findIndex((b) => b.getAttribute("aria-pressed") === "true") + 1 };
+            })
+          : null;
+        t.cierto(!!estrellas, "no se encontraron las cinco estrellas");
+        t.igual(
+          estrellas && estrellas.cual,
+          4,
+          "después de elegir 4 estrellas, ninguna queda marcada: sin ver el color no hay forma de saber qué calificación se va a enviar",
+        );
+
+        const dicho = await page.evaluate(() => {
+          const v = [...document.querySelectorAll("[role=status][aria-live]")].map((x) => (x.textContent || "").trim());
+          return v.join(" · ");
+        });
+        t.contiene(dicho, "4 de 5", "la calificación elegida no se dice en ningún lado que se pueda escuchar");
+      } finally {
+        await browser.close();
+      }
+    }
   },
 };

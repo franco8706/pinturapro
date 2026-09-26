@@ -94,12 +94,27 @@ function toInt(v: string): number | null {
   if (!crudo) return null;
   if (/^-/.test(crudo)) return null; // negativo: se rechaza, no se "arregla" solo
 
-  const soloNumero = crudo.replace(/[^\d.,]/g, ""); // saca "$", espacios y letras
-  const sinMiles = soloNumero.replace(/\./g, ""); // el punto es separador de miles
-  const entero = sinMiles.split(",")[0]; // la coma abre los centavos: se descartan
-  if (!entero) return null;
+  // Ante la duda NO se adivina: un monto mal adivinado viaja a una cotización que el cliente
+  // acepta, y nadie lo ve. "1,500,000" (planilla en inglés) daba 1, y "1500.50" daba 150.050.
+  // La explicación completa, con la tabla de lo que salía mal, está en `montos.ts`.
+  if (/[^\d.,\s$]/.test(crudo)) return null;
 
-  const n = parseInt(entero, 10);
+  const limpio = crudo.replace(/[\s$]/g, "");
+  if (!limpio) return null;
+
+  const comas = (limpio.match(/,/g) ?? []).length;
+  if (comas > 1) return null; // "1,500,000" es notación inglesa de miles
+  if (comas === 1 && limpio.indexOf(",") < limpio.lastIndexOf(".")) return null; // "150,000.50"
+
+  const [entero, decimales = ""] = limpio.split(",");
+  if (comas === 1 && !/^\d{1,2}$/.test(decimales)) return null; // "1,500"
+
+  const grupos = entero.split(".");
+  if (!/^\d+$/.test(grupos[0] ?? "")) return null;
+  // Un grupo que no es de tres dígitos significa que ese punto era un decimal inglés.
+  if (grupos.length > 1 && !grupos.slice(1).every((g) => /^\d{3}$/.test(g))) return null;
+
+  const n = parseInt(grupos.join(""), 10);
   // Más de mil millones en un trabajo de pintura es un error de tipeo, y `amount` es int4.
   if (!Number.isFinite(n) || n <= 0 || n > 1_000_000_000) return null;
   return n;

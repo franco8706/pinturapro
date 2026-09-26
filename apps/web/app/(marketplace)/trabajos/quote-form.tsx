@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { cotizar } from "../actions";
+import { montoDesdeTexto, comisionDe } from "@pinturapro/dominio";
 
 /** Formulario inline para que un pintor cotice un pedido de trabajo. */
 export function QuoteForm({ projectId, clientId }: { projectId: string; clientId: string }) {
@@ -9,6 +10,19 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
+  /**
+   * Lo que se escribió en el campo, para devolverlo interpretado.
+   *
+   * El campo es texto libre —`inputMode="numeric"` es sólo una pista para el teclado del
+   * celular, no filtra nada— y hasta acá nadie le mostraba al pintor el número que iba a
+   * salir. Con el parser viejo, pegar un monto copiado de una planilla en inglés
+   * ("1,500,000") mandaba una cotización por UN PESO sin ningún aviso. El parser ahora
+   * rechaza eso, pero la defensa de verdad es esta: que el número se vea escrito en pesos,
+   * con su comisión, antes de apretar enviar. Un cero de más se descubre mirando, no
+   * validando.
+   */
+  const [monto, setMonto] = useState("");
+  const montoLeido = montoDesdeTexto(monto);
 
   /**
    * Cerrojo sincrónico contra el doble envío. `disabled={loading}` no alcanza: el estado de
@@ -70,10 +84,31 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
             required
             placeholder="320000"
             aria-describedby="aviso-comision"
+            value={monto}
+            onChange={(e) => setMonto(e.target.value)}
             className="mt-1 w-full sm:w-44 border border-concrete/30 bg-plaster px-3 py-2 font-body text-body-md text-ink focus:border-ink outline-none transition-colors"
           />
         </label>
       </div>
+
+      {/* El número, de vuelta y en criollo. `aria-live` para que también se escuche: quien no
+          ve la pantalla necesita esta confirmación más que nadie. */}
+      {monto.trim() !== "" && (
+        <p role="status" aria-live="polite" className="font-body text-body-sm">
+          {montoLeido === null ? (
+            <span className="text-[#C41E3A]">
+              No entendemos ese monto. Escribilo así: <strong>320000</strong> o{" "}
+              <strong>320.000</strong>.
+            </span>
+          ) : (
+            <span className="text-concrete">
+              Vas a cotizar{" "}
+              <strong className="text-ink">${montoLeido.toLocaleString("es-AR")}</strong>. La
+              comisión del 10% son ${comisionDe(montoLeido).toLocaleString("es-AR")}.
+            </span>
+          )}
+        </p>
+      )}
       {/* La plataforma calcula y guarda un 10% de comisión sobre este monto
           (`commissionFor`, y la policy de la base lo exige), y la web no lo decía en NINGÚN
           lado: ni acá, ni en el alta de pintor, ni en los términos. El único lugar donde

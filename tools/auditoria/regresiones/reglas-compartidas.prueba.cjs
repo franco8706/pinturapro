@@ -27,11 +27,27 @@ const CASOS = [
   ["320.000", 320000],
   ["$ 45.500", 45500],
   ["1250", 1250],
+  ["150 000", 150000],
+  ["1.000.000.000", 1000000000],
   ["-99999", null],
   ["0", null],
   ["abc", null],
   ["", null],
   ["99999999999", null],
+  // Lo que el parser adivinaba mal y ahora rechaza. Ninguno de estos estaba acá, y por eso
+  // el defecto vivía en las DOS copias sin que la prueba de sincronía lo viera: no estaban
+  // desincronizadas, estaban igual de rotas. Cada uno con el número que salía antes:
+  ["1,500,000", null], // daba 1 — un pintor cobrando $1 en vez de $1.500.000
+  ["150,000,000", null], // daba 150
+  ["150,000.50", null], // daba 150
+  ["1,500", null], // daba 1
+  ["1500.50", null], // daba 150.050 (×100)
+  ["150.00", null], // daba 15.000 (×100)
+  ["1.50.000", null], // daba 150.000
+  ["1.5e6", null], // daba 156
+  ["1.50E+06", null], // daba 15.006 — el más peligroso: es un número creíble
+  ["abc150000", null], // daba 150.000: las letras se borraban en silencio
+  ["1e999", null], // daba 1999
 ];
 
 module.exports = {

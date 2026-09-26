@@ -31,6 +31,23 @@ igual(montoDesdeTexto("0"), null, "cero no es un monto");
 igual(montoDesdeTexto("abc"), null, "letras no son un monto");
 igual(montoDesdeTexto(""), null, "vacío no es un monto");
 igual(montoDesdeTexto("99999999999"), null, "un monto absurdo se rechaza (desborda en la base)");
+igual(montoDesdeTexto("150 000"), 150000, "con espacio de miles también");
+igual(montoDesdeTexto("1.000.000.000"), 1000000000, "el tope exacto se acepta");
+
+// Lo que antes se adivinaba mal. Cada uno con el número que salía, para que se entienda por
+// qué rechazar es mejor que intentar interpretar: un rechazo lo ve la persona y lo corrige;
+// un número mal adivinado viaja a una cotización que el cliente acepta.
+igual(montoDesdeTexto("1,500,000"), null, "miles en notación inglesa: daba 1, no 1.500.000");
+igual(montoDesdeTexto("150,000,000"), null, "idem con tres grupos: daba 150");
+igual(montoDesdeTexto("150,000.50"), null, "formato inglés con decimales: daba 150");
+igual(montoDesdeTexto("1,500"), null, "una coma con tres dígitos es separador de miles, no centavos");
+igual(montoDesdeTexto("1500.50"), null, "decimal inglés sin coma: daba 150.050, cien veces más");
+igual(montoDesdeTexto("150.00"), null, "idem: daba 15.000");
+igual(montoDesdeTexto("1.50.000"), null, "grupos de miles que no son de tres dígitos");
+igual(montoDesdeTexto("1.5e6"), null, "notación científica: daba 156");
+igual(montoDesdeTexto("1.50E+06"), null, "científica de Excel: daba 15.006, un número creíble");
+igual(montoDesdeTexto("abc150000"), null, "letras pegadas al número: las borraba en silencio");
+igual(montoDesdeTexto("1e999"), null, "no hay forma de pasar el tope por notación científica");
 igual(comisionDe(500000), 50000, "la comisión es el 10%");
 
 // ── Topes de largo ──

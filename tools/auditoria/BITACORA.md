@@ -45,6 +45,8 @@ Estos ya no se reportan. `pnpm verificar` los revisa en cada corrida.
 | El archivo "mis datos" no incluía las fotos | Devolvía nombre, zona y reseñas, y omitía lo más personal que guarda el sitio: la cara de la persona y el interior de casas | `mis-datos` |
 | El simulador no se podía usar sin mouse | El lienzo es un canvas: no se enfocaba, no tenía nombre y no escuchaba el teclado. La función principal del sitio no existía para quien navega con teclado, y tampoco había un aviso | `simulador-teclado` |
 | Las Server Actions se rompían con un cuerpo inesperado | `[null]` a la acción de dar de baja devolvía 500 con `Cannot read properties of null (reading 'trim')`; el mismo cuerpo contra `/contacto` rompía las tres acciones de formulario. El tipo dice `string` o `FormData` y por la red llega lo que el que llama quiera | `acciones-hostiles` |
+| El parser de montos adivinaba en vez de rechazar | `1,500,000` (monto copiado de una planilla en inglés) salía **1**: el pintor cotizaba UN PESO creyendo cotizar un millón y medio. `1500.50` daba 150.050 y `1.50E+06` daba 15.006 —creíble, nadie sospecha—. El defecto estaba en las dos copias por igual, así que la prueba de sincronía no lo veía | `reglas-compartidas` |
+| Las estrellas de la reseña no decían cuál estaba elegida | La única señal era el color: quien usa lector de pantalla calificaba a una persona sin saber con cuánto. Y el comentario no tenía más nombre que su texto de ejemplo, que se va al escribir | `accesibilidad` |
 
 ## Corregido, sin prueba todavía
 
@@ -87,7 +89,21 @@ Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arri
   necesita configuración para resolver paquetes del monorepo, y no se puede probar sin levantar
   la app. Hay una prueba que avisa si las dos copias se desincronizan. **Severidad: deuda.**
 - **Faltan datos legales del responsable** (razón social, CUIT, domicilio). La pantalla ahora lo
-  avisa en vez de aparentar estar completa, pero el dato lo tiene que poner el dueño.
+  avisa en vez de aparentar estar completa, pero el dato lo tiene que poner el dueño. Además de
+  la Ley 25.326 (AAIP), es un requisito de la normativa de comercio electrónico de Defensa del
+  Consumidor: la misma falta, con dos organismos que la pueden mirar.
+- **Volver a "Intensidad" después de elegir un color cuesta 8 Shift+Tab.** El control vive en
+  el DOM del simulador, ANTES de la grilla de colores, que la dibuja la página; en la tarea
+  real se usa DESPUÉS. Arreglarlo es mover contenido entre dos componentes, no un ajuste.
+  **Severidad: molesto, no bloqueante.**
+- **No hay "Deshacer" en el simulador**, ni con mouse ni con teclado: sólo "Limpiar selección",
+  que borra todo de una vez. Afecta a todos por igual. **Severidad: menor.**
+- **Los enlaces del pie miden 17-20 px de alto** (el piso es 24). Es de todo el sitio, no de
+  una pantalla. **Severidad: menor.**
+- **Derecho de arrepentimiento (Ley 24.240):** el cliente acepta una cotización online y recién
+  ahí conoce al pintor. Si eso cuenta como contratación a distancia, podría haber 10 días de
+  arrepentimiento que el sitio no menciona. **No es una certeza: es la pregunta para el
+  abogado.**
 
 ## Descartado (se midió y no era)
 

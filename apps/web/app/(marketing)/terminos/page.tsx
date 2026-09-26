@@ -109,6 +109,30 @@ export default function TerminosPage() {
               pago conectado. Cuando empiece a cobrarse te lo vamos a avisar antes, y va a
               estar publicado acá.
             </p>
+            {/* Faltaba la otra mitad: qué pasa cuando algo sale mal. Los términos decían quién
+                contrata a quién y que la plataforma no responde por el resultado, pero no
+                decían que existe un botón de cancelar ni qué hace. Quien sólo leía esto no se
+                enteraba de la única salida que el producto ofrece de verdad.
+
+                Cada frase de abajo está verificada contra el código: `cancelarTrabajo` en
+                `(marketplace)/actions.ts` (cualquiera de las dos partes, estados 'quoted',
+                'accepted' e 'in_progress', sin penalidad, con aviso por mail a la otra parte)
+                y el trigger `on_job_cancelled` de la migración 0009, que vuelve a publicar el
+                pedido SÓLO si venía de 'accepted' o 'in_progress' — un pedido apenas cotizado
+                nunca se había cerrado, así que no hay nada que reabrir. */}
+            <p>
+              <strong>Si algo se cae, se cancela.</strong> Cualquiera de las dos partes puede
+              cancelar mientras el trabajo no esté terminado, desde su panel y sin dar
+              explicaciones. La otra parte recibe un aviso por correo. Si el trabajo ya estaba
+              aceptado, el pedido vuelve a publicarse solo para recibir cotizaciones nuevas.
+            </p>
+            <p>
+              Cancelar <strong>no tiene ninguna penalidad dentro de la plataforma</strong>, ni
+              para el cliente ni para el pintor: Pintura Pro no cobra, no retiene y no arbitra.
+              Es la única herramienta que ofrecemos ante un incumplimiento. Lo que se haya
+              acordado entre ustedes por fuera —una seña, materiales comprados, días de
+              trabajo— se resuelve entre ustedes, y si hace falta, por la vía que corresponda.
+            </p>
           </Seccion>
 
           <Seccion titulo="Reseñas y calificaciones">

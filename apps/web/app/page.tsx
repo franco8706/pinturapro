@@ -27,11 +27,35 @@ const services = [
   "Antihumedad",
 ];
 
+/**
+ * Los cuatro pasos, como los hace el código.
+ *
+ * Estaban escritos en primera persona del plural —"Visitamos la obra", "Definimos colores",
+ * "Equipo propio", "Trabajamos prolijo"— y el último prometía "Garantía escrita sobre la mano
+ * de obra y los materiales". Es texto de cuando el sitio era la vidriera de una empresa de
+ * pintura, y sobrevivió intacto a que el producto pasara a ser un lugar donde se encuentran
+ * clientes y pintores.
+ *
+ * Dos problemas, y el segundo es el grave:
+ *
+ *  · **Contradice los términos.** `/terminos` dice, con todas las letras: "El trabajo se
+ *    contrata entre vos y el pintor. Pintura Pro no es parte de ese acuerdo: no ejecuta la
+ *    obra, no fija el precio, no supervisa la calidad y no responde por el resultado." Las
+ *    dos cosas no pueden ser ciertas.
+ *  · **Promete una garantía que no existe.** No hay tabla, columna ni función de garantía en
+ *    ninguna migración. Una promesa en la portada es una oferta, y quien la lee puede
+ *    reclamarla. Ya se sacó una gemela de las estadísticas por exactamente esto: ver la nota
+ *    de `lib/empresa.ts`, "un compromiso legal sin nada detrás". Quedó ésta, dos secciones
+ *    más abajo en la misma página.
+ *
+ * Lo que dicen ahora es lo que el código hace: publicar, recibir cotizaciones, elegir,
+ * coordinar directo y calificar. Ni una palabra de más.
+ */
 const steps = [
-  { title: "Diagnóstico", description: "Visitamos la obra, medimos superficies y entendemos qué querés lograr. Sin compromiso." },
-  { title: "Paleta y propuesta", description: "Definimos colores, terminaciones y un presupuesto cerrado. Sin sorpresas a mitad de obra." },
-  { title: "Ejecución", description: "Equipo propio, materiales premium y protección total del espacio. Trabajamos prolijo." },
-  { title: "Entrega", description: "Revisión final junto a vos. Garantía escrita sobre la mano de obra y los materiales." },
+  { title: "Contás qué necesitás", description: "Publicás el trabajo en un par de minutos: qué hay que pintar, dónde y qué presupuesto manejás. Gratis y sin compromiso." },
+  { title: "Recibís cotizaciones", description: "Los pintores de tu zona te pasan su precio. Comparás con las reseñas que dejaron otros clientes y con los trabajos que ya hicieron." },
+  { title: "Elegís y coordinan", description: "Aceptás la cotización que más te cierra y arreglás el resto directo con el pintor: él hace el trabajo y vos le pagás a él." },
+  { title: "Calificás", description: "Cuando termina, dejás tu reseña. Es lo que le sirve al próximo que esté buscando, y lo que hace que a un buen pintor lo vuelvan a llamar." },
 ];
 
 
@@ -216,9 +240,9 @@ export default async function HomePage() {
       <section className="py-section bg-ink text-bone">
         <div className="container-asymmetric grid grid-cols-1 lg:grid-cols-12 gap-12">
           <div className="lg:col-span-4">
-            <SectionLabel className="text-bone/50 mb-4">Cómo trabajamos</SectionLabel>
+            <SectionLabel className="text-bone/50 mb-4">Cómo funciona</SectionLabel>
             <h2 className="font-display text-display-lg text-balance">
-              Un proceso disciplinado, de principio a fin.
+              De una pared sin pintar a un pintor trabajando.
             </h2>
           </div>
           <div className="lg:col-span-7 lg:col-start-6">

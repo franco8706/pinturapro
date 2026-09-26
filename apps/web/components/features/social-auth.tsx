@@ -17,12 +17,33 @@ const PROVIDERS: { id: Provider; label: string; icon: React.ReactNode }[] = [
 /**
  * Botones de login social. Tras autenticar, OAuth vuelve a /auth/callback?next=/mi-panel,
  * que rutea a cada usuario a su panel (o a /bienvenida si es su primera vez).
+ *
+ * **Estos botones también dan de alta.** No son sólo "entrar": si no existe la cuenta, el
+ * proveedor la crea y `/auth/callback` la deja adentro. Por eso están en /ingresar igual que
+ * en /crear-cuenta, y por eso el consentimiento tiene que pasar por acá.
+ *
+ * El casillero de mayoría de edad y términos se había agregado al formulario de email, y este
+ * componente ni se enteraba: alguien nuevo creaba su cuenta con un clic en "Continuar con
+ * Google" sin ver nunca ese texto. Peor todavía desde /ingresar, donde el casillero ni
+ * siquiera existe. La Ley 25.326 pide que el consentimiento sea informado **antes** de
+ * recolectar el dato, y acá el dato se recolecta en el momento del clic.
+ *
+ * Dos capas, según la pantalla:
+ *  · `bloqueo` — en /crear-cuenta, donde el casillero existe: el clic no arranca nada hasta
+ *    que esté tildado, con el mismo mensaje que el formulario de al lado.
+ *  · La nota de abajo, siempre: en /ingresar no hay casillero (pedirle a quien ya tiene
+ *    cuenta que vuelva a tildar cada vez es fricción sin sentido), pero sí tiene que estar
+ *    dicho, en el lugar donde se aprieta, qué se está aceptando.
  */
-export function SocialAuth() {
+export function SocialAuth({ bloqueo }: { bloqueo?: { activo: boolean; mensaje: string } }) {
   const [loading, setLoading] = useState<Provider | null>(null);
   const [error, setError] = useState("");
 
   async function signIn(provider: Provider) {
+    if (bloqueo?.activo) {
+      setError(bloqueo.mensaje);
+      return;
+    }
     if (!READY) {
       setError("El login social todavía no está configurado (faltan los proveedores en Supabase).");
       return;
@@ -56,6 +77,21 @@ export function SocialAuth() {
         </button>
       ))}
       {error && <p role="alert" className="font-body text-body-sm text-[#C41E3A]">{error}</p>}
+
+      {/* Va debajo de los botones y no en la letra chica de otra página: el consentimiento
+          tiene que estar donde se aprieta, porque es ahí donde el dato se entrega. */}
+      <p className="font-body text-body-sm text-concrete">
+        Al continuar con Google, Microsoft o Facebook confirmás que sos mayor de 18 años y
+        aceptás los{" "}
+        <a href="/terminos" className="text-ink underline underline-offset-2">
+          términos
+        </a>{" "}
+        y la{" "}
+        <a href="/privacidad" className="text-ink underline underline-offset-2">
+          política de privacidad
+        </a>
+        .
+      </p>
     </div>
   );
 }

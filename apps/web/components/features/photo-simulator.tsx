@@ -114,6 +114,19 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
   const [mira, setMira] = useState<{ x: number; y: number } | null>(null);
   /** Lo que se le lee en voz alta a quien no ve el lienzo: sin esto, Enter no devuelve nada. */
   const [aviso, setAviso] = useState("");
+  /**
+   * Para no hablar en cada flecha.
+   *
+   * La primera versión anunciaba la posición en cada tecla: cinco flechas eran cinco
+   * oraciones completas, y cruzar la imagen con el paso fino son unos cien flechazos, cada
+   * uno con su "Mira en 55% de izquierda a derecha, 40% de arriba abajo". Una zona que habla
+   * de más es tan inservible como una muda — tapa el anuncio que sí importa, que es el
+   * resultado de aplicar.
+   *
+   * Ahora la mira se mueve al instante (eso es visual y no necesita esperar) y la posición se
+   * dice UNA vez, cuando la persona deja de moverse.
+   */
+  const avisoPendiente = useRef<ReturnType<typeof setTimeout> | null>(null);
   const drawing = useRef(false);
   /** Canvas reutilizable para redibujar máscaras (ver la nota en pickAt). */
   const scratchCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -668,6 +681,9 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
 
     if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
       e.preventDefault();
+      // Si había una posición esperando para anunciarse, se descarta: lo que importa ahora es
+      // el resultado, y dos anuncios encimados no se entienden.
+      if (avisoPendiente.current) clearTimeout(avisoPendiente.current);
       setMira(actual);
       setErrorMsg("");
       if (brush !== "off") {
@@ -691,10 +707,16 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
     e.preventDefault();
     const siguiente = { x: topar(actual.x + d[0]), y: topar(actual.y + d[1]) };
     setMira(siguiente);
-    setAviso(
-      `Mira en ${Math.round(siguiente.x * 100)}% de izquierda a derecha, ` +
-        `${Math.round(siguiente.y * 100)}% de arriba abajo.`,
-    );
+
+    // Se anuncia cuando la persona frena, no en cada tecla. 500 ms: menos se vuelve a
+    // encimar entre flechazos seguidos, y más se siente que el lienzo no contesta.
+    if (avisoPendiente.current) clearTimeout(avisoPendiente.current);
+    avisoPendiente.current = setTimeout(() => {
+      setAviso(
+        `Mira en ${Math.round(siguiente.x * 100)}% de izquierda a derecha, ` +
+          `${Math.round(siguiente.y * 100)}% de arriba abajo. Enter para aplicar.`,
+      );
+    }, 500);
   };
 
   /**

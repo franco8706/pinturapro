@@ -100,7 +100,16 @@ export default function CrearCuentaPage() {
       <h1 className="font-display text-display-sm text-ink mb-2">Crear cuenta</h1>
       <p className="font-body text-body-sm text-concrete mb-8">Sumate a Pintura Pro.</p>
 
-      <SocialAuth />
+      {/* El mismo casillero que el formulario de abajo, aplicado a estos botones: crear la
+          cuenta con un clic no puede saltearse el consentimiento que se le pide a quien la
+          crea con email. El casillero vive más abajo en la página a propósito —es donde se
+          lee al completar el formulario—, así que acá el mensaje aparece al intentar. */}
+      <SocialAuth
+        bloqueo={{
+          activo: !acepta,
+          mensaje: "Marcá que sos mayor de 18 y aceptás los términos (está más abajo) para continuar.",
+        }}
+      />
       <AuthDivider />
 
       <form onSubmit={onSubmit} className="space-y-5">
