@@ -100,11 +100,16 @@ module.exports = {
         await page.waitForTimeout(1500);
       });
 
-      await intentar(async () => {
-        await k.ir(page, "/publicar");
-        await enviarFormularioCon("form input, form select, form textarea");
-        await page.waitForTimeout(1200);
-      });
+      // `/publicar` queda afuera a propósito, y conviene saber por qué antes de "arreglarlo":
+      // no es un `<form>` sino un asistente de tres pasos que arma el FormData a mano en
+      // `onComplete`, y "Continuar" está deshabilitado hasta que cada paso es válido. Para
+      // que la acción se dispare hay que completar el asistente entero con datos buenos, y
+      // eso **publica un pedido de verdad**. Una prueba que crea un pedido en cada corrida y
+      // después tiene que acordarse de borrarlo es una prueba que un día deja basura.
+      //
+      // `publicarTrabajo` tiene la misma guarda que las otras ocho acciones de formulario
+      // (`esFormulario`), puesta en el mismo cambio y verificada leyendo el archivo. Lo que
+      // falta acá es la medición, no el arreglo.
 
       await k.salir(page);
       await k.ingresar(page, "pintor2");
