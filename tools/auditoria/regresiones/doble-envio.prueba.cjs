@@ -6,16 +6,19 @@
  * cuando la pantalla se vuelve a dibujar: los clics del mismo instante entran todos.
  *
  * Necesita la base: lo único que prueba el arreglo es CONTAR las filas que quedaron.
+ *
+ * Estuvo salteada en todas las corridas desde que se escribió: pedía `psql` y una conexión
+ * directa a Postgres que desde este Codespace no existe. Ahora cuenta por la API REST
+ * (`base.cjs`), con la misma clave de servicio que ya usa la web.
  */
-const { execFileSync } = require("child_process");
 
 module.exports = {
   nombre: "doble envío · tres clics en contacto crean UNA sola consulta",
   necesitaBase: true,
 
-  async correr(t, { k, db }) {
+  async correr(t, { k, base }) {
     const marca = "ZZAGENT regresion " + Date.now().toString().slice(-7);
-    const sql = (q) => execFileSync("psql", [db, "-X", "-q", "-t", "-A", "-c", q], { encoding: "utf8" }).trim();
+    const filtro = `name=eq.${encodeURIComponent(marca)}`;
 
     const { browser, page } = await k.abrir({ movil: false });
     try {
@@ -38,12 +41,12 @@ module.exports = {
       }, marca);
       await page.waitForTimeout(5000);
 
-      const filas = Number(sql(`select count(*) from public.leads where name = '${marca}'`));
+      const filas = await base.contar("leads", filtro);
       t.igual(filas, 1, `tres clics dejaron ${filas} consultas en la bandeja (antes del arreglo eran 3)`);
     } finally {
       await browser.close();
       try {
-        sql(`delete from public.leads where name = '${marca}'`);
+        await base.borrar("leads", filtro);
       } catch {
         t.nota(`no pude borrar la consulta de prueba "${marca}"`);
       }

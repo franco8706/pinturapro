@@ -8,16 +8,17 @@
  * sistema sabe más después de cada ronda en vez de volver a empezar.
  *
  * Uso:
- *   node tools/auditoria/regresiones/correr.cjs            # todo lo que no necesita la base
- *   PINTURAPRO_DB='postgresql://...' node .../correr.cjs   # suma las pruebas que cuentan filas
+ *   node tools/auditoria/regresiones/correr.cjs            # todas
  *   node .../correr.cjs --solo seguridad                   # sólo las pruebas que matcheen
  *
- * Las pruebas que escriben en la base limpian lo suyo. Las que necesitan contar filas se
- * saltean (con aviso, no en silencio) si no hay `PINTURAPRO_DB`.
+ * Las pruebas que escriben en la base limpian lo suyo. Las que necesitan CONTAR filas usan
+ * `base.cjs` (API REST con la clave de servicio de `apps/web/.env.local`); si esa clave no
+ * está, se saltean con aviso, no en silencio.
  */
 const fs = require("fs");
 const path = require("path");
 const k = require("../navegador.cjs");
+const { abrirBase } = require("./base.cjs");
 
 const DIR = __dirname;
 const filtro = (() => {
@@ -76,9 +77,9 @@ async function main() {
     process.exit(2);
   }
 
-  const db = process.env.PINTURAPRO_DB || null;
+  const base = abrirBase();
   console.log(`\nRegresiones de Pintura Pro · ${archivos.length} pruebas · ${k.BASE}`);
-  console.log(db ? "Con acceso a la base: se corren también las pruebas que cuentan filas.\n" : "Sin PINTURAPRO_DB: se saltean las pruebas que cuentan filas.\n");
+  console.log(base ? "Con acceso a la base: corren también las pruebas que cuentan filas.\n" : "Sin clave de servicio en apps/web/.env.local: se saltean las pruebas que cuentan filas.\n");
 
   let fallaron = 0;
   let salteadas = 0;
@@ -87,14 +88,14 @@ async function main() {
   for (const archivo of archivos) {
     const prueba = require(path.join(DIR, archivo));
     const ctx = crearContexto(prueba.nombre || archivo);
-    if (prueba.necesitaBase && !db) {
+    if (prueba.necesitaBase && !base) {
       salteadas++;
-      console.log(`  ⊘ ${ctx.nombre} — necesita PINTURAPRO_DB`);
+      console.log(`  ⊘ ${ctx.nombre} — necesita la clave de servicio en apps/web/.env.local`);
       continue;
     }
     const t0 = Date.now();
     try {
-      await prueba.correr(ctx, { k, db });
+      await prueba.correr(ctx, { k, base });
     } catch (e) {
       ctx.fallas.push(`explotó: ${String(e).slice(0, 300)}`);
     }

@@ -1,4 +1,5 @@
 import { Navbar } from "@/components/features/navbar";
+import { unstable_rethrow } from "next/navigation";
 import { Footer } from "@/components/features/footer";
 import { HeroFluid } from "@/components/features/hero-fluid";
 import { MagneticButton } from "@/components/features/magnetic-button";
@@ -72,6 +73,14 @@ export default async function HomePage() {
     getNews(),
     getRecentReviews(),
     getProjects().catch((e) => {
+      // Primero dejar pasar las señales internas de Next. Al compilar, Next intenta armar la
+      // portada como página estática; `cookies()` lanza una excepción A PROPÓSITO para avisar
+      // "esta página es dinámica", y este catch se la tragaba: cada compilación de producción
+      // imprimía "no se pudieron cargar las obras" con la base perfecta, y quien leyera los
+      // registros de Cloud Build iba a creer que la base estaba caída. Peor: tragarse esa
+      // señal puede hacer que Next arme la portada estática con la sección de obras vacía.
+      // `lib/queries.ts` ya hacía esto en sus propios catch; éste había quedado afuera.
+      unstable_rethrow(e);
       console.error("[home] no se pudieron cargar las obras:", e);
       return [] as Awaited<ReturnType<typeof getProjects>>;
     }),
