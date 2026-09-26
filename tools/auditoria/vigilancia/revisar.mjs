@@ -113,7 +113,10 @@ async function paginas() {
 // ── 3. Los textos legales siguen siendo textos legales ──
 // Una página que carga pero se quedó vacía es peor que una caída: nadie se entera.
 const SENALES_LEGALES = {
-  "/privacidad": ["responsable", "datos personales", "25.326"],
+  // Cada palabra de acá corresponde a algo que la página TIENE que decir. "mi-cuenta" está
+  // porque desde que los derechos de acceso y supresión se ejercen solos, el link a esa
+  // pantalla ES el modo de ejercerlos: si se cae, la política promete algo que no existe.
+  "/privacidad": ["responsable", "datos personales", "25.326", "mi-cuenta"],
   "/terminos": ["comisión", "reseñas", "cuenta"],
 };
 
@@ -126,6 +129,40 @@ async function legales() {
     if (faltan.length) {
       falla(`${ruta} perdió contenido`, `no aparece: ${faltan.join(", ")}`);
     }
+  }
+}
+
+// ── 3 bis. Los derechos de la Ley 25.326 se siguen pudiendo ejercer solos ──
+//
+// Descargar los datos y darse de baja dejaron de ser "escribinos y lo hacemos" para pasar a
+// ser dos botones. Eso es lo que hace que los plazos de la ley (10 días corridos para el
+// acceso, 5 hábiles para la supresión) se cumplan sin depender de que alguien lea un mail.
+//
+// Si `/api/mis-datos` se rompe, la promesa de /privacidad queda sin nada atrás y **nadie se
+// entera**: el sitio anda, la portada carga, y el agujero sólo aparece el día que alguien
+// pide sus datos. Por eso se vigila acá y no sólo en las pruebas, que corren antes de
+// publicar y no después.
+//
+// Las dos respuestas que importan sin sesión:
+//   · 401 → bien: pide iniciar sesión.
+//   · 200 → fuga de datos personales, lo más grave que puede pasar en esta dirección.
+//   · 5xx → el derecho no se puede ejercer.
+async function derechos() {
+  const r = await pedir("/api/mis-datos");
+  if (!r.ok) {
+    falla("/api/mis-datos no respondió", r.error);
+    return;
+  }
+  if (r.status === 200) {
+    falla(
+      "/api/mis-datos entrega datos SIN SESIÓN",
+      "cualquiera puede descargar el archivo de datos personales de otra persona",
+    );
+  } else if (r.status !== 401) {
+    falla(
+      "la descarga de datos personales no funciona",
+      `HTTP ${r.status} sin sesión, y debería ser 401 · es el derecho de acceso de la Ley 25.326`,
+    );
   }
 }
 
@@ -212,6 +249,7 @@ registrar("INFO", `Vigilancia de Pintura Pro · ${BASE}`);
 await salud();
 await paginas();
 await legales();
+await derechos();
 await privadas();
 await cabeceras();
 await sitemap();

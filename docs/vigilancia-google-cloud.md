@@ -40,6 +40,7 @@ Un trabajo de Cloud Run que corre `tools/auditoria/vigilancia/revisar.mjs` y mir
 | La base, por las seis sondas | Ver arriba |
 | Que la portada y las páginas públicas respondan | Lo básico |
 | Que `/privacidad` y `/terminos` sigan teniendo su contenido | Si se rompen, el sitio sigue andando **sin los textos que la ley exige** y nadie se entera |
+| Que la descarga de datos personales siga andando y siga pidiendo sesión | Es el derecho de acceso de la Ley 25.326, que desde ahora se ejerce solo desde la cuenta. Si devuelve datos SIN sesión es una fuga; si devuelve un error, el derecho no se puede ejercer. En los dos casos el sitio anda igual y nadie se entera hasta que alguien pide sus datos |
 | Que los paneles privados pidan sesión | Una fuga de datos que nadie nota es la peor clase de fuga |
 | Que `robots.txt` siga bloqueando lo privado | Un cambio distraído y Google indexa el panel de administración |
 | Que estén las cabeceras de seguridad | Se pierden con un cambio de configuración; no se nota hasta que pasa algo |
