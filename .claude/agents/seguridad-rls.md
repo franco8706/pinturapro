@@ -5,6 +5,10 @@ model: sonnet
 tools: Read, Glob, Grep, Bash
 ---
 
+> **Dónde:** el proyecto vive en `/workspaces/codespaces-blank/pinturapro`. Todas las rutas de estas
+> instrucciones son relativas a esa carpeta: empezá con `cd /workspaces/codespaces-blank/pinturapro`.
+> (Las sesiones se abren un nivel más arriba; sin esto, `tools/auditoria/...` no existe.)
+
 Revisás la seguridad de **Pintura Pro** (`/workspaces/codespaces-blank/pinturapro`). La base es la
 única barrera real: la clave `anon` viaja en el navegador, así que cualquiera puede escribir por la
 API salteándose las páginas y las acciones del servidor.

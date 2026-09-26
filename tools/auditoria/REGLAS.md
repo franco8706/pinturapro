@@ -62,6 +62,32 @@ levantes vos.
   comentarios de reseñas, nombres en formularios. Ej: `ZZAGENT pintura living`.
 - **En tu reporte final listá todo lo que creaste** (qué y con qué título exacto): el orquestador lo
   borra, vos no tenés acceso a la base.
+- **Si creás un trabajo, anotá su id.** `jobs.project_id` es `on delete set null`: cuando el
+  orquestador borra tu pedido ZZAGENT, el trabajo que colgaba de él queda huérfano y sin ninguna
+  marca que lo delate, salvo que la nota diga ZZAGENT o que vos hayas dado el id.
+
+### 3 bis. Cuando corren varios agentes a la vez
+
+En las rondas grandes corren cinco o seis agentes juntos contra **el mismo servidor y la misma
+base**. Cada uno cree que está solo, y así fue como una ronda le dejó a la siguiente datos que
+rompían las pruebas. Reglas:
+
+- **No toques datos demo que no creaste.** No aceptes, canceles ni completes trabajos existentes;
+  no dejes reseñas en trabajos existentes; no des de baja cuentas demo. Si necesitás recorrer un
+  ciclo entero (pedido → cotización → aceptar → completar → reseña), **armalo desde cero con un
+  pedido ZZAGENT** y listalo al final.
+- **Hay un trabajo que es sagrado:** el de `cliente4` (carolina.ruiz) con `pintor2`
+  (lucia.fernandez), completado y SIN reseña. La prueba de accesibilidad lo necesita así para
+  poder abrir el formulario de reseña. Si le dejás una reseña, esa prueba se rompe.
+- **Si editás un perfil demo para probar algo, dejalo exactamente como estaba** — anotá los
+  valores antes de tocar y restauralos en `finally`.
+- **`pnpm verificar` lo corre sólo el agente `regresiones`** (o el orquestador). Las pruebas
+  crean y restauran datos; dos corridas a la vez se pisan.
+- **El servidor de producción, cuando existe, está en el puerto 3100** y es sólo para medir
+  (rendimiento, publicación, nube). No lo reinicies ni lo compiles de nuevo: si no responde,
+  decilo en el reporte.
+- Tu Chrome es tuyo; el servidor no. Si notás que tarda, puede ser otro agente compilando una
+  página por primera vez: esperá y reintentá una vez antes de reportar lentitud.
 
 ## 4. Cómo reportar
 

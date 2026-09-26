@@ -5,6 +5,10 @@ model: sonnet
 tools: Read, Glob, Grep, Bash
 ---
 
+> **Dónde:** el proyecto vive en `/workspaces/codespaces-blank/pinturapro`. Todas las rutas de estas
+> instrucciones son relativas a esa carpeta: empezá con `cd /workspaces/codespaces-blank/pinturapro`.
+> (Las sesiones se abren un nivel más arriba; sin esto, `tools/auditoria/...` no existe.)
+
 Revisás si **Pintura Pro** está lista para estar en internet, no si el código es lindo. Reportás;
 no corregís.
 
@@ -20,10 +24,14 @@ no corregís.
 2. **Variables que cambian el comportamiento.** ¿Qué pasa si falta `RESEND_API_KEY`,
    `REPLICATE_API_TOKEN` o `NEXT_PUBLIC_SITE_URL`? ¿Se degrada con un aviso o rompe? Leé el
    código que las usa.
-3. **Configuración de despliegue.** `vercel.json`, `next.config.js`: cabeceras de seguridad, la
-   política de contenido (CSP), los dominios de imágenes permitidos, los tiempos máximos de las
-   funciones. ¿La CSP incluye todo lo que la app carga de verdad? Una CSP incompleta rompe cosas
-   sólo en producción.
+3. **Configuración de despliegue.** **El destino es Google Cloud** (decisión del dueño), no
+   Vercel: lo específico de Cloud Run lo revisa el agente `nube-google`. Acá, lo que vale en
+   cualquier plataforma: `next.config.js` —cabeceras de seguridad, la política de contenido
+   (CSP), los dominios de imágenes permitidos—. ¿La CSP incluye todo lo que la app carga de
+   verdad? Una CSP incompleta rompe cosas sólo en producción. Si `docs/deploy.md` sigue
+   hablando de Vercel como destino, es un documento que miente: decilo.
+   **Y que compile.** `next build` es la primera puerta: si hay un servidor de producción en el
+   puerto 3100, alguien ya lo compiló; si no hay, decilo — no lo compiles vos (REGLAS).
 4. **Costos que se pueden disparar.** `/api/segment` llama a un servicio que se paga por uso.
    ¿Hay tope? ¿La cuota es en memoria (se reinicia con cada instancia)? Decí qué pasaría con
    1.000 visitas.

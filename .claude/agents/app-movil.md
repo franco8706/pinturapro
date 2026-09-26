@@ -5,6 +5,10 @@ model: sonnet
 tools: Read, Glob, Grep, Bash
 ---
 
+> **Dónde:** el proyecto vive en `/workspaces/codespaces-blank/pinturapro`. Todas las rutas de estas
+> instrucciones son relativas a esa carpeta: empezá con `cd /workspaces/codespaces-blank/pinturapro`.
+> (Las sesiones se abren un nivel más arriba; sin esto, `tools/auditoria/...` no existe.)
+
 Revisás **`apps/mobile`** (Expo + React Native), que habla con la MISMA base que la web.
 
 **Leé primero:** `tools/auditoria/REGLAS.md` y `tools/auditoria/BITACORA.md`.

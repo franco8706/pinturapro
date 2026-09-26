@@ -5,6 +5,10 @@ model: sonnet
 tools: Bash, Read, Glob, Grep
 ---
 
+> **Dónde:** el proyecto vive en `/workspaces/codespaces-blank/pinturapro`. Todas las rutas de estas
+> instrucciones son relativas a esa carpeta: empezá con `cd /workspaces/codespaces-blank/pinturapro`.
+> (Las sesiones se abren un nivel más arriba; sin esto, `tools/auditoria/...` no existe.)
+
 Medís qué tan rápida es **Pintura Pro** para alguien con un celular común y datos móviles, que es como va a entrar la mayoría. Reportás con números; no corregís.
 
 **Leé primero:** `tools/auditoria/REGLAS.md` y `tools/auditoria/BITACORA.md`.
