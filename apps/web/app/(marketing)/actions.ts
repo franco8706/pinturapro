@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyUser, notifyLeadsInbox, emailLayout, html } from "@/lib/email";
 import { SITE_URL } from "@/lib/site";
+import { esFormulario } from "@pinturapro/dominio";
 
 /**
  * Formularios públicos: presupuesto, contacto y postulación de pintores.
@@ -162,6 +163,11 @@ async function avisarAEmpresa(input: {
 
 /** /cotizar — pedido de presupuesto (el embudo principal del negocio). */
 export async function pedirPresupuesto(formData: FormData): Promise<LeadResult> {
+  // Una Server Action es un endpoint: llega lo que el que llama quiera mandar, no lo que dice
+  // el tipo. Sin esta línea, un cuerpo que no sea un formulario rompe en el primer `.get()` y
+  // devuelve 500 (medido en /contacto: los siete cuerpos de la auditoría, uno por uno).
+  if (!esFormulario(formData)) return { ok: false, error: "No pudimos leer el formulario." };
+
   if (esBot(formData)) return { ok: true }; // al bot se le responde ok y no se guarda nada
   if (rateLimited(await clientKey())) {
     return { error: "Recibimos varios pedidos desde acá. Probá de nuevo en un rato." };
@@ -193,6 +199,11 @@ export async function pedirPresupuesto(formData: FormData): Promise<LeadResult> 
 
 /** /contacto — mensaje libre. */
 export async function enviarConsulta(formData: FormData): Promise<LeadResult> {
+  // Una Server Action es un endpoint: llega lo que el que llama quiera mandar, no lo que dice
+  // el tipo. Sin esta línea, un cuerpo que no sea un formulario rompe en el primer `.get()` y
+  // devuelve 500 (medido en /contacto: los siete cuerpos de la auditoría, uno por uno).
+  if (!esFormulario(formData)) return { ok: false, error: "No pudimos leer el formulario." };
+
   if (esBot(formData)) return { ok: true };
   if (rateLimited(await clientKey())) {
     return { error: "Recibimos varios mensajes desde acá. Probá de nuevo en un rato." };
@@ -219,6 +230,11 @@ export async function enviarConsulta(formData: FormData): Promise<LeadResult> {
 
 /** /registro — postulación de un pintor que quiere sumarse como Pro. */
 export async function postularmeComoPintor(formData: FormData): Promise<LeadResult> {
+  // Una Server Action es un endpoint: llega lo que el que llama quiera mandar, no lo que dice
+  // el tipo. Sin esta línea, un cuerpo que no sea un formulario rompe en el primer `.get()` y
+  // devuelve 500 (medido en /contacto: los siete cuerpos de la auditoría, uno por uno).
+  if (!esFormulario(formData)) return { ok: false, error: "No pudimos leer el formulario." };
+
   if (esBot(formData)) return { ok: true };
   if (rateLimited(await clientKey())) {
     return { error: "Recibimos varias postulaciones desde acá. Probá de nuevo en un rato." };

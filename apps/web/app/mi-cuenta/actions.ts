@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mensajeDeError } from "@/lib/errores-db";
+import { esTexto } from "@pinturapro/dominio";
 
 /**
  * Borrar la propia cuenta, sin depender de que alguien lea un correo.
@@ -38,8 +39,21 @@ export async function eliminarMiCuenta(confirmacion: string): Promise<{ error?: 
   } = await supabase.auth.getUser();
   if (!user) return { error: "Tenés que iniciar sesión." };
 
+  // Una Server Action es un endpoint: el tipo dice `string` y lo que llega puede ser `null`,
+  // un número o un objeto. Sin esta línea, `[null]` rompía con "Cannot read properties of
+  // null (reading 'trim')" y devolvía 500 (medido). Se contesta lo mismo que a una palabra
+  // equivocada, que es lo que es.
+  if (!esTexto(confirmacion)) {
+    return { error: 'Para confirmar, escribí ELIMINAR en el campo.' };
+  }
+
   // Se pide escribir la palabra a mano: un borrado que no se puede deshacer no puede
   // depender de un solo clic mal dado.
+  //
+  // Se acepta en minúscula y con espacios de sobra a propósito: quien escribió "eliminar" en
+  // un campo que pide escribir ELIMINAR para confirmar, decidió. El paso está para frenar el
+  // clic distraído, no para tomar un dictado. Y el botón se ve apagado con exactamente el
+  // mismo criterio, así que la pantalla no promete una cosa y el servidor hace otra.
   if (confirmacion.trim().toUpperCase() !== "ELIMINAR") {
     return { error: 'Para confirmar, escribí ELIMINAR en el campo.' };
   }

@@ -102,6 +102,18 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
   // Modo de selección. `wand` (default) resuelve en ~40 ms sin red; `ai` usa el backend
   // remoto de segmentación, más lento pero a veces mejor en superficies muy texturadas.
   const [useAI, setUseAI] = useState(false);
+  /**
+   * La mira del teclado. Null hasta que alguien usa las flechas: con mouse no se dibuja nada,
+   * para no meterle un elemento de más a quien no lo necesita.
+   *
+   * El lienzo es un canvas y todo se hacía con clics: quien no puede usar un mouse —o
+   * directamente navega con teclado— no tenía forma de pintar una pared, ni un aviso que se lo
+   * dijera. Con flechas se mueve la mira y con Enter se aplica ahí, que es exactamente lo que
+   * hace un clic.
+   */
+  const [mira, setMira] = useState<{ x: number; y: number } | null>(null);
+  /** Lo que se le lee en voz alta a quien no ve el lienzo: sin esto, Enter no devuelve nada. */
+  const [aviso, setAviso] = useState("");
   const drawing = useRef(false);
   /** Canvas reutilizable para redibujar máscaras (ver la nota en pickAt). */
   const scratchCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -529,13 +541,17 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
   );
 
   // ---- Clic en el canvas → selecciona la superficie tocada ----
-  const onCanvasClick = async (e: React.MouseEvent) => {
+  /**
+   * Seleccionar la superficie que hay en un punto de la foto, en coordenadas de 0 a 1.
+   *
+   * Vive separado del manejador del mouse porque el teclado entra por acá con la posición de
+   * la mira: un clic y un Enter tienen que hacer exactamente lo mismo, y la única forma de
+   * garantizarlo es que sea el mismo código.
+   */
+  const aplicarEn = async (nx: number, ny: number) => {
     if (brush !== "off" || status !== "ready") return;
     const canvas = viewRef.current;
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const nx = (e.clientX - rect.left) / rect.width;
-    const ny = (e.clientY - rect.top) / rect.height;
 
     // Congelamos la selección actual como base: este clic SUMA sobre ella.
     maskBeforeClickRef.current = maskRef.current ? new Uint8Array(maskRef.current) : null;
@@ -548,17 +564,28 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
         const ok = await analyzeImage();
         if (!ok) return;
       }
-      if (await pickAt(nx, ny)) setHasSelection(true);
-      else setErrorMsg("No detectamos una superficie ahí. Probá el modo Varita o el 🖌 Pincel.");
+      if (await pickAt(nx, ny)) {
+        setHasSelection(true);
+        setAviso("Superficie seleccionada. Elegí un color de la lista para aplicarlo.");
+      } else setErrorMsg("No detectamos una superficie ahí. Probá el modo Varita o el 🖌 Pincel.");
       return;
     }
 
     lastClickRef.current = { x: nx, y: ny };
-    if (applyWand(nx, ny, tolerance)) setHasSelection(true);
-    else
+    if (applyWand(nx, ny, tolerance)) {
+      setHasSelection(true);
+      setAviso("Superficie seleccionada. Elegí un color de la lista para aplicarlo.");
+    } else
       setErrorMsg(
         "Ahí no hay una superficie clara (puede ser un mueble, un cuadro o una junta). Tocá una zona más lisa de la pared, o subí la Sensibilidad.",
       );
+  };
+
+  const onCanvasClick = (e: React.MouseEvent) => {
+    const canvas = viewRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    void aplicarEn((e.clientX - rect.left) / rect.width, (e.clientY - rect.top) / rect.height);
   };
 
   /**
@@ -582,15 +609,16 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
   };
 
   // ---- Pincel (ajuste manual) ----
-  const paintAt = useCallback(
-    (clientX: number, clientY: number) => {
+  /** Pincelada en coordenadas de 0 a 1, para que el teclado pinte igual que el dedo. */
+  const pintarEn = useCallback(
+    (nx: number, ny: number) => {
       const canvas = viewRef.current;
       const mask = maskRef.current;
       if (!canvas || !mask || brush === "off") return;
       const rect = canvas.getBoundingClientRect();
       const { w, h } = dims.current;
-      const x = Math.round(((clientX - rect.left) / rect.width) * w);
-      const y = Math.round(((clientY - rect.top) / rect.height) * h);
+      const x = Math.round(nx * w);
+      const y = Math.round(ny * h);
       const radius = Math.round((brushSize / rect.width) * w);
       const val = brush === "add" ? 1 : 0;
       for (let dy = -radius; dy <= radius; dy++) {
@@ -613,6 +641,61 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
     },
     [brush, brushSize, repaint, recomputeMaskDerived],
   );
+
+  const paintAt = useCallback(
+    (clientX: number, clientY: number) => {
+      const canvas = viewRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      pintarEn((clientX - rect.left) / rect.width, (clientY - rect.top) / rect.height);
+    },
+    [pintarEn],
+  );
+
+  /**
+   * El teclado sobre el lienzo. Las flechas mueven la mira, Enter (o barra espaciadora)
+   * aplica ahí lo mismo que haría un clic: seleccionar con la varita, o pintar si el pincel
+   * está encendido. Con Shift el paso es fino, para ajustar el punto exacto.
+   *
+   * `preventDefault` en las flechas y en la barra es a propósito: si no, la página entera
+   * scrollea mientras se intenta mover la mira y no se ve lo que está pasando.
+   */
+  const onCanvasKeyDown = (e: React.KeyboardEvent) => {
+    if (status !== "ready") return;
+    const paso = e.shiftKey ? 0.01 : 0.05;
+    const actual = mira ?? { x: 0.5, y: 0.5 };
+    const topar = (v: number) => Math.min(1, Math.max(0, v));
+
+    if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+      e.preventDefault();
+      setMira(actual);
+      setErrorMsg("");
+      if (brush !== "off") {
+        pintarEn(actual.x, actual.y);
+        setAviso(brush === "add" ? "Sumaste pintura en la mira." : "Borraste pintura en la mira.");
+      } else {
+        setAviso("Buscando la superficie…");
+        void aplicarEn(actual.x, actual.y);
+      }
+      return;
+    }
+
+    const mover: Record<string, [number, number]> = {
+      ArrowLeft: [-paso, 0],
+      ArrowRight: [paso, 0],
+      ArrowUp: [0, -paso],
+      ArrowDown: [0, paso],
+    };
+    const d = mover[e.key];
+    if (!d) return;
+    e.preventDefault();
+    const siguiente = { x: topar(actual.x + d[0]), y: topar(actual.y + d[1]) };
+    setMira(siguiente);
+    setAviso(
+      `Mira en ${Math.round(siguiente.x * 100)}% de izquierda a derecha, ` +
+        `${Math.round(siguiente.y * 100)}% de arriba abajo.`,
+    );
+  };
 
   /**
    * Cierra el trazo actual. Se usa desde pointerup, pointercancel y pointerleave.
@@ -689,8 +772,17 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
               <canvas
                 ref={viewRef}
                 onClick={onCanvasClick}
+                // Un canvas no es enfocable ni tiene nombre: para el teclado y para un lector
+                // de pantalla, acá no había nada. `tabIndex` lo pone en el recorrido, la
+                // etiqueta dice qué es y la descripción explica cómo se maneja.
+                tabIndex={0}
+                role="application"
+                aria-label="Foto de tu ambiente. Elegí acá la superficie a pintar."
+                aria-describedby="simulador-ayuda-teclado"
+                onKeyDown={onCanvasKeyDown}
                 className={cn(
                   "block w-full h-auto select-none",
+                  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink",
                   // `touch-none` SÓLO con el pincel activo, que es cuando hace falta quedarse
                   // con el gesto para dibujar. Estaba puesto siempre, y como los handlers de
                   // abajo salen temprano si el pincel está apagado, en el celular el canvas
@@ -713,6 +805,23 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
                 onPointerCancel={terminarTrazo}
                 onPointerLeave={terminarTrazo}
               />
+
+              {/* La mira del teclado. Dos líneas cruzadas con contorno claro para que se vea
+                  sobre cualquier foto, y `pointer-events-none` para que no le robe el clic al
+                  lienzo que tiene abajo. */}
+              {mira && (
+                <div
+                  aria-hidden="true"
+                  className="absolute pointer-events-none"
+                  style={{ left: `${mira.x * 100}%`, top: `${mira.y * 100}%` }}
+                >
+                  <div className="relative -translate-x-1/2 -translate-y-1/2">
+                    <div className="absolute -translate-x-1/2 -translate-y-1/2 w-8 h-[3px] bg-bone shadow-[0_0_0_1px_rgba(20,20,20,0.9)]" />
+                    <div className="absolute -translate-x-1/2 -translate-y-1/2 h-8 w-[3px] bg-bone shadow-[0_0_0_1px_rgba(20,20,20,0.9)]" />
+                    <div className="absolute -translate-x-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-ink bg-bone/60" />
+                  </div>
+                </div>
+              )}
 
               {/* Estado de carga: shimmer + spinner mientras el servidor procesa */}
               {segmenting && (
@@ -837,6 +946,24 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
               Cambiar foto
             </button>
           </div>
+
+          {/* Lo que pasa en el lienzo no se ve si no ves el lienzo. Enter con la varita tarda
+              unos milisegundos y no cambia ningún texto: sin esto, quien navega con lector de
+              pantalla apretaba Enter y no recibía ninguna respuesta. */}
+          <p className="sr-only" role="status" aria-live="polite">
+            {errorMsg || aviso}
+          </p>
+
+          {/* Las instrucciones del teclado: visibles para todos, y referenciadas por el
+              `aria-describedby` del lienzo para que se lean al enfocarlo. Van siempre, no sólo
+              cuando alguien tabula: una ayuda que aparece recién cuando ya te perdiste no
+              sirve. */}
+          <p id="simulador-ayuda-teclado" className="font-body text-body-sm text-concrete">
+            <strong className="text-ink">Con teclado:</strong> entrá al lienzo con Tab, movés la
+            mira con las <strong className="text-ink">flechas</strong> (con Shift, paso fino) y
+            aplicás con <strong className="text-ink">Enter</strong>. Hace lo mismo que tocar: elige
+            la superficie, o pinta si tenés el pincel encendido.
+          </p>
 
           {errorMsg ? (
             <p className="font-body text-body-sm text-[#C41E3A]">{errorMsg}</p>

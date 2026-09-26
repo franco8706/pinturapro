@@ -43,6 +43,8 @@ Estos ya no se reportan. `pnpm verificar` los revisa en cada corrida.
 | "Publicar trabajo" quedaba cortado en el panel del cliente | La fila de tres botones medía 495 px en una pantalla de 390, sin scroll ni forma de llegar al botón: se veían sus primeros 41 px | `desborde-celular` |
 | La foto reemplazada quedaba pública para siempre | Cambiar la portada de una obra subía la nueva y dejaba la anterior viva en el almacenamiento: el sitio no la mostraba más y la dirección seguía abriendo. Lo mismo con la foto de perfil | `foto-reemplazada` |
 | El archivo "mis datos" no incluía las fotos | Devolvía nombre, zona y reseñas, y omitía lo más personal que guarda el sitio: la cara de la persona y el interior de casas | `mis-datos` |
+| El simulador no se podía usar sin mouse | El lienzo es un canvas: no se enfocaba, no tenía nombre y no escuchaba el teclado. La función principal del sitio no existía para quien navega con teclado, y tampoco había un aviso | `simulador-teclado` |
+| Las Server Actions se rompían con un cuerpo inesperado | `[null]` a la acción de dar de baja devolvía 500 con `Cannot read properties of null (reading 'trim')`; el mismo cuerpo contra `/contacto` rompía las tres acciones de formulario. El tipo dice `string` o `FormData` y por la red llega lo que el que llama quiera | `acciones-hostiles` |
 
 ## Corregido, sin prueba todavía
 
@@ -78,8 +80,6 @@ Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arri
 
 ## Abierto
 
-- **`/simulador` no se puede usar con teclado.** El lienzo es un canvas y se pinta con clics: hoy
-  no hay ninguna alternativa ni aviso. **Severidad: importante, y no tiene arreglo rápido.**
 - **El primer clic del simulador congela la pantalla ~400 ms** (medido en producción, celular de
   gama media). Es la varita recorriendo la imagen. Se arreglaría de verdad moviendo el cálculo a
   un Web Worker con OffscreenCanvas. **Severidad: menor, pero se nota.**
@@ -92,6 +92,14 @@ Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arri
 ## Descartado (se midió y no era)
 
 No los vuelvas a levantar sin evidencia nueva.
+
+- **"La baja de cuenta acepta 'eliminar' en minúscula".** Es a propósito. El paso está para
+  frenar el clic distraído, no para tomar un dictado: quien escribió la palabra en un campo que
+  pide escribirla, decidió. Lo que sí importaba —y se revisó— es que la pantalla y el servidor
+  usen el MISMO criterio, para que el botón no se vea apagado con un texto que el servidor
+  después acepta. Usan el mismo. Y el botón no se deshabilita de verdad a propósito: un botón
+  deshabilitado no se puede enfocar y quien usa teclado no puede averiguar qué le falta, que es
+  el problema que ya está más arriba en esta misma tabla.
 
 - **"Las páginas 404 quedan en blanco".** Pasa sólo en modo desarrollo, donde compilar la ruta
   tarda: la página aparece un segundo después. En la compilación de producción se ve entera de

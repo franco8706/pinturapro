@@ -87,10 +87,23 @@ module.exports = {
         buffer: pngSolido(64, color),
       });
       // El formulario achica la imagen en un canvas antes de mandarla, y recién entonces
-      // guarda el archivo que va a enviar. Esperar a que se vaya el cartel "Procesando…" no
-      // sirve: todavía no apareció, así que la condición da verdadera al instante y el envío
-      // sale sin la foto. Lo que marca el final es la miniatura.
-      await page.waitForSelector("label img", { timeout: 15000 });
+      // guarda el archivo que va a enviar. Si se envía antes, sale sin la foto y la prueba
+      // reporta un problema que no existe.
+      //
+      // Dos esperas que NO sirven, las dos probadas acá:
+      //  · Que se vaya el cartel "Procesando…": todavía no apareció, así que da verdadera al
+      //    instante.
+      //  · Que aparezca la miniatura: en el formulario de edición ya está desde el principio,
+      //    mostrando la portada actual de la obra.
+      // Lo que sí marca el final es que la miniatura pase a ser la imagen recién procesada,
+      // que vive en memoria del navegador (`blob:`) y no en una dirección web.
+      await page.waitForFunction(
+        () => {
+          const img = document.querySelector("label img");
+          return !!img && /^(blob:|data:)/.test(img.getAttribute("src") || "");
+        },
+        { timeout: 20000 },
+      );
       await Promise.all([
         page.waitForURL((u) => /\/dashboard\/?$/.test(u.pathname), { timeout: 30000 }),
         page.evaluate(() => {

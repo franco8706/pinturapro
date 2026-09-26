@@ -6,7 +6,7 @@ import { notifyUser, emailLayout, html } from "@/lib/email";
 import { commissionFor } from "@/lib/utils";
 import { mensajeDeError } from "@/lib/errores-db";
 import { getOwnProfile } from "@/lib/queries";
-import { montoDesdeTexto, revisarLargos, puedeCotizar, MOTIVO_NO_PUEDE_COTIZAR } from "@pinturapro/dominio";
+import { montoDesdeTexto, revisarLargos, puedeCotizar, MOTIVO_NO_PUEDE_COTIZAR, esTexto, esFormulario } from "@pinturapro/dominio";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 const ars = (n: number) => "$" + n.toLocaleString("es-AR");
@@ -38,6 +38,11 @@ function toInt(v: FormDataEntryValue | null): number | null {
  * Queda visible para que los pintores coticen.
  */
 export async function publicarTrabajo(formData: FormData): Promise<{ error?: string; ok?: boolean }> {
+  // Una Server Action es un endpoint: llega lo que el que llama quiera mandar, no lo que dice
+  // el tipo. Sin esta línea, un cuerpo que no sea un formulario rompe en el primer `.get()` y
+  // devuelve 500 (medido en /contacto: los siete cuerpos de la auditoría, uno por uno).
+  if (!esFormulario(formData)) return { error: "No pudimos leer el formulario." };
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -84,6 +89,11 @@ export async function publicarTrabajo(formData: FormData): Promise<{ error?: str
  * exista y sea del client_id declarado.
  */
 export async function cotizar(formData: FormData): Promise<{ error?: string; ok?: boolean }> {
+  // Una Server Action es un endpoint: llega lo que el que llama quiera mandar, no lo que dice
+  // el tipo. Sin esta línea, un cuerpo que no sea un formulario rompe en el primer `.get()` y
+  // devuelve 500 (medido en /contacto: los siete cuerpos de la auditoría, uno por uno).
+  if (!esFormulario(formData)) return { error: "No pudimos leer el formulario." };
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -156,7 +166,7 @@ export async function marcarCompletado(jobId: string): Promise<{ error?: string;
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Tenés que iniciar sesión." };
-  if (!jobId) return { error: "Falta el trabajo." };
+  if (!esTexto(jobId) || !jobId) return { error: "Falta el trabajo." };
 
   const { data, error } = await supabase
     .from("jobs")
@@ -181,6 +191,11 @@ export async function marcarCompletado(jobId: string): Promise<{ error?: string;
  * author_id = auth.uid(); un trigger recalcula el rating del pintor.
  */
 export async function dejarResena(formData: FormData): Promise<{ error?: string; ok?: boolean }> {
+  // Una Server Action es un endpoint: llega lo que el que llama quiera mandar, no lo que dice
+  // el tipo. Sin esta línea, un cuerpo que no sea un formulario rompe en el primer `.get()` y
+  // devuelve 500 (medido en /contacto: los siete cuerpos de la auditoría, uno por uno).
+  if (!esFormulario(formData)) return { error: "No pudimos leer el formulario." };
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -224,7 +239,7 @@ export async function aceptarCotizacion(jobId: string): Promise<{ error?: string
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Tenés que iniciar sesión." };
-  if (!jobId) return { error: "Falta la cotización." };
+  if (!esTexto(jobId) || !jobId) return { error: "Falta la cotización." };
 
   // El filtro por status es parte del arreglo: sin él, un cliente podía "re-aceptar" un
   // trabajo ya completado (volviéndolo atrás) y disparar otro email al pintor en cada clic.
@@ -284,7 +299,7 @@ export async function cancelarTrabajo(jobId: string): Promise<{ error?: string; 
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Tenés que iniciar sesión." };
-  if (!jobId) return { error: "Falta el trabajo." };
+  if (!esTexto(jobId) || !jobId) return { error: "Falta el trabajo." };
 
   const { data, error } = await supabase
     .from("jobs")

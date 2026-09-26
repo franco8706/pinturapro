@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { mensajeDeError } from "@/lib/errores-db";
+import { esTexto, textoRecibido, esFormulario } from "@pinturapro/dominio";
 
 function slugify(s: string): string {
   return s
@@ -137,6 +138,11 @@ async function deleteCoverIfOwn(
  * RLS exige owner_id = auth.uid(), así que un usuario solo puede crear obras propias.
  */
 export async function createObra(formData: FormData): Promise<{ error?: string }> {
+  // Una Server Action es un endpoint: llega lo que el que llama quiera mandar, no lo que dice
+  // el tipo. Sin esta línea, un cuerpo que no sea un formulario rompe en el primer `.get()` y
+  // devuelve 500 (medido en /contacto: los siete cuerpos de la auditoría, uno por uno).
+  if (!esFormulario(formData)) return { error: "No pudimos leer el formulario." };
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -185,6 +191,11 @@ export async function createObra(formData: FormData): Promise<{ error?: string }
  * Si no se sube foto nueva ni se pega URL, conserva la portada actual.
  */
 export async function updateObra(formData: FormData): Promise<{ error?: string }> {
+  // Una Server Action es un endpoint: llega lo que el que llama quiera mandar, no lo que dice
+  // el tipo. Sin esta línea, un cuerpo que no sea un formulario rompe en el primer `.get()` y
+  // devuelve 500 (medido en /contacto: los siete cuerpos de la auditoría, uno por uno).
+  if (!esFormulario(formData)) return { error: "No pudimos leer el formulario." };
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -265,7 +276,7 @@ export async function deleteObra(id: string): Promise<{ error?: string }> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Tenés que iniciar sesión." };
-  if (!id) return { error: "Falta el identificador de la obra." };
+  if (!esTexto(id) || !id) return { error: "Falta el identificador de la obra." };
 
   // Traemos la portada (con la sesión, RLS solo deja ver lo permitido) para limpiar el Storage.
   const { data: pre } = await supabase
@@ -291,6 +302,11 @@ export async function deleteObra(id: string): Promise<{ error?: string }> {
  * RLS profiles_update_own exige id = auth.uid(). Es el "registro real" del pintor.
  */
 export async function updateProfile(formData: FormData): Promise<{ error?: string }> {
+  // Una Server Action es un endpoint: llega lo que el que llama quiera mandar, no lo que dice
+  // el tipo. Sin esta línea, un cuerpo que no sea un formulario rompe en el primer `.get()` y
+  // devuelve 500 (medido en /contacto: los siete cuerpos de la auditoría, uno por uno).
+  if (!esFormulario(formData)) return { error: "No pudimos leer el formulario." };
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -385,7 +401,9 @@ export async function guardarTelefono(telefono: string): Promise<{ error?: strin
   } = await supabase.auth.getUser();
   if (!user) return { error: "Tenés que iniciar sesión." };
 
-  const limpio = telefono.trim().slice(0, 40);
+  // Lo que llega de la red puede no ser texto aunque el tipo diga que sí; ver `esTexto`.
+  const limpio = textoRecibido(telefono, 40);
+  if (limpio === null) return { error: "No pudimos guardar ese teléfono." };
   // Laxo a propósito: acá entran celulares con 0 y 15, fijos con característica, y gente que
   // escribe "+54 9 11". Validar el formato argentino de verdad rechazaría números válidos.
   if (limpio.replace(/\D/g, "").length < 8) {
