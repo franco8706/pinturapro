@@ -1,9 +1,9 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, RefreshControl, ScrollView, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { useAuth } from "@/context/auth";
 import { getQuotesForClient, getJobsForPainter, formatARS } from "@/lib/queries";
-import { aceptarCotizacion, marcarCompletado } from "@/lib/mutations";
+import { aceptarCotizacion, cancelarTrabajo, marcarCompletado } from "@/lib/mutations";
 import type { Quote, PainterJob } from "@/lib/types";
 import { Avatar, Badge, Button, Card, Mono, Stars, Note } from "@/components/ui";
 import { colors, space, type } from "@/lib/theme";
@@ -71,6 +71,28 @@ export default function CuentaScreen() {
     setActingId(null);
     if (res.error) return setActionError(res.error);
     load();
+  }
+
+  /**
+   * Cancelar pide confirmación: no se deshace, y del otro lado hay alguien esperando. Un botón
+   * que cancela con un toque, en una pantalla que se scrollea con el dedo, se aprieta sin querer.
+   */
+  function onCancel(id: string, titulo: string, detalle: string) {
+    Alert.alert(titulo, detalle, [
+      { text: "Volver", style: "cancel" },
+      {
+        text: "Sí, cancelar",
+        style: "destructive",
+        onPress: async () => {
+          setActingId(id);
+          setActionError("");
+          const res = await cancelarTrabajo(id);
+          setActingId(null);
+          if (res.error) return setActionError(res.error);
+          load();
+        },
+      },
+    ]);
   }
 
   if (loading) return null;
@@ -149,6 +171,20 @@ export default function CuentaScreen() {
               {q.status === "quoted" && (
                 <Button label="Aceptar cotización" loading={actingId === q.id} onPress={() => onAccept(q.id)} />
               )}
+              {(q.status === "accepted" || q.status === "in_progress") && (
+                <Button
+                  label="Cancelar este trabajo"
+                  variant="ghost"
+                  loading={actingId === q.id}
+                  onPress={() =>
+                    onCancel(
+                      q.id,
+                      "¿Cancelar el trabajo?",
+                      "El pintor lo va a ver en su panel y tu pedido vuelve a publicarse para recibir cotizaciones nuevas.",
+                    )
+                  }
+                />
+              )}
               {q.status === "completed" && !q.reviewed && (
                 <Button
                   label="Dejar reseña"
@@ -184,12 +220,54 @@ export default function CuentaScreen() {
               {j.status === "accepted" && (
                 <Button label="Marcar como completado" loading={actingId === j.id} onPress={() => onComplete(j.id)} />
               )}
+              {j.status === "quoted" && (
+                <Button
+                  label="Retirar cotización"
+                  variant="ghost"
+                  loading={actingId === j.id}
+                  onPress={() => onCancel(j.id, "¿Retirar la cotización?", "El cliente deja de verla entre sus opciones.")}
+                />
+              )}
+              {(j.status === "accepted" || j.status === "in_progress") && (
+                <Button
+                  label="No puedo tomarlo"
+                  variant="ghost"
+                  loading={actingId === j.id}
+                  onPress={() =>
+                    onCancel(
+                      j.id,
+                      "¿Dejar el trabajo?",
+                      "El cliente lo va a ver en su panel y el pedido vuelve a publicarse para que lo tome otro pintor.",
+                    )
+                  }
+                />
+              )}
             </Card>
           ))
         )
       ) : (
         <Empty text="Tu rol no tiene panel de marketplace." />
       )}
+
+      {/* Descargar los datos y eliminar la cuenta existen en la web y se hacen solos, sin
+          pedirle nada a nadie (Ley 25.326). La app no los ofrecía ni decía dónde estaban. Se
+          manda a la web en vez de duplicar las dos pantallas: la baja necesita la clave de
+          servicio, que nunca va en una app. Sin la dirección del sitio configurada, se dice
+          dónde está en vez de mostrar un botón que no lleva a ningún lado. */}
+      <Card style={{ padding: space.md, gap: space.sm }}>
+        <Text style={[type.bodyMd, { color: colors.ink }]}>Tus datos y tu cuenta</Text>
+        <Text style={[type.bodySm, { color: colors.concrete }]}>
+          Podés descargar todo lo que Pintura Pro tiene sobre vos, o eliminar tu cuenta, desde "Mis datos y mi
+          cuenta" en la web, con el mismo email y contraseña.
+        </Text>
+        {process.env.EXPO_PUBLIC_SITE_URL ? (
+          <Button
+            label="Abrir mis datos y mi cuenta"
+            variant="ghost"
+            onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_SITE_URL}/mi-cuenta`)}
+          />
+        ) : null}
+      </Card>
 
       <Button label="Cerrar sesión" variant="ghost" onPress={signOut} />
     </ScrollView>

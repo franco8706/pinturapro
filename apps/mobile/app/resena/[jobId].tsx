@@ -48,6 +48,16 @@ export default function ResenaScreen() {
           multiline
         />
 
+        {/* Igual que en la web: dicho ANTES de escribir, no en la letra chica de los términos.
+            Queda pública, pegada al nombre de una persona real, y no se va si después se
+            cierra la cuenta (si se fuera, cualquiera podría bajarle el promedio a un pintor
+            dándose de baja). */}
+        <Text style={[type.bodySm, { color: colors.concrete }]}>
+          Tu reseña es pública y queda en el perfil de {painterName ?? "el pintor"}, con tu nombre. No se
+          borra si después cerrás tu cuenta: es parte de la reputación que esa persona construyó con su
+          trabajo.
+        </Text>
+
         {error ? <Note>{error}</Note> : null}
 
         <Button label="Publicar reseña" onPress={onSubmit} loading={loading} />

@@ -9,7 +9,6 @@
  * La prueba limpia lo suyo: retira la cotización al final, así el pedido queda disponible
  * para la próxima corrida. Si algo explota a mitad de camino, el `finally` igual la retira.
  */
-const { execFileSync } = require("child_process");
 
 const MONTO = "654321";
 const NOTA = "ZZAGENT regresión: cotización de prueba, se retira sola";
@@ -17,7 +16,7 @@ const NOTA = "ZZAGENT regresión: cotización de prueba, se retira sola";
 module.exports = {
   nombre: "cotizar · el pintor ve que ya cotizó en vez de llenar el formulario al pedo",
 
-  async correr(t, { k, db }) {
+  async correr(t, { k, base }) {
     const { browser, page } = await k.abrir({ movil: false });
     let cotizó = false;
     try {
@@ -86,9 +85,13 @@ module.exports = {
         }
         // Retirarla la deja en 'cancelled', que no molesta a nadie pero se acumula una por
         // corrida. Con acceso a la base se borra del todo.
-        if (db) {
+        //
+        // Antes esto usaba `psql`, que desde el Codespace nunca anduvo: la limpieza no corrió
+        // ni una vez, y el agente `integridad-datos` encontró las filas acumuladas. Ahora va
+        // por `base.cjs`, la misma API REST que usa la prueba del doble envío.
+        if (base) {
           try {
-            execFileSync("psql", [db, "-X", "-q", "-c", `delete from public.jobs where note = '${NOTA}'`], { encoding: "utf8" });
+            await base.borrar("jobs", `note=eq.${encodeURIComponent(NOTA)}`);
           } catch {
             t.nota("no pude borrar la fila de prueba de la base");
           }

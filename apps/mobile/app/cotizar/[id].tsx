@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { cotizar } from "@/lib/mutations";
+import { cotizar, toInt } from "@/lib/mutations";
+import { formatARS } from "@/lib/queries";
 import { useAuth } from "@/context/auth";
 import { Button, Field, Mono, Note } from "@/components/ui";
 import { colors, space, type } from "@/lib/theme";
@@ -53,6 +54,22 @@ export default function CotizarScreen() {
           keyboardType="numeric"
           hint="Incluí mano de obra y materiales. Se aplica 10% de comisión."
         />
+        {/* El número, de vuelta y en criollo, como en la web. Antes el pintor escribía y
+            recién al enviar se enteraba de "Ingresá un monto válido", sin saber qué estaba
+            mal; y con el parser viejo, un "1,500,000" pegado de una planilla salía como $1 sin
+            ningún aviso. Un cero de más se descubre mirando, no validando. */}
+        {amount.trim() !== "" ? (
+          toInt(amount) === null ? (
+            <Text accessibilityLiveRegion="polite" style={[type.bodySm, { color: colors.danger }]}>
+              No entendemos ese monto. Escribilo así: 320000 o 320.000.
+            </Text>
+          ) : (
+            <Text accessibilityLiveRegion="polite" style={[type.bodySm, { color: colors.concrete }]}>
+              Vas a cotizar {formatARS(toInt(amount) as number)}. La comisión del 10% son{" "}
+              {formatARS(Math.round((toInt(amount) as number) * 0.1))}.
+            </Text>
+          )
+        ) : null}
         <Field
           label="Mensaje al cliente"
           value={note}

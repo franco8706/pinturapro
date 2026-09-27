@@ -78,7 +78,23 @@ async function guardarLead(input: {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { error } = await supabase.from("leads").insert({
+  // Se guarda con la clave de servicio, no con la de la persona.
+  //
+  // El campo trampa y el límite de 5 por hora viven ACÁ, en el servidor. Pero la tabla
+  // aceptaba inserciones directas con la clave pública (`leads_insert_any`, 0007), así que
+  // cualquiera con esa clave —que viaja en el código de la página— se salteaba las dos
+  // cosas: el agente `seguridad-rls` metió seis consultas en 0,43 segundos con un curl. La
+  // migración 0022 le quita ese permiso a anon y authenticated; desde entonces la única
+  // puerta es ésta, después de los controles.
+  //
+  // `user_id` sale de la sesión verificada arriba, nunca del formulario: con la clave de
+  // servicio no hay policy que lo controle, así que lo controla este código.
+  //
+  // Sin la clave de servicio (sólo pasa en un entorno mal configurado) se usa la sesión, que
+  // funciona mientras 0022 no esté aplicada y falla con el mensaje de abajo después.
+  const escritor = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : supabase;
+
+  const { error } = await escritor.from("leads").insert({
     kind: input.kind,
     status: "new",
     name: input.name,

@@ -1,4 +1,5 @@
 import { Navbar } from "@/components/features/navbar";
+import { EMAIL_READY } from "@/lib/email";
 import { Footer } from "@/components/features/footer";
 import { SectionLabel } from "@/components/features/states";
 
@@ -116,14 +117,15 @@ export default function TerminosPage() {
 
                 Cada frase de abajo está verificada contra el código: `cancelarTrabajo` en
                 `(marketplace)/actions.ts` (cualquiera de las dos partes, estados 'quoted',
-                'accepted' e 'in_progress', sin penalidad, con aviso por mail a la otra parte)
+                'accepted' e 'in_progress', sin penalidad, con aviso por mail a la otra parte SÓLO si `EMAIL_READY`: sin `RESEND_API_KEY` no sale ningún correo, y la app móvil no los manda nunca porque requieren la clave de servicio)
                 y el trigger `on_job_cancelled` de la migración 0009, que vuelve a publicar el
                 pedido SÓLO si venía de 'accepted' o 'in_progress' — un pedido apenas cotizado
                 nunca se había cerrado, así que no hay nada que reabrir. */}
             <p>
               <strong>Si algo se cae, se cancela.</strong> Cualquiera de las dos partes puede
               cancelar mientras el trabajo no esté terminado, desde su panel y sin dar
-              explicaciones. La otra parte recibe un aviso por correo. Si el trabajo ya estaba
+              explicaciones. La otra parte lo ve en su panel
+              {EMAIL_READY ? " y recibe un aviso por correo" : ""}. Si el trabajo ya estaba
               aceptado, el pedido vuelve a publicarse solo para recibir cotizaciones nuevas.
             </p>
             <p>

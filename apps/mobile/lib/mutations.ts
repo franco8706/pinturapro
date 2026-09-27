@@ -89,7 +89,7 @@ function slugify(s: string): string {
  * levantar la app. Mientras tanto esta copia tiene que decir exactamente lo mismo, y hay una
  * prueba que lo verifica (`tools/auditoria/regresiones/reglas-compartidas.prueba.cjs`).
  */
-function toInt(v: string): number | null {
+export function toInt(v: string): number | null {
   const crudo = String(v ?? "").trim();
   if (!crudo) return null;
   if (/^-/.test(crudo)) return null; // negativo: se rechaza, no se "arregla" solo
@@ -177,6 +177,22 @@ export async function publicarTrabajo(input: {
   });
   if (largoMal) return { error: largoMal };
 
+  // El presupuesto se validaba en `cotizar` pero no acá: un monto que el parser no entiende
+  // ("1,500,000", "1500.50") se guardaba como NULL sin avisar. La pantalla decía "publicado",
+  // volvía atrás, y el pedido salía con "A definir" en lugar del presupuesto que la persona
+  // escribió. Vacío sigue siendo válido (es opcional); escrito y no entendido, no.
+  const budgetMin = toInt(input.budgetMin);
+  const budgetMax = toInt(input.budgetMax);
+  if (input.budgetMin.trim() && budgetMin === null) {
+    return { error: "No entendemos el presupuesto mínimo. Escribilo así: 320000 o 320.000." };
+  }
+  if (input.budgetMax.trim() && budgetMax === null) {
+    return { error: "No entendemos el presupuesto máximo. Escribilo así: 320000 o 320.000." };
+  }
+  if (budgetMin !== null && budgetMax !== null && budgetMin > budgetMax) {
+    return { error: "El presupuesto mínimo es mayor que el máximo." };
+  }
+
   const slug = `${slugify(title) || "trabajo"}-${Math.random().toString(36).slice(2, 7)}`;
   const payload = {
     owner_id: user.id,
@@ -185,8 +201,8 @@ export async function publicarTrabajo(input: {
     slug,
     description: input.description.trim() || null,
     location: input.location.trim() || null,
-    budget_min: toInt(input.budgetMin),
-    budget_max: toInt(input.budgetMax),
+    budget_min: budgetMin,
+    budget_max: budgetMax,
     published: true,
   };
 
@@ -276,6 +292,36 @@ export async function marcarCompletado(jobId: string): Promise<Result> {
     .select("id");
   if (error) return { error: mensajeDeError(error) };
   if (((data ?? []) as unknown[]).length === 0) return { error: "No se encontró el trabajo o no está en curso." };
+  return { ok: true };
+}
+
+/**
+ * Cancelar un trabajo o retirar una cotización. Espejo de `cancelarTrabajo` de la web.
+ *
+ * No existía en la app. Sin esto, un pintor que aceptaba y desaparecía dejaba al cliente
+ * trabado para siempre desde el celular: sin poder reseñar, sin poder contratar a otro y sin
+ * forma de liberar el pedido. Cualquiera de las dos partes puede cancelar mientras el trabajo
+ * no esté terminado; si ya estaba aceptado, el trigger `on_job_cancelled` (0009) vuelve a
+ * publicar el pedido. Es lo que dicen los términos.
+ *
+ * Diferencia con la web: desde acá no sale el mail de aviso a la otra parte, porque mandarlo
+ * requiere la clave de servicio, que nunca va en una app. La otra parte lo ve en su panel.
+ */
+export async function cancelarTrabajo(jobId: string): Promise<Result> {
+  const { data: auth } = await supabase.auth.getUser();
+  const user = auth.user;
+  if (!user) return { error: "Tenés que iniciar sesión." };
+  if (!jobId) return { error: "Falta el trabajo." };
+
+  const { data, error } = await supabase
+    .from("jobs")
+    .update({ status: "cancelled" } as never)
+    .eq("id", jobId)
+    .or(`client_id.eq.${user.id},painter_id.eq.${user.id}`)
+    .in("status", ["quoted", "accepted", "in_progress"])
+    .select("id");
+  if (error) return { error: mensajeDeError(error) };
+  if (((data ?? []) as unknown[]).length === 0) return { error: "Este trabajo ya no se puede cancelar." };
   return { ok: true };
 }
 

@@ -1,4 +1,5 @@
 import { Navbar } from "@/components/features/navbar";
+import { EMAIL_READY } from "@/lib/email";
 import { Footer } from "@/components/features/footer";
 import { SectionLabel } from "@/components/features/states";
 
@@ -134,7 +135,8 @@ export default function PrivacidadPage() {
             <p>
               Para que la plataforma funcione: mostrar el directorio de pintores, conectar pedidos
               con cotizaciones, permitir que las partes se contacten cuando cierran un trabajo, y
-              avisarte por email cuando pasa algo que te involucra.
+              avisarte por email cuando pasa algo que te involucra
+              {EMAIL_READY ? "" : " (los avisos por email todavía no están activos: hoy lo vas a ver en tu panel)"}.
             </p>
             <p>
               <strong>No vendemos tus datos</strong> ni los cedemos con fines publicitarios.
@@ -180,7 +182,13 @@ export default function PrivacidadPage() {
                 (Estados Unidos).
               </li>
               <li>
-                <strong>Resend</strong> — envío de los emails de aviso.
+                {/* Le faltaba el país, que los otros dos proveedores sí llevan, y decía menos
+                    de lo que pasa: por acá viajan también las consultas completas de los
+                    formularios (nombre, email, teléfono y mensaje) hacia la casilla de la
+                    empresa — ver `avisarAEmpresa` en `(marketing)/actions.ts`. */}
+                <strong>Resend</strong> — envío de los emails: los avisos de la plataforma y las
+                consultas de los formularios de cotización, contacto y registro de pintores
+                (nombre, email, teléfono y mensaje) hacia nuestra casilla (Estados Unidos).
               </li>
               <li>
                 {/* El mapa de /pintores carga los mosaicos desde los servidores de OSM, así que
@@ -253,6 +261,17 @@ export default function PrivacidadPage() {
             <p>
               Usamos una cookie técnica para mantener tu sesión abierta. No usamos cookies de
               publicidad ni de seguimiento de terceros.
+            </p>
+            {/* Faltaba. El borrador de /cotizar guarda nombre, email y teléfono mientras se
+                escribe (`hooks/use-borrador.ts`). Es `sessionStorage` a propósito —muere con la
+                pestaña, para que una computadora compartida no se lo deje al siguiente— y
+                nunca sale del dispositivo, pero es un dato personal guardado y la ley pide que
+                la persona sepa qué se guarda. */}
+            <p>
+              Mientras completás un formulario largo (como el de cotización), tu navegador guarda
+              lo que vas escribiendo —incluidos nombre, email y teléfono— para que no se pierda si
+              recargás la página. Queda <strong>sólo en tu dispositivo</strong>, no nos llega, y se
+              borra al enviar el formulario o al cerrar la pestaña.
             </p>
           </Seccion>
 

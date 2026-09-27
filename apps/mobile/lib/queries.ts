@@ -153,7 +153,9 @@ export async function getQuotesForClient(clientId: string): Promise<Quote[]> {
   for (const r of (revs ?? []) as any[]) reviewed.add(r.job_id);
 
   return data.map((j: any) => {
-    const p = painters.get(j.painter_id) ?? { name: "Pintor", image: "", rating: 0 };
+    const p = j.painter_id
+      ? painters.get(j.painter_id) ?? { name: "Pintor", image: "", rating: 0 }
+      : { name: "Cuenta dada de baja", image: "", rating: 0 };
     return {
       id: j.id,
       projectId: j.project_id,
@@ -201,7 +203,9 @@ export async function getJobsForPainter(painterId: string): Promise<PainterJob[]
     amount: j.amount,
     note: j.note ?? "",
     clientId: j.client_id,
-    clientName: clients.get(j.client_id) ?? "Cliente",
+    // Desde 0019, `client_id` queda en NULL cuando el cliente se da de baja. Mostrar "Cliente"
+    // lo hacía indistinguible de una cuenta activa; la web dice lo que pasó.
+    clientName: j.client_id ? clients.get(j.client_id) ?? "Cliente" : "Cuenta dada de baja",
   }));
 }
 
