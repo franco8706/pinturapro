@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { cotizar } from "../actions";
-import { montoDesdeTexto, comisionDe } from "@pinturapro/dominio";
+import { montoDesdeTexto, motivoMontoInvalido, comisionDe } from "@pinturapro/dominio";
 
 /** Formulario inline para que un pintor cotice un pedido de trabajo. */
 export function QuoteForm({ projectId, clientId }: { projectId: string; clientId: string }) {
@@ -96,10 +96,7 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
       {monto.trim() !== "" && (
         <p role="status" aria-live="polite" className="font-body text-body-sm">
           {montoLeido === null ? (
-            <span className="text-[#C41E3A]">
-              No entendemos ese monto. Escribilo así: <strong>320000</strong> o{" "}
-              <strong>320.000</strong>.
-            </span>
+            <span className="text-[#C41E3A]">{motivoMontoInvalido(monto)}</span>
           ) : (
             <span className="text-concrete">
               Vas a cotizar{" "}

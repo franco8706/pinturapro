@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/features/navbar";
@@ -5,6 +6,9 @@ import { Footer } from "@/components/features/footer";
 import { createClient } from "@/lib/supabase/server";
 import { getOwnProfile, getPainterExtras, getMiTelefono } from "@/lib/queries";
 import { PerfilForm } from "./perfil-form";
+
+// Pantalla privada: título propio para la pestaña y fuera de los buscadores.
+export const metadata: Metadata = { title: "Editar mi perfil", robots: { index: false, follow: false }, };
 
 export default async function PerfilPage() {
   const supabase = await createClient();

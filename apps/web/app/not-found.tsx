@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
@@ -6,6 +7,13 @@ import { Footer } from "@/components/features/footer";
  * 404. Sin esto Next muestra su página por defecto, en inglés y sin la navegación
  * del sitio — un callejón sin salida para alguien que llegó por un link viejo.
  */
+// Sin título propio la pestaña de una página inexistente decía "Transformamos espacios con
+// color", como si la página existiera. `noindex`: Google no tiene por qué guardar un 404.
+export const metadata: Metadata = {
+  title: "Página no encontrada",
+  robots: { index: false, follow: true },
+};
+
 export default function NotFound() {
   return (
     <main>

@@ -78,6 +78,40 @@ export function montoDesdeTexto(v: unknown): number | null {
   return n;
 }
 
+/**
+ * Por qué no se entendió un monto, dicho de forma que la persona lo pueda arreglar.
+ *
+ * `montoDesdeTexto` rechaza lo ambiguo en vez de adivinar, y eso está bien. Pero el rechazo
+ * decía siempre lo mismo —"No entendemos ese monto"—, y a quien pegó "1,500,000" de una
+ * planilla en inglés no le decía que el problema era la coma de miles: probaba de nuevo lo
+ * mismo, o abandonaba. Lo marcó el sub-agente pintor de `recorrido-web`.
+ *
+ * Sigue las MISMAS reglas y en el mismo orden que `montoDesdeTexto`, para que el motivo
+ * siempre corresponda al rechazo real. Devuelve `null` si el monto es válido.
+ */
+export function motivoMontoInvalido(v: unknown): string | null {
+  const crudo = String(v ?? "").trim();
+  if (!crudo) return "Escribí un monto.";
+  if (montoDesdeTexto(crudo) !== null) return null;
+  if (/^-/.test(crudo)) return "El monto no puede ser negativo.";
+  if (/[^\d.,\s$]/.test(crudo)) return "Escribí sólo números, sin letras: por ejemplo 320.000.";
+
+  const limpio = crudo.replace(/[\s$]/g, "");
+  const comas = (limpio.match(/,/g) ?? []).length;
+  const [entero = "", decimales = ""] = limpio.split(",");
+  if (comas > 1 || (comas === 1 && limpio.indexOf(",") < limpio.lastIndexOf(".")) || (comas === 1 && /^\d{3,}$/.test(decimales))) {
+    return "Parece escrito con comas de miles (formato en inglés). Acá los miles van con punto: 1.500.000.";
+  }
+  const grupos = entero.split(".");
+  if (grupos.length > 1 && !grupos.slice(1).every((g) => /^\d{3}$/.test(g))) {
+    return "Los puntos separan miles de a tres cifras (320.000), y los centavos van con coma (320.000,50).";
+  }
+  const n = parseInt(grupos.join(""), 10);
+  if (Number.isFinite(n) && n > MONTO_MAXIMO) return "Es más de mil millones: revisá los ceros.";
+  if (Number.isFinite(n) && n <= 0) return "El monto tiene que ser mayor que cero.";
+  return "No entendemos ese monto. Escribilo así: 320000 o 320.000.";
+}
+
 /** Comisión de la plataforma sobre el monto del trabajo. */
 export const COMISION = 0.1;
 

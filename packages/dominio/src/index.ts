@@ -9,7 +9,7 @@
  * Acá no hay nada de React, ni de Next, ni de la base: entra un dato, sale un dato. Se puede
  * probar sin levantar nada (`node packages/dominio/pruebas.ts`).
  */
-export { montoDesdeTexto, comisionDe, COMISION, MONTO_MAXIMO } from "./montos";
+export { montoDesdeTexto, motivoMontoInvalido, comisionDe, COMISION, MONTO_MAXIMO } from "./montos";
 export { TOPES, revisarLargos, type CampoConTope } from "./topes";
 export { mensajeDeError } from "./errores";
 export { puedeCotizar, puedePublicarObra, MOTIVO_NO_PUEDE_COTIZAR, type TipoDePerfil } from "./roles";

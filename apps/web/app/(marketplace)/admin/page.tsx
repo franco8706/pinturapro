@@ -1,7 +1,11 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getOwnProfile, getLeads, getPainters } from "@/lib/queries";
 import { AdminClient } from "./admin-client";
+
+// Pantalla privada: título propio para la pestaña y fuera de los buscadores.
+export const metadata: Metadata = { title: "Administración", robots: { index: false, follow: false }, };
 
 /**
  * Gate del panel de moderación.

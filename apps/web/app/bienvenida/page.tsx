@@ -1,7 +1,11 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getOwnProfile } from "@/lib/queries";
 import { RolePicker } from "./role-picker";
+
+// Pantalla privada: título propio para la pestaña y fuera de los buscadores.
+export const metadata: Metadata = { title: "Bienvenida", robots: { index: false, follow: false }, };
 
 /**
  * Primer ingreso (típicamente con Google/Microsoft/Facebook): elegir el rol.

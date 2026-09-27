@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { Navbar } from "@/components/features/navbar";
@@ -5,6 +6,9 @@ import { Footer } from "@/components/features/footer";
 import { createClient } from "@/lib/supabase/server";
 import { getOwnedProjectBySlug } from "@/lib/queries";
 import { NuevaObraForm } from "../../nueva-obra/nueva-obra-form";
+
+// Pantalla privada: título propio para la pestaña y fuera de los buscadores.
+export const metadata: Metadata = { title: "Editar obra", robots: { index: false, follow: false }, };
 
 export default async function EditarObraPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

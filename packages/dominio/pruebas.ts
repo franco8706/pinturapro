@@ -6,7 +6,7 @@
  * importaciones llevan la extensión `.ts` porque node la exige; el `index.ts` del paquete no,
  * porque ahí resuelve el empaquetador de cada app.
  */
-import { montoDesdeTexto, comisionDe } from "./src/montos.ts";
+import { montoDesdeTexto, motivoMontoInvalido, comisionDe } from "./src/montos.ts";
 import { revisarLargos, TOPES } from "./src/topes.ts";
 import { mensajeDeError } from "./src/errores.ts";
 import { puedeCotizar } from "./src/roles.ts";
@@ -48,6 +48,21 @@ igual(montoDesdeTexto("1.5e6"), null, "notación científica: daba 156");
 igual(montoDesdeTexto("1.50E+06"), null, "científica de Excel: daba 15.006, un número creíble");
 igual(montoDesdeTexto("abc150000"), null, "letras pegadas al número: las borraba en silencio");
 igual(montoDesdeTexto("1e999"), null, "no hay forma de pasar el tope por notación científica");
+
+// El motivo del rechazo tiene que ayudar a arreglarlo, y corresponder a la regla que falló.
+const dice = (entrada: string, pedazo: string, porque: string) =>
+  igual((motivoMontoInvalido(entrada) ?? "").includes(pedazo), true, porque);
+igual(motivoMontoInvalido("150.000"), null, "un monto válido no tiene motivo de rechazo");
+dice("1,500,000", "comas de miles", "la planilla en inglés: decir que el problema es la coma");
+dice("150,000.50", "comas de miles", "formato inglés con decimales");
+dice("1,500", "comas de miles", "coma seguida de tres cifras");
+dice("1500.50", "centavos van con coma", "decimal inglés: decir cómo van los centavos");
+dice("abc150000", "sin letras", "letras");
+dice("1.5e6", "sin letras", "notación científica también es 'letras'");
+dice("-5000", "negativo", "negativo");
+dice("99999999999", "mil millones", "tope");
+dice("0", "mayor que cero", "cero");
+dice("", "Escribí un monto", "vacío");
 igual(comisionDe(500000), 50000, "la comisión es el 10%");
 
 // ── Topes de largo ──

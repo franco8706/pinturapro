@@ -6,7 +6,7 @@ import { notifyUser, emailLayout, html } from "@/lib/email";
 import { commissionFor } from "@/lib/utils";
 import { mensajeDeError } from "@/lib/errores-db";
 import { getOwnProfile } from "@/lib/queries";
-import { montoDesdeTexto, revisarLargos, puedeCotizar, MOTIVO_NO_PUEDE_COTIZAR, esTexto, esFormulario } from "@pinturapro/dominio";
+import { montoDesdeTexto, revisarLargos, puedeCotizar, MOTIVO_NO_PUEDE_COTIZAR, esTexto, motivoMontoInvalido, esFormulario } from "@pinturapro/dominio";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 const ars = (n: number) => "$" + n.toLocaleString("es-AR");
@@ -105,7 +105,9 @@ export async function cotizar(formData: FormData): Promise<{ error?: string; ok?
   const note = String(formData.get("note") ?? "").trim();
   const amount = toInt(formData.get("amount"));
   if (!projectId || !clientId) return { error: "Faltan datos del pedido." };
-  if (!amount) return { error: "Ingresá un monto válido." };
+  // El motivo concreto, no "monto inválido": el formulario ya lo muestra mientras se escribe,
+  // pero quien llega hasta acá sin JavaScript o por la app tiene que recibir lo mismo.
+  if (!amount) return { error: motivoMontoInvalido(formData.get("amount")) ?? "Ingresá un monto válido." };
   if (clientId === user.id) return { error: "No podés cotizar tu propio pedido." };
   const notaMal = revisarLargos({ notaCotizacion: note });
   if (notaMal) return { error: notaMal };
