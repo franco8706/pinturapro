@@ -60,7 +60,9 @@ export const CONTACTO = {
   /** Sólo dígitos con código de país, como lo pide wa.me. Ej: "5491122334455". */
   whatsapp: null as string | null,
   instagram: null as string | null,
-  taller: "Barracas, CABA — con cita previa",
+  // Había un "taller: Barracas, CABA — con cita previa". Pintura Pro es un marketplace puro
+  // (decisión del dueño, 27/9/2026): no tiene taller, ni obra, ni lugar al que ir. Un
+  // domicilio publicado es además una promesa de atención presencial que nadie iba a cumplir.
   horario: "Lun a Vie, 8 a 18hs",
 };
 

@@ -2,17 +2,27 @@
 
 ## Visión General
 
-Este es un monorepo Turborepo con una aplicación Next.js 15 (App Router) para una plataforma de pintura profesional de obra. El proyecto tiene 3 fases:
+Este es un monorepo Turborepo con una aplicación Next.js 15 (App Router) para una plataforma de pintura profesional de obra.
 
-- **Fase 1 (Empresa)**: Sitio showcase con portfolio, simulador de color, cotización online.
-- **Fase 2 (Pro Partners)**: Directorio de pintores verificados con perfiles, reseñas y mapa.
-- **Fase 3 (Marketplace)**: Clientes publican trabajos, pintores cotizan, pagos con comisión.
+> **Pintura Pro es un MARKETPLACE PURO** (decisión explícita del dueño, 27/9/2026): conecta a
+> quien tiene algo para pintar con pintores independientes. **No pinta, no tiene equipo propio,
+> no tiene taller y no da garantía sobre los trabajos.** El trabajo se contrata y se paga entre
+> cliente y pintor; la plataforma cobra un 10% de comisión al pintor. El rol "empresa" del alta
+> es una empresa de pintura que ofrece servicios DENTRO del marketplace, como un pintor más.
+> Todo texto que diga "pintamos", "nuestro equipo", "garantía" o "taller" es de la época en que
+> el sitio era la vidriera de una empresa: se reescribe. Ya pasó con la portada y /nosotros.
+
+Las tres fases de abajo describen el orden en que se CONSTRUYÓ, no el negocio: la "Fase 1 (Empresa)" es historia.
+
+- **Fase 1 (vidriera, histórica)**: portfolio, simulador de color, cotización online.
+- **Fase 2 (Pro Partners)**: Directorio de pintores con perfiles, reseñas y mapa.
+- **Fase 3 (Marketplace)**: Clientes publican trabajos, pintores cotizan, comisión.
 
 ## Estado del Proyecto (actualizar al avanzar)
 
 - **Repo:** https://github.com/franco8706/pinturapro (privado) · rama `main`, **sincronizada**. Para pushear hace falta un PAT del usuario; los que se pegan en el chat los revoca el secret scanning de GitHub, así que suelen fallar al segundo uso (ver [[pinturapro-git-push]]).
 - **Build:** `tsc --noEmit` y `next build` pasan limpio (36 rutas). **Next.js 15.5.25** (se subió desde 15.5.22 para parchar dos RCE críticos, uno en el optimizador de imágenes).
-- **⚠️ ANTES DE PUBLICAR — leer `docs/deploy.md`.** El runbook completo está ahí. Lo que no se arregla desde el código: **el 100% de los datos visibles son demo** (3 pintores inventados, 20 reseñas fabricadas, fotos de stock de Unsplash como obra propia), el equipo de `/nosotros` son esos mismos nombres ficticios, y `profiles.verified` no lo escribe ninguna parte del código (sólo por SQL). Además: sacar Supabase del plan free (se pausa a los 7 días sin uso y ya pasó una vez), poner spend limit en Replicate, y montar un uptime check sobre `/api/health` — hoy no hay monitoreo de ningún tipo.
+- **⚠️ ANTES DE PUBLICAR — leer `docs/deploy.md`.** El runbook completo está ahí. Lo que no se arregla desde el código: **el 100% de los datos visibles son demo** (3 pintores inventados, 20 reseñas fabricadas, fotos de stock de Unsplash como obra propia), (el equipo ficticio de `/nosotros` se sacó el 27/9 al confirmarse el marketplace puro), y `profiles.verified` no lo escribe ninguna parte del código (sólo por SQL). Además: sacar Supabase del plan free (se pausa a los 7 días sin uso y ya pasó una vez), poner spend limit en Replicate, y montar un uptime check sobre `/api/health` — hoy no hay monitoreo de ningún tipo.
 - **Auditoría (19 sept 2026, agentes con navegador propio):** se corrigieron tres cosas medidas en Chrome, no deducidas:
   · **Seguridad — cualquier cuenta podía hacerse pasar por pintor.** Una cuenta `client` entraba a /trabajos, veía "Cotizar este trabajo" en el pedido de otra clienta y la cotización se creaba. Ni la página, ni la acción `cotizar`, ni la policy `jobs_insert_painter_quote` miraban el rol (el nombre de la policy dice "painter" y por eso pasó inadvertido). Migración **0016** agrega `es_pintor()` y lo exige en la policy; las obras de portfolio también quedan para pintores (`projects_insert_own`/`update_own`/`delete_own` reemplazan a `projects_modify_own`). Verificado por RLS con `set request.jwt.claims`: cliente cotiza ✗, cliente publica pedido ✓, pintor cotiza ✓, pintor publica obra ✓.
   · **Simulador — la varita agarraba media pared.** Con luz de ventana tomaba el 54% de la pared (medido contra máscara de referencia); ahora 83%, con la precisión intacta (98%). Comparaba cada píxel contra el color del CLIC; ahora avanza vecino a vecino sobre la luma suavizada (`Ys`) con correa global. Pared oscura 77%→85%; pared plana igual pero sin fuga al techo.
@@ -52,13 +62,13 @@ Este es un monorepo Turborepo con una aplicación Next.js 15 (App Router) para u
 
 ## Roadmap e Integraciones (visión confirmada por el usuario)
 
-Stack objetivo (híbrido empresa → marketplace). Lo que **falta** necesita cuentas/claves del usuario:
+Stack objetivo (marketplace puro; ver la nota del principio). Lo que **falta** necesita cuentas/claves del usuario:
 
 - **Fase 1 (actual):** sitio + portfolio + simulador + cotización. Integraciones pendientes: **Supabase** (auth/db/storage), **Sanity** (CMS), **Cloudinary** (imágenes), **Resend** (emails). Backend SAM para el simulador.
 - **Fase 2 (Pro Partners):** pintores verificados, perfiles, reseñas, **Mapbox** (mapa real, hoy es esquemático), **FastAPI ai-service** (SAM + matching) en Docker (Railway/Render).
 - **Fase 3 (Marketplace):** **Stripe Connect** (sub-cuentas por pintor, comisión 8–12%), dashboard analítico.
 - **Modelo de datos (Supabase, diseñar multi-tenant desde día 1):** `profiles(type: company|painter|client, verified, rating)`, `projects(owner_id, type: portfolio|service, location, budget)`, `jobs(client_id, painter_id, status, amount, commission)`, `reviews(job_id, rating, photos[])`.
-- **Deploy:** Vercel (web) + servicio Python en Railway/Render (solo cuando entre el ai-service).
+- **Deploy:** **Google Cloud** (decisión del dueño): la web en Cloud Run y el vigilante 24/7 como Cloud Run Job. `docs/deploy.md` todavía está escrito para Vercel — ver lo que reporte el agente `nube-google`.
 - Nota: `three`/`@react-three/fiber`/`gsap` **ya no están instalados** (verificado por el agente `dependencias` el 27/9: ni en `package.json` ni en el lockfile). WebGL/ScrollTrigger quedan como mejoras posibles de Fase 1/2: si se retoman, hay que instalarlos. `packages/ui` existe pero **nadie lo consume** (ningún `package.json` lo declara). `shadcn/ui` figura en la visión pero el proyecto usa su **propio design system** con tokens.
 
 ## Stack Tecnológico

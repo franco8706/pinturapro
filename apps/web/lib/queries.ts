@@ -422,9 +422,16 @@ export async function getOwnProfile(id: string): Promise<OwnProfile | null> {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, type, onboarded, is_admin, full_name, avatar_url, location, bio, verified, rating, rating_count, specialties")
+      .select("id, type, onboarded, full_name, avatar_url, location, bio, verified, rating, rating_count, specialties")
       .eq("id", id)
       .maybeSingle();
+    // `is_admin` ya no se lee como columna: desde 0023 la columna no se le entrega a nadie.
+    // Era legible SIN CUENTA (0010 la había abierto para que las policies de `leads` pudieran
+    // consultarla), y `profiles?is_admin=eq.true` devolvía, en un solo pedido, cuál es la única
+    // cuenta con máximo privilegio de la plataforma: reconocimiento gratis para un phishing
+    // dirigido. Lo midió el agente `seguridad-rls`. `es_admin()` sólo contesta sobre quien
+    // pregunta, y falla cerrado: sin la función, nadie es admin.
+    const { data: esAdmin } = await supabase.rpc("es_admin");
     if (error) {
       dbError("getOwnProfile", error);
       throw new ErrorDeLecturaDePerfil(error.message ?? "error de la base");
@@ -436,7 +443,6 @@ export async function getOwnProfile(id: string): Promise<OwnProfile | null> {
       id: string;
       type: ProfileType;
       onboarded: boolean | null;
-      is_admin: boolean | null;
       full_name: string | null;
       avatar_url: string | null;
       location: string | null;
@@ -452,9 +458,8 @@ export async function getOwnProfile(id: string): Promise<OwnProfile | null> {
       // Si la columna todavía no existe (migración 0003 sin correr) asumimos onboarded:
       // es preferible dejar entrar que trabar a todos en /bienvenida.
       onboarded: p.onboarded ?? true,
-      // Si la columna todavía no existe (migración 0008 sin correr) nadie es admin:
-      // acá se falla CERRADO, al revés que onboarded — es un privilegio, no un paso de alta.
-      isAdmin: p.is_admin ?? false,
+      // Falla CERRADO, al revés que onboarded: es un privilegio, no un paso de alta.
+      isAdmin: esAdmin === true,
       name: p.full_name ?? "",
       image: p.avatar_url ?? "",
       verified: p.verified,

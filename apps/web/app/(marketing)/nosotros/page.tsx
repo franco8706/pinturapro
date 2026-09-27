@@ -7,22 +7,55 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Nosotros",
-  description: "Quiénes somos, cómo trabajamos y por qué la preparación es la mitad del trabajo.",
+  description: "Pintura Pro conecta a quien tiene algo para pintar con pintores independientes. Cómo funciona y qué no hacemos.",
   alternates: { canonical: "/nosotros" },
-  openGraph: { title: "Nosotros", description: "Quiénes somos, cómo trabajamos y por qué la preparación es la mitad del trabajo." },
+  openGraph: {
+    title: "Nosotros",
+    description: "Pintura Pro conecta a quien tiene algo para pintar con pintores independientes. Cómo funciona y qué no hacemos.",
+  },
 };
 
-const valores = [
-  { title: "Oficio", description: "Doce años pintando obra en Buenos Aires. La mano se nota en cada terminación." },
-  { title: "Honestidad", description: "Presupuesto cerrado. Lo que cotizamos es lo que pagás, sin letra chica ni adicionales sorpresa." },
-  { title: "Materiales", description: "Trabajamos solo con líneas premium. Un buen trabajo con mala pintura no existe." },
-  { title: "Prolijidad", description: "Protegemos pisos, muebles y aberturas. Dejamos la obra tan limpia como la encontramos." },
-];
-
-const team = [
-  { name: "Martín Rojas", role: "Fundador · Maestro pintor", since: "2014" },
-  { name: "Lucía Fernández", role: "Dirección de obra", since: "2017" },
-  { name: "Diego Sosa", role: "Especialista en exteriores", since: "2019" },
+/**
+ * Esta página hablaba como una empresa de pintura: "pintamos como nos gustaría que pintaran
+ * nuestra propia casa", "doce años pintando obra", "lo hacemos realidad", y un equipo de tres
+ * —Martín Rojas "Fundador · Maestro pintor", Lucía Fernández, Diego Sosa— que son los tres
+ * pintores DEMO de la plataforma, presentados como empleados.
+ *
+ * Pintura Pro es un marketplace puro (decisión del dueño, 27/9/2026): conecta, no pinta. La
+ * página anterior contradecía los términos ("Pintura Pro no es parte de ese acuerdo") y era
+ * publicidad que obliga. La marcó el sub-agente visitante de `recorrido-web`.
+ *
+ * Cada principio de abajo tiene algo en el código que lo sostiene; si alguno deja de ser
+ * cierto, esta página tiene que cambiar con él:
+ *  · "Vos elegís": el cliente acepta una cotización; nadie le asigna un pintor.
+ *  · "Reseñas de verdad": `dejarResena` exige un trabajo completado de quien la escribe.
+ *  · "Lo que cobramos": 10% al pintor, dicho en el formulario antes de cotizar.
+ *  · "Tus datos": /mi-cuenta descarga y elimina sin intervención de nadie.
+ *
+ * No hay sección de equipo: no hay datos reales para mostrar, y la regla del proyecto (ver
+ * `lib/empresa.ts`) es que lo que no existe no se inventa.
+ */
+const principios = [
+  {
+    title: "Vos elegís",
+    description:
+      "Publicás lo que necesitás y los pintores te cotizan. Comparás precio, reseñas y trabajos anteriores, y aceptás el que más te cierra. Nadie te asigna a nadie.",
+  },
+  {
+    title: "Reseñas de verdad",
+    description:
+      "Sólo puede calificar a un pintor quien lo contrató y terminó un trabajo con él. No se compran, no se editan y no se borran cuando alguien cierra su cuenta.",
+  },
+  {
+    title: "Lo que cobramos, dicho antes",
+    description:
+      "Publicar un pedido es gratis. La plataforma se sostiene con una comisión del 10% sobre el trabajo adjudicado, a cargo del pintor, que la ve antes de cotizar.",
+  },
+  {
+    title: "Tus datos son tuyos",
+    description:
+      "Desde tu cuenta podés descargar todo lo que tenemos sobre vos o eliminarla, en el momento y sin pedirle permiso a nadie.",
+  },
 ];
 
 export default function NosotrosPage() {
@@ -34,19 +67,19 @@ export default function NosotrosPage() {
         <div className="container-asymmetric">
           <SectionLabel className="mb-6">Nosotros</SectionLabel>
           <h1 className="font-display text-display-xl max-w-4xl text-balance mb-10">
-            Pintamos como nos gustaría que pintaran nuestra propia casa.
+            Conectamos a quien tiene algo para pintar con quien sabe pintarlo.
           </h1>
           <p className="font-body text-body-lg text-concrete max-w-2xl">
-            Empezamos como un equipo de tres en un taller de Barracas. Hoy somos referentes en pintura de obra para
-            arquitectos y constructoras, pero seguimos midiendo cada trabajo con la misma vara: que el resultado se
-            sienta.
+            Pintura Pro es un lugar de encuentro. Los clientes publican lo que necesitan, los
+            pintores independientes cotizan, y cada cliente elige con quién trabajar. El trabajo lo
+            hace el pintor, y se arregla y se paga directamente entre ustedes.
           </p>
         </div>
       </section>
 
       <section className="py-section bg-mist border-y border-concrete/15">
         <div className="container-asymmetric grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-16">
-          {valores.map((v, i) => (
+          {principios.map((v, i) => (
             <Reveal key={v.title} delay={i * 0.06} className="flex gap-6">
               <span className="font-mono text-mono-sm text-concrete tabular-nums pt-2">
                 {String(i + 1).padStart(2, "0")}
@@ -61,37 +94,31 @@ export default function NosotrosPage() {
       </section>
 
       <section className="py-section">
-        <div className="container-asymmetric">
-          <SectionLabel className="mb-12">El equipo</SectionLabel>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {team.map((member, i) => (
-              <Reveal key={member.name} delay={i * 0.06}>
-                <div className="aspect-[4/5] bg-mist mb-5 flex items-center justify-center">
-                  {/* La inicial repite el nombre que está justo abajo: para un lector de pantalla es
-                      ruido, así que se oculta. Y sube de `concrete/30` (1,49:1 medido) a un tono
-                      que se distingue del fondo para quien ve poco. */}
-                  <span aria-hidden="true" className="font-display text-display-xl text-concrete/70">
-                    {member.name.charAt(0)}
-                  </span>
-                </div>
-                <h3 className="font-display text-display-md">{member.name}</h3>
-                <p className="font-body text-body-sm text-concrete mt-1">{member.role}</p>
-                {/* Era `concrete/60`: 2,29:1. Es un dato real, no un adorno. */}
-                <p className="font-mono text-mono-sm text-concrete mt-1">Desde {member.since}</p>
-              </Reveal>
-            ))}
-          </div>
+        <div className="container-asymmetric max-w-3xl">
+          <SectionLabel className="mb-6">Lo que no hacemos</SectionLabel>
+          {/* Dicho acá también, y no sólo en los términos: es lo primero que alguien
+              necesita saber antes de contratar por una plataforma. */}
+          <p className="font-body text-body-lg text-concrete leading-relaxed">
+            No pintamos ni tenemos pintores propios. No fijamos los precios, no supervisamos las
+            obras y no damos garantía sobre los trabajos: el acuerdo es entre vos y el pintor que
+            elegiste, y cualquier reclamo por el trabajo se dirige a él. Lo que sí hacemos es que
+            puedas elegir con información —precios, reseñas reales, trabajos anteriores— y que, si
+            algo se cae, cualquiera de las dos partes pueda cancelar.
+          </p>
         </div>
       </section>
 
       <section className="py-section bg-ink text-bone">
         <div className="container-asymmetric text-center">
           <h2 className="font-display text-display-lg max-w-2xl mx-auto text-balance mb-8">
-            Contanos tu proyecto. Lo hacemos realidad.
+            ¿Tenés algo para pintar, o sabés pintar?
           </h2>
-          <div className="flex justify-center">
-            <MagneticButton href="/cotizar" variant="secondary">
-              Cotizar mi obra
+          <div className="flex flex-wrap justify-center gap-4">
+            <MagneticButton href="/publicar" variant="secondary">
+              Publicar mi pedido
+            </MagneticButton>
+            <MagneticButton href="/registro" variant="secondary">
+              Sumarme como pintor
             </MagneticButton>
           </div>
         </div>

@@ -39,7 +39,14 @@ module.exports = {
         b.click();
         b.click();
       }, marca);
-      await page.waitForTimeout(5000);
+      // Esperar la confirmación, no un tiempo fijo. Con 5 segundos fijos la prueba contaba
+      // ANTES de que el guardado terminara cada vez que el servidor estaba cargado (una ronda
+      // con seis agentes a la vez): daba 0 consultas, falla falsa, y encima la consulta que
+      // llegaba tarde quedaba sin borrar, porque la limpieza ya había pasado.
+      await page
+        .waitForFunction(() => /Gracias|recibimos|enviad/i.test(document.body.innerText), { timeout: 45000 })
+        .catch(() => {});
+      await page.waitForTimeout(1500); // por si un segundo envío (el bug) llega detrás del primero
 
       const filas = await base.contar("leads", filtro);
       t.igual(filas, 1, `tres clics dejaron ${filas} consultas en la bandeja (antes del arreglo eran 3)`);

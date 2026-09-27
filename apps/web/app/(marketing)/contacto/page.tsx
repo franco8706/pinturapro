@@ -46,7 +46,6 @@ export default function ContactoPage() {
                 ...(CONTACTO.whatsapp
                   ? [{ label: "WhatsApp", value: whatsappLegible(CONTACTO.whatsapp) }]
                   : []),
-                { label: "Taller", value: CONTACTO.taller },
                 { label: "Horario", value: CONTACTO.horario },
               ].map((item) => (
                 <div key={item.label}>
