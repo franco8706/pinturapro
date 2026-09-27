@@ -59,7 +59,7 @@ Stack objetivo (híbrido empresa → marketplace). Lo que **falta** necesita cue
 - **Fase 3 (Marketplace):** **Stripe Connect** (sub-cuentas por pintor, comisión 8–12%), dashboard analítico.
 - **Modelo de datos (Supabase, diseñar multi-tenant desde día 1):** `profiles(type: company|painter|client, verified, rating)`, `projects(owner_id, type: portfolio|service, location, budget)`, `jobs(client_id, painter_id, status, amount, commission)`, `reviews(job_id, rating, photos[])`.
 - **Deploy:** Vercel (web) + servicio Python en Railway/Render (solo cuando entre el ai-service).
-- Nota: `three`/`@react-three/fiber`/`gsap` están instalados pero **sin usar** todavía (WebGL/ScrollTrigger son mejoras de Fase 1/2). `shadcn/ui` figura en la visión pero el proyecto usa su **propio design system** con tokens.
+- Nota: `three`/`@react-three/fiber`/`gsap` **ya no están instalados** (verificado por el agente `dependencias` el 27/9: ni en `package.json` ni en el lockfile). WebGL/ScrollTrigger quedan como mejoras posibles de Fase 1/2: si se retoman, hay que instalarlos. `packages/ui` existe pero **nadie lo consume** (ningún `package.json` lo declara). `shadcn/ui` figura en la visión pero el proyecto usa su **propio design system** con tokens.
 
 ## Stack Tecnológico
 
