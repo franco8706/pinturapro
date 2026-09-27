@@ -83,7 +83,7 @@ rompían las pruebas. Reglas:
   valores antes de tocar y restauralos en `finally`.
 - **`pnpm verificar` lo corre sólo el agente `regresiones`** (o el orquestador). Las pruebas
   crean y restauran datos; dos corridas a la vez se pisan.
-- **El servidor de producción, cuando existe, está en el puerto 3100** y es sólo para medir
+- **El servidor de producción, cuando existe, está en el puerto 3100** (lo levanta el orquestador con `bash tools/auditoria/produccion.sh`) y es sólo para medir
   (rendimiento, publicación, nube). No lo reinicies ni lo compiles de nuevo: si no responde,
   decilo en el reporte.
 - Tu Chrome es tuyo; el servidor no. Si notás que tarda, puede ser otro agente compilando una

@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Compila Pintura Pro en modo producción en una copia aparte y la sirve en :3100.
+#
+# Para qué: medir en desarrollo engaña (REGLAS §5), y `next build` es la primera puerta para
+# publicar. Aparte a propósito: compilar en la carpeta real pisa el `.next` del servidor de
+# desarrollo que están usando los agentes.
+#
+# Vive en el repo y no en /tmp porque /tmp se borra con cada reinicio del Codespace — ya se
+# perdieron así el kit de auditoría (dos veces) y la primera versión de este script.
+#
+# Uso: bash tools/auditoria/produccion.sh        (tarda ~1 minuto)
+set -uo pipefail
+PROYECTO="$(cd "$(dirname "$0")/../.." && pwd)"
+COPIA="${TMPDIR:-/tmp}/pinturapro-produccion"
+LOGS="$COPIA-logs"
+PUERTO="${PUERTO:-3100}"
+mkdir -p "$LOGS"
+
+pkill -f "next start -p $PUERTO" 2>/dev/null
+cd "$PROYECTO"
+git worktree remove --force "$COPIA" 2>/dev/null; rm -rf "$COPIA"; git worktree prune
+git worktree add --detach "$COPIA" HEAD >/dev/null 2>&1 || { echo "FALLO: no se pudo crear la copia"; exit 1; }
+cp apps/web/.env.local "$COPIA/apps/web/.env.local"
+cd "$COPIA"
+t0=$(date +%s)
+pnpm install --frozen-lockfile --prefer-offline > "$LOGS/install.log" 2>&1 || { echo "FALLO install"; tail -20 "$LOGS/install.log"; exit 1; }
+t1=$(date +%s)
+pnpm --filter @pinturapro/web build > "$LOGS/build.log" 2>&1; rc=$?
+t2=$(date +%s)
+echo "commit $(git rev-parse --short HEAD) · install $((t1-t0))s · build $((t2-t1))s · salida $rc"
+if [ $rc -ne 0 ]; then echo "FALLO build"; tail -40 "$LOGS/build.log"; exit 1; fi
+echo "rutas: $(grep -cE '^[├└┌] ' "$LOGS/build.log") · avisos en la compilación:"
+grep -iE "warn|error|no se pudieron" "$LOGS/build.log" | grep -v "Compiled with warnings" | head -10 || true
+cd apps/web && (nohup npx next start -p "$PUERTO" > "$LOGS/start.log" 2>&1 &)
+for i in $(seq 1 30); do
+  [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "http://localhost:$PUERTO/")" = "200" ] && { echo "PRODUCCIÓN LISTA en :$PUERTO"; exit 0; }
+  sleep 2
+done
+echo "FALLO start"; tail -20 "$LOGS/start.log"; exit 1
