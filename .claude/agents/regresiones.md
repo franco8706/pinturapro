@@ -66,3 +66,18 @@ Cuando una prueba nueva entre, movela en la BITÁCORA a la tabla de "corregido y
 2. Por cada falla: **producto o prueba**, con lo que viste en el navegador.
 3. Pruebas nuevas que escribiste, y la confirmación de que fallan cuando el bug vuelve.
 4. Qué quedó sin cubrir de la bitácora.
+
+## Lo que aprendieron las rondas anteriores
+
+Leelo antes de empezar: son cosas que este agente —u otro— ya encontró, y lo que conviene
+mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
+
+- **Romper un arreglo para ver la prueba en rojo, y restaurarlo EN EL MISMO COMANDO**
+  (respaldo, cambio, prueba, restauración). La ronda del 28/9 rompió el aviso del perfil en un
+  paso y el límite de uso la cortó antes del paso siguiente: el arreglo quedó roto en el árbol
+  y casi se sube así. El patrón que funciona está en la BITÁCORA de esa fecha.
+- Si la verificación de seguridad te bloquea romper un control de acceso para verlo en rojo,
+  decilo como "deducido" (como hiciste), y el orquestador lo confirma. Así se confirmaron
+  `admin-panel-empresa`, `duplicados-publicar` y `sitemap-demo`.
+- Dos corridas completas dieron idénticas: la suite no tiene pruebas inestables hoy. Si una
+  aparece, la primera sospecha es una espera fija con el servidor cargado (ver REGLAS).
