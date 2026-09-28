@@ -50,7 +50,12 @@ cd apps/web
 cp -r .next/static .next/standalone/apps/web/.next/static
 cp -r public .next/standalone/apps/web/public 2>/dev/null || true
 cp .env.local .next/standalone/apps/web/.env.local
-(cd .next/standalone/apps/web && PORT="$PUERTO" HOSTNAME=0.0.0.0 nohup node server.js > "$LOGS/start.log" 2>&1 &)
+# La redirección va sobre el GRUPO entero y con `exec`: en `(cd … && node … > log &)` el `&`
+# manda al fondo toda la cadena y la redirección sólo cubre a node, así que el shell que
+# corre la cadena se quedaba con la salida del script abierta mientras el servidor viviera.
+# El script terminaba su trabajo y nunca "terminaba": se colgó dos veces así.
+( cd .next/standalone/apps/web && PORT="$PUERTO" HOSTNAME=0.0.0.0 exec node server.js ) > "$LOGS/start.log" 2>&1 < /dev/null &
+disown
 # "Lista" es que la página responda Y que sus archivos carguen: una página 200 con todo su
 # JavaScript en 400 es un sitio muerto para quien lo abre.
 for i in $(seq 1 30); do
