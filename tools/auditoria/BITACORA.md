@@ -47,7 +47,6 @@ Estos ya no se reportan. `pnpm verificar` los revisa en cada corrida.
 | Las Server Actions se rompían con un cuerpo inesperado | `[null]` a la acción de dar de baja devolvía 500 con `Cannot read properties of null (reading 'trim')`; el mismo cuerpo contra `/contacto` rompía las tres acciones de formulario. El tipo dice `string` o `FormData` y por la red llega lo que el que llama quiera | `acciones-hostiles` |
 | El parser de montos adivinaba en vez de rechazar | `1,500,000` (monto copiado de una planilla en inglés) salía **1**: el pintor cotizaba UN PESO creyendo cotizar un millón y medio. `1500.50` daba 150.050 y `1.50E+06` daba 15.006 —creíble, nadie sospecha—. El defecto estaba en las dos copias por igual, así que la prueba de sincronía no lo veía | `reglas-compartidas` |
 | Las estrellas de la reseña no decían cuál estaba elegida | La única señal era el color: quien usa lector de pantalla calificaba a una persona sin saber con cuánto. Y el comentario no tenía más nombre que su texto de ejemplo, que se va al escribir | `accesibilidad` |
-
 | `sharp` con ejecución remota de código en el procesado de fotos | 0.35.3 traía libheif vulnerable (GHSA-rgj7-g3m4-5g8c), justo en lo que procesa las fotos que sube la gente, en Linux con glibc como Cloud Run | `dependencias-seguras` |
 | Cambiar la contraseña con una sesión que sólo quedó abierta | /nueva-contrasena aceptaba cualquier sesión: en una compu compartida se fijaba una contraseña nueva sin saber la actual y la cuenta cambiaba de dueño | `nueva-contrasena` |
 | Pantallas con el título genérico del sitio | /recuperar, /nueva-contrasena, el panel del pintor y la página de error decían "Transformamos espacios con color"; la de error parecía una página que existe | `titulos` |
@@ -63,8 +62,6 @@ Estos ya no se reportan. `pnpm verificar` los revisa en cada corrida.
 
 Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arriba.
 
-- **Guardar el perfil no avisaba** (20/9). Ahora el panel muestra "Listo, guardamos los cambios
-  de tu perfil". Verificado a mano, sin prueba automática.
 - **La base que falla ya no muestra pintores inventados** (20/9). Cuesta probarlo sin poder
   cortarle la base a la app; se podría interceptar la conexión desde el navegador.
 - **Se podía cotizar con comisión cero** (22/9). Verificado contra la base: la policy había
@@ -73,8 +70,6 @@ Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arri
 - **`recalc_profile_rating` la ejecutaba cualquiera sin cuenta** (22/9). Revocado en 0018.
 - **Una base caída decía "esta página no existe"** (22/9): 404 para la persona y para Google,
   cuando la página sí existe. Ahora se separa "no existe" de "no se pudo leer".
-- **El sitemap mandaba a indexar los pintores y obras inventados** (22/9). Con
-  `NEXT_PUBLIC_DATOS_DEMO` (true por defecto) sólo se publican las páginas fijas.
 - **Nadie le decía al pintor que se le cobra 10%** (22/9). Ahora está en el formulario de
   cotizar y en /terminos.
 - **El simulador congelaba la pantalla 363 ms al cambiar de color** (22/9). Ahora 241 ms, con
