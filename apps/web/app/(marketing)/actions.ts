@@ -177,41 +177,10 @@ async function avisarAEmpresa(input: {
 
 // ── Acciones ──────────────────────────────────────────────────────────
 
-/** /cotizar — pedido de presupuesto (el embudo principal del negocio). */
-export async function pedirPresupuesto(formData: FormData): Promise<LeadResult> {
-  // Una Server Action es un endpoint: llega lo que el que llama quiera mandar, no lo que dice
-  // el tipo. Sin esta línea, un cuerpo que no sea un formulario rompe en el primer `.get()` y
-  // devuelve 500 (medido en /contacto: los siete cuerpos de la auditoría, uno por uno).
-  if (!esFormulario(formData)) return { ok: false, error: "No pudimos leer el formulario." };
-
-  if (esBot(formData)) return { ok: true }; // al bot se le responde ok y no se guarda nada
-  if (rateLimited(await clientKey())) {
-    return { error: "Recibimos varios pedidos desde acá. Probá de nuevo en un rato." };
-  }
-
-  const name = limpiar(formData.get("name"), 120);
-  const email = limpiar(formData.get("email"), 200);
-  const phone = limpiar(formData.get("phone"), 40);
-
-  if (name.length < 2) return { error: "Ingresá tu nombre." };
-  if (!EMAIL_RE.test(email)) return { error: "Ingresá un email válido para poder mandarte el presupuesto." };
-
-  return guardarLead({
-    kind: "quote",
-    name,
-    email,
-    phone: phone || null,
-    message: limpiar(formData.get("message"), 4000) || null,
-    details: {
-      tipo: limpiar(formData.get("tipo"), 60),
-      superficie: limpiar(formData.get("surface"), 60),
-      ambientes: limpiar(formData.get("rooms"), 300),
-      estado: limpiar(formData.get("estado"), 200),
-      plazo: limpiar(formData.get("plazo"), 100),
-    },
-    sourcePath: "/cotizar",
-  });
-}
+// `pedirPresupuesto` (el formulario de /cotizar) se fue con esa página: era el pedido de
+// presupuesto a la empresa, y en un marketplace puro no hay empresa que cotice. /cotizar
+// redirige a /publicar (ver next.config.js). Las filas viejas con kind='quote' quedan en
+// `leads` y el panel de administración las sigue mostrando.
 
 /** /contacto — mensaje libre. */
 export async function enviarConsulta(formData: FormData): Promise<LeadResult> {

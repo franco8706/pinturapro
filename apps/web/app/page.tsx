@@ -54,7 +54,7 @@ const services = [
  */
 const steps = [
   { title: "Contás qué necesitás", description: "Publicás el trabajo en un par de minutos: qué hay que pintar, dónde y qué presupuesto manejás. Gratis y sin compromiso." },
-  { title: "Recibís cotizaciones", description: "Los pintores de tu zona te pasan su precio. Comparás con las reseñas que dejaron otros clientes y con los trabajos que ya hicieron." },
+  { title: "Recibís cotizaciones", description: "Los pintores ven tu pedido y te pasan su precio. Comparás con las reseñas que dejaron otros clientes y con los trabajos que ya hicieron." },
   { title: "Elegís y coordinan", description: "Aceptás la cotización que más te cierra y arreglás el resto directo con el pintor: él hace el trabajo y vos le pagás a él." },
   { title: "Calificás", description: "Cuando termina, dejás tu reseña. Es lo que le sirve al próximo que esté buscando, y lo que hace que a un buen pintor lo vuelvan a llamar." },
 ];
@@ -115,19 +115,23 @@ export default async function HomePage() {
         </div>
         <HeroSpotlight />
         <div className="container-asymmetric w-full pt-32 pb-20">
+          {/* Era la portada de una empresa de pintura: "Pintura profesional de obra",
+              "Transformamos espacios con color", "materiales premium y un resultado que se
+              siente". Pintura Pro no pinta: es un marketplace puro (decisión del dueño,
+              27/9/2026). Lo que prometa esta sección tiene que ser algo que la PLATAFORMA hace. */}
           <p className="font-mono text-mono-sm text-concrete uppercase tracking-widest mb-6">
-            Pintura profesional de obra · Buenos Aires
+            Pintores independientes · Buenos Aires
           </p>
           <h1 className="font-display text-display-xl max-w-4xl text-balance mb-8">
-            Transformamos espacios con color.
+            Tu obra, cotizada por quienes la van a pintar.
           </h1>
           <p className="font-body text-body-lg text-concrete max-w-xl mb-10">
-            Para dueños de casa, arquitectos y constructoras que no negocian la terminación.
-            Precisión, materiales premium y un resultado que se siente.
+            Publicá lo que necesitás, recibí cotizaciones de pintores independientes y elegí con
+            precios, trabajos anteriores y reseñas de clientes reales. Publicar es gratis.
           </p>
           <div className="flex flex-wrap gap-4">
-            <MagneticButton href="/cotizar" variant="primary">
-              Cotizar mi obra
+            <MagneticButton href="/publicar" variant="primary">
+              Pedir cotizaciones
             </MagneticButton>
             <MagneticButton href="/obras" variant="ghost">
               Ver obras
@@ -308,8 +312,8 @@ export default async function HomePage() {
             Pedí tu cotización online en minutos. Sin compromiso, con presupuesto cerrado.
           </p>
           <div className="flex justify-center">
-            <MagneticButton href="/cotizar" variant="primary">
-              Cotizar mi obra
+            <MagneticButton href="/publicar" variant="primary">
+              Pedir cotizaciones
             </MagneticButton>
           </div>
         </div>

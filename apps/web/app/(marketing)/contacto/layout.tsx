@@ -4,9 +4,9 @@ import type { Metadata } from "next";
 // Este layout existe sólo para darle título y descripción propios.
 export const metadata: Metadata = {
   title: "Contacto",
-  description: "Escribinos y te respondemos a la brevedad. Pintura profesional de obra en Buenos Aires.",
+  description: "Consultas sobre Pintura Pro, el marketplace que conecta clientes con pintores independientes.",
   alternates: { canonical: "/contacto" },
-  openGraph: { title: "Contacto", description: "Escribinos y te respondemos a la brevedad. Pintura profesional de obra en Buenos Aires." },
+  openGraph: { title: "Contacto", description: "Consultas sobre Pintura Pro, el marketplace que conecta clientes con pintores independientes." },
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {

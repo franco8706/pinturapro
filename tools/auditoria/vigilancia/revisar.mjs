@@ -92,7 +92,7 @@ async function salud() {
 }
 
 // ── 2. Las páginas que tienen que estar ──
-const PUBLICAS = ["/", "/pintores", "/obras", "/simulador", "/cotizar", "/contacto"];
+const PUBLICAS = ["/", "/pintores", "/obras", "/simulador", "/contacto"];
 const LEGALES = ["/privacidad", "/terminos"];
 
 async function paginas() {
@@ -163,6 +163,23 @@ async function derechos() {
       "la descarga de datos personales no funciona",
       `HTTP ${r.status} sin sesión, y debería ser 401 · es el derecho de acceso de la Ley 25.326`,
     );
+  }
+}
+
+// ── 3 ter. Las direcciones viejas siguen llegando a algún lado ──
+// /cotizar fue el botón principal del sitio durante meses: está en favoritos, en mensajes de
+// WhatsApp y en lo que Google tenga guardado. Desde que Pintura Pro es un marketplace puro
+// redirige a /publicar (next.config.js). Si esa redirección se pierde en un cambio de
+// configuración, todos esos enlaces pasan a dar 404 y nadie se entera.
+async function redirecciones() {
+  const r = await pedir("/cotizar");
+  if (!r.ok) {
+    falla("/cotizar no respondió", r.error);
+    return;
+  }
+  const destino = r.headers.get("location") || "";
+  if (!(r.status >= 300 && r.status < 400 && /\/publicar$/.test(destino))) {
+    falla("/cotizar dejó de redirigir a /publicar", `HTTP ${r.status} ${destino}`);
   }
 }
 
@@ -250,6 +267,7 @@ await salud();
 await paginas();
 await legales();
 await derechos();
+await redirecciones();
 await privadas();
 await cabeceras();
 await sitemap();

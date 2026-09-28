@@ -35,7 +35,7 @@ export default function ContactoPage() {
             <p className="font-mono text-mono-sm text-concrete uppercase tracking-widest mb-4">Contacto</p>
             <h1 className="font-display text-display-xl mb-8">Hablemos de tu obra.</h1>
             <p className="font-body text-body-lg text-concrete max-w-md mb-12">
-              ¿Tenés un proyecto en mente o una consulta puntual? Escribinos y te respondemos dentro del día.
+              ¿Tenés un proyecto en mente o una consulta puntual? Escribinos y te respondemos por email.
             </p>
             <dl className="space-y-6">
               {/* Los datos salen de lib/empresa.ts y los que todavía no tienen valor real no
@@ -63,7 +63,7 @@ export default function ContactoPage() {
                   ✓
                 </div>
                 <h2 className="font-display text-display-md mb-2">Mensaje enviado</h2>
-                <p className="font-body text-body-md text-concrete">Te respondemos a la brevedad. ¡Gracias!</p>
+                <p className="font-body text-body-md text-concrete">Recibimos tu mensaje y te respondemos por email. ¡Gracias!</p>
               </div>
             ) : (
               <form

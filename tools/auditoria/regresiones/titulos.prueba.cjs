@@ -8,10 +8,12 @@
  * `recorrido-web` leyendo el <title> de cada pantalla. Una página nueva que se olvida el
  * título vuelve a caer en eso sin que nadie lo note: no rompe nada visible.
  */
-const GENERICO = /Transformamos espacios con color/;
+// El título por defecto del sitio (el de la portada). Cambió el 27/9 al pasar a marketplace
+// puro; el viejo se sigue buscando por si vuelve.
+const GENERICO = /Transformamos espacios con color|Encontrá pintor y compará cotizaciones/;
 
 const PUBLICAS = [
-  "/obras", "/pintores", "/simulador", "/colores", "/cotizar", "/contacto", "/nosotros",
+  "/obras", "/pintores", "/simulador", "/colores", "/contacto", "/nosotros",
   "/aprender", "/asesoramiento", "/novedades", "/privacidad", "/terminos", "/ingresar",
   "/crear-cuenta", "/recuperar", "/nueva-contrasena", "/registro", "/mapa", "/trabajos",
 ];

@@ -8,8 +8,18 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3
 
 export const SITE_NAME = "Pintura Pro";
 
+/**
+ * Lo que Google muestra debajo del título y lo que aparece al compartir un enlace por
+ * WhatsApp. Decía "pintores verificados" —la frase que ya se había sacado de /pintores por
+ * falsa: `profiles.verified` no lo escribe ningún código— y describía una empresa de pintura
+ * de obra. Pintura Pro es un marketplace puro (decisión del dueño, 27/9/2026). Lo encontró el
+ * agente `contenido-confianza`.
+ */
 export const SITE_DESCRIPTION =
-  "Pintura profesional de obra para dueños de casa, arquitectos y constructoras. Portfolio, simulador de color, presupuesto online y pintores verificados.";
+  "Publicá lo que necesitás pintar y recibí cotizaciones de pintores independientes. Compará precios, trabajos anteriores y reseñas de clientes reales. Publicar es gratis.";
+
+/** Lo que acompaña al nombre en el título por defecto (la portada). */
+export const SITE_TAGLINE = "Encontrá pintor y compará cotizaciones";
 
 /**
  * Rutas públicas indexables. Las privadas (dashboard, cliente, cotizaciones, panel, admin,
@@ -21,7 +31,6 @@ export const PUBLIC_ROUTES = [
   { path: "/pintores", priority: 0.9, changeFrequency: "daily" },
   { path: "/simulador", priority: 0.8, changeFrequency: "monthly" },
   { path: "/colores", priority: 0.7, changeFrequency: "monthly" },
-  { path: "/cotizar", priority: 0.9, changeFrequency: "monthly" },
   { path: "/mapa", priority: 0.6, changeFrequency: "weekly" },
   { path: "/aprender", priority: 0.7, changeFrequency: "weekly" },
   { path: "/novedades", priority: 0.6, changeFrequency: "weekly" },

@@ -119,8 +119,8 @@ export default function SimuladorPage() {
                       </p>
                     </div>
                   </div>
-                  <MagneticButton href="/cotizar" variant="primary" className="w-full justify-center mt-4">
-                    Cotizar con este color
+                  <MagneticButton href="/publicar" variant="primary" className="w-full justify-center mt-4">
+                    Pedir cotizaciones
                   </MagneticButton>
                 </div>
               )}

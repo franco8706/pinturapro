@@ -45,7 +45,7 @@ export function Footer() {
               Pintura<span className="text-concrete">Pro</span>
             </Link>
             <p className="font-body text-body-md text-bone/60 mt-6 max-w-sm">
-              Pintura profesional de obra. Transformamos espacios con precisión, color y un resultado que se siente.
+              Pintores independientes y clientes, en un solo lugar. Publicá tu pedido, compará cotizaciones y elegí con reseñas reales.
             </p>
           </div>
 

@@ -80,10 +80,10 @@ export function Navbar() {
           })}
           <AuthNav />
           <Link
-            href="/cotizar"
+            href="/publicar"
             className="px-5 py-2.5 bg-ink text-bone font-body text-body-sm hover:bg-ink/90 transition-colors duration-300"
           >
-            Cotizar
+            Pedir cotizaciones
           </Link>
         </div>
 
@@ -121,11 +121,11 @@ export function Navbar() {
             })}
             <AuthNav className="py-2 text-body-lg text-left" />
             <Link
-              href="/cotizar"
+              href="/publicar"
               style={{ animation: `fadeIn 0.4s cubic-bezier(0.16,1,0.3,1) ${links.length * 0.05}s both` }}
               className="mt-3 px-5 py-3 bg-ink text-bone text-center font-body text-body-sm"
             >
-              Cotizar
+              Pedir cotizaciones
             </Link>
           </div>
         </div>

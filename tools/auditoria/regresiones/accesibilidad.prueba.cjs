@@ -18,10 +18,15 @@ module.exports = {
 
   async correr(t, { k }) {
     // ── 1. Avanzar de paso con el teclado ──
+    //
+    // Se medía en /cotizar, que ya no existe (redirige a /publicar desde que Pintura Pro es un
+    // marketplace puro). Lo que se cuida es el componente de pasos, `MultiStepForm`, y
+    // /publicar usa el mismo: la trampa de teclado vuelve igual si se rompe ahí.
     {
       const { browser, page } = await k.abrir({ movil: false });
       try {
-        await k.ir(page, "/cotizar");
+        await k.ingresar(page, "cliente");
+        await k.ir(page, "/publicar");
         const foco = () =>
           page.evaluate(() => {
             const e = document.activeElement;
@@ -32,7 +37,7 @@ module.exports = {
         // Estaba `disabled`, y un botón deshabilitado no se puede enfocar con teclado: quien
         // navega así no podía ni acercarse a averiguar por qué no avanzaba.
         let enBoton = false;
-        for (let i = 0; i < 30 && !enBoton; i++) {
+        for (let i = 0; i < 40 && !enBoton; i++) {
           await page.keyboard.press("Tab");
           enBoton = /Continuar/.test(await foco());
         }
@@ -47,13 +52,25 @@ module.exports = {
           );
         }
 
-        await k.ir(page, "/cotizar");
-        let llegó = false;
-        for (let i = 0; i < 30 && !llegó; i++) {
+        await k.ir(page, "/publicar");
+        // El título: se llega con Tab y se escribe. No se envía nada — el pedido nunca se
+        // publica, así que esta prueba no crea datos.
+        let enTitulo = false;
+        for (let i = 0; i < 40 && !enTitulo; i++) {
           await page.keyboard.press("Tab");
-          llegó = /Interior/.test(await foco());
+          enTitulo = /^INPUT\[text\]/.test(await foco());
         }
-        if (!t.cierto(llegó, "con teclado no se llega a la primera opción de /cotizar")) return;
+        if (!t.cierto(enTitulo, "con teclado no se llega al título de /publicar")) return;
+        await page.keyboard.type("ZZAGENT prueba de teclado");
+
+        // El tipo de trabajo: un botón. Ojo, el placeholder del título también dice
+        // "interior": se busca un BUTTON.
+        let enTipo = false;
+        for (let i = 0; i < 10 && !enTipo; i++) {
+          await page.keyboard.press("Tab");
+          enTipo = /^BUTTON.*interior/i.test(await foco());
+        }
+        if (!t.cierto(enTipo, "con teclado no se llega a elegir el tipo de trabajo")) return;
         await page.keyboard.press("Enter");
         await page.waitForTimeout(500);
 
@@ -135,7 +152,7 @@ module.exports = {
     {
       const { browser, page } = await k.abrir({ movil: false });
       try {
-        for (const ruta of ["/", "/pintores", "/nosotros", "/cotizar"]) {
+        for (const ruta of ["/", "/pintores", "/nosotros", "/contacto"]) {
           await k.ir(page, ruta);
           const malos = await page.evaluate((PISO) => {
             const lum = (c) => {

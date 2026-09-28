@@ -32,7 +32,7 @@ export default function NotFound() {
               { href: "/obras", label: "Obras" },
               { href: "/pintores", label: "Pintores" },
               { href: "/simulador", label: "Simulador de color" },
-              { href: "/cotizar", label: "Pedir presupuesto" },
+              { href: "/publicar", label: "Pedir cotizaciones" },
             ].map((l) => (
               <Link
                 key={l.href}

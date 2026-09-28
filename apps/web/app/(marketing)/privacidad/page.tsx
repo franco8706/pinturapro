@@ -106,8 +106,8 @@ export default function PrivacidadPage() {
               que enviás o recibís, los montos acordados y las reseñas que escribís.
             </p>
             <p>
-              <strong>Si nos escribís por un formulario</strong> de contacto, cotización o
-              postulación: los datos que completes, incluido tu teléfono si lo dejás.
+              <strong>Si nos escribís por un formulario</strong> de contacto o de postulación
+              como pintor: los datos que completes, incluido tu teléfono si lo dejás.
             </p>
             <p>
               <strong>Si subís fotos:</strong> las de tu portfolio y tu foto de perfil quedan
@@ -187,7 +187,7 @@ export default function PrivacidadPage() {
                     formularios (nombre, email, teléfono y mensaje) hacia la casilla de la
                     empresa — ver `avisarAEmpresa` en `(marketing)/actions.ts`. */}
                 <strong>Resend</strong> — envío de los emails: los avisos de la plataforma y las
-                consultas de los formularios de cotización, contacto y registro de pintores
+                consultas de los formularios de contacto y de registro de pintores
                 (nombre, email, teléfono y mensaje) hacia nuestra casilla (Estados Unidos).
               </li>
               <li>
@@ -262,16 +262,16 @@ export default function PrivacidadPage() {
               Usamos una cookie técnica para mantener tu sesión abierta. No usamos cookies de
               publicidad ni de seguimiento de terceros.
             </p>
-            {/* Faltaba. El borrador de /cotizar guarda nombre, email y teléfono mientras se
-                escribe (`hooks/use-borrador.ts`). Es `sessionStorage` a propósito —muere con la
+            {/* Faltaba. El borrador de /publicar guarda el pedido a medio escribir, zona incluida
+                (`hooks/use-borrador.ts`). /cotizar, que guardaba nombre, email y teléfono, ya no existe. Es `sessionStorage` a propósito —muere con la
                 pestaña, para que una computadora compartida no se lo deje al siguiente— y
                 nunca sale del dispositivo, pero es un dato personal guardado y la ley pide que
                 la persona sepa qué se guarda. */}
             <p>
-              Mientras completás un formulario largo (como el de cotización), tu navegador guarda
-              lo que vas escribiendo —incluidos nombre, email y teléfono— para que no se pierda si
+              Mientras completás el formulario para publicar un pedido, tu navegador guarda lo que
+              vas escribiendo —título, superficie, zona y presupuesto— para que no se pierda si
               recargás la página. Queda <strong>sólo en tu dispositivo</strong>, no nos llega, y se
-              borra al enviar el formulario o al cerrar la pestaña.
+              borra al publicar o al cerrar la pestaña.
             </p>
           </Seccion>
 

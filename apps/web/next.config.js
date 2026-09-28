@@ -62,6 +62,22 @@ const nextConfig = {
     // Las fotos se redimensionan en el cliente (~200-500KB), pero damos margen.
     serverActions: { bodySizeLimit: '6mb' },
   },
+  /**
+   * `/cotizar` era el pedido de presupuesto A LA EMPRESA: el visitante le pedía a Pintura Pro
+   * que lo cotizara y se le prometía una respuesta "en menos de 24 horas". Pintura Pro es un
+   * marketplace puro (decisión del dueño, 27/9/2026): no cotiza, cotizan los pintores. Y un
+   * pedido que entraba por ahí no podía recibir cotizaciones de nadie — en el marketplace una
+   * cotización necesita una cuenta de cliente del otro lado (`jobs.client_id`). Era el botón
+   * principal del sitio y no llevaba a ninguna parte.
+   *
+   * Permanente (308): los enlaces viejos, los favoritos y lo que Google tenga guardado llegan
+   * al flujo que sí consigue cotizaciones. `/publicar` pide cuenta y vuelve solo después de
+   * ingresar.
+   */
+  async redirects() {
+    return [{ source: "/cotizar", destination: "/publicar", permanent: true }];
+  },
+
   async headers() {
     return [
       {

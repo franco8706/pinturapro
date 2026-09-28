@@ -84,7 +84,7 @@ export default async function PortfolioPage({
             ))}
           </div>
           <div className="mt-16 text-center">
-            <MagneticButton href="/cotizar" variant="primary">Quiero algo así</MagneticButton>
+            <MagneticButton href="/publicar" variant="primary">Pedir cotizaciones</MagneticButton>
           </div>
         </div>
       </section>

@@ -83,8 +83,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
               <h1 className="font-display text-display-xl mb-4">{project.title}</h1>
               <p className="font-body text-body-lg text-concrete mb-8">{project.location}</p>
               <p className="font-body text-body-lg leading-relaxed mb-10">{project.description}</p>
-              <MagneticButton href="/cotizar" variant="primary">
-                Cotizar proyecto similar
+              <MagneticButton href="/publicar" variant="primary">
+                Pedir cotizaciones para algo así
               </MagneticButton>
             </div>
           </div>

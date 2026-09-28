@@ -122,8 +122,8 @@ export default async function PainterProfilePage({ params }: { params: Promise<{
               </div>
             )}
             <div className="flex flex-wrap gap-4">
-              <MagneticButton href="/cotizar" variant="primary">
-                Solicitar presupuesto
+              <MagneticButton href="/publicar" variant="primary">
+                Publicar mi pedido
               </MagneticButton>
               <MagneticButton href="/pintores" variant="ghost">
                 Ver otros pintores

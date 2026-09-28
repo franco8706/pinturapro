@@ -28,13 +28,13 @@ module.exports = {
         ["/obras", null],
         ["/pintores", null],
         ["/simulador", null],
-        ["/cotizar", null],
         ["/trabajos", null],
         ["/privacidad", null],
         ["/terminos", null],
         ["/cliente", "cliente"],
         ["/dashboard", "pintor2"],
         ["/mi-cuenta", "cliente"],
+        ["/publicar", "cliente"], // la puerta de entrada del marketplace desde que /cotizar redirige acá
       ];
 
       let sesion = null;
