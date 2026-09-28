@@ -1,5 +1,9 @@
 # Publicar Pintura Pro
 
+> **Desde el 27/9/2026 el destino es Google Cloud.** Para la parte de plataforma (imagen,
+> secretos, despliegue, dominio) seguí **`docs/despliegue-google-cloud.md`**. Lo de Vercel de
+> este documento quedó como historia; la sección 0 (qué no puede salir así) sigue valiendo.
+
 Los pasos para pasar de "anda en el Codespace" a "anda en internet", **en orden**. Varios
 dependen del anterior: si salteás uno, el siguiente falla de una forma que no siempre es obvia.
 

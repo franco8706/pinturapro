@@ -1,5 +1,8 @@
 # Infraestructura y escalado — Pintura Pro
 
+> **Decisión tomada (27/9/2026): Google Cloud**, no AWS. Lo que sigue es el análisis de
+> opciones que se hizo antes de decidir. Para publicar, seguí **`docs/despliegue-google-cloud.md`**.
+
 Decisión de arquitectura para escalar web + app móvil (Android/iOS).
 
 ## Principio: web y móvil comparten un solo backend

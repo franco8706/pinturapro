@@ -59,8 +59,12 @@ gcloud iam service-accounts describe "$CUENTA" --project "$PROYECTO" >/dev/null 
   gcloud iam service-accounts create vigilancia-scheduler \
     --display-name="Dispara la vigilancia de Pintura Pro" --project "$PROYECTO"
 
-gcloud projects add-iam-policy-binding "$PROYECTO" \
-  --member="serviceAccount:${CUENTA}" --role="roles/run.invoker" --condition=None >/dev/null
+# El permiso se da sobre ESTE trabajo, no sobre el proyecto entero. Antes era a nivel
+# proyecto: la cuenta que sólo tiene que disparar el vigilante podía invocar cualquier
+# servicio de Cloud Run del proyecto — incluida la web. Lo marcó el agente `nube-google`.
+gcloud run jobs add-iam-policy-binding vigilancia \
+  --region "$REGION" --project "$PROYECTO" \
+  --member="serviceAccount:${CUENTA}" --role="roles/run.invoker" >/dev/null
 
 DISPARADOR="https://${REGION}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${PROYECTO}/jobs/vigilancia:run"
 if gcloud scheduler jobs describe vigilancia-cada-30 --location "$REGION" --project "$PROYECTO" >/dev/null 2>&1; then
