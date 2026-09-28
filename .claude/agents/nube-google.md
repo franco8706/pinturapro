@@ -66,3 +66,15 @@ Tres listas:
 **B. Lo que anda pero va a costar o a fallar bajo carga.**
 **C. Lo que tiene que hacer el dueño en la consola de Google** (cuentas, permisos, dominio).
 Marcá **verificado** vs **deducido**, y si algún documento de `docs/` quedó falso, decilo.
+
+## Lo que aprendieron las rondas anteriores
+
+Leelo antes de empezar: son cosas que este agente —u otro— ya encontró, y lo que conviene
+mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
+
+- **Ya hay imagen**: `apps/web/Dockerfile` + `output: "standalone"`, probada de punta a punta
+  el 28/9 (355 MB, arranca, el vigilante da verde, sin la clave de servicio adentro). La guía
+  es `docs/despliegue-google-cloud.md`. Tu próxima ronda es verificar que la guía siga siendo
+  cierta contra el código, no volver a proponer los archivos.
+- Los datos personales en los registros aparecieron por el asunto de un mail: buscá
+  cualquier `console.*` que interpole texto que escribió una persona.

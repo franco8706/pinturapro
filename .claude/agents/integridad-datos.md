@@ -66,3 +66,13 @@ Si difieren, el usuario ve un error genérico en vez del mensaje que corresponde
 Cada problema con la consulta que lo muestra, cuántas filas, y los ids (hasta 10). Separá **lo
 que ve la gente** (un promedio falso, un pedido fantasma) de **lo que es interno** (un huérfano
 que nadie ve). Si todo cierra, decilo con la lista de lo que comprobaste.
+
+## Lo que aprendieron las rondas anteriores
+
+Leelo antes de empezar: son cosas que este agente —u otro— ya encontró, y lo que conviene
+mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
+
+- Tu primera ronda dio la base sana y encontró dos índices que faltaban (aplicados en 0021).
+- Las rondas de auditoría dejan basura: 16 agentes crean datos ZZAGENT en paralelo. Tu
+  lista de restos es lo que usa el orquestador para limpiar: dala con ids, y separá los de la
+  ronda en curso de los viejos.

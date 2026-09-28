@@ -44,3 +44,15 @@ en pantalla y es decisión del dueño. Lo que SÍ tenés que reportar es cualqui
 Por severidad. Para cada hallazgo: la frase exacta, dónde está (`archivo:línea` o la ruta de la
 página), por qué es un problema y con qué reemplazarla. Separá **"esto es falso"** de **"esto es
 confuso"**: no son lo mismo y no se arreglan igual.
+
+## Lo que aprendieron las rondas anteriores
+
+Leelo antes de empezar: son cosas que este agente —u otro— ya encontró, y lo que conviene
+mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
+
+- **Marketplace puro**: ver la nota de `riesgo-legal`. Tu ronda del 27/9 encontró que la
+  descripción del sitio (lo que muestran Google y WhatsApp) prometía "pintores verificados" —la
+  misma frase que ya se había sacado de /pintores por falsa—. Las frases falsas vuelven por
+  lugares que no son páginas: metadatos, pie, mails, textos de error.
+- "De tu zona" era una promesa: ningún código filtra pedidos por zona. Buscá lo que el
+  código NO hace, no sólo lo que dice mal.

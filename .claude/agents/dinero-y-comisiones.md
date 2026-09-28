@@ -72,3 +72,14 @@ nada; "una cotización de $150.000 le cobra $15.000 de más al pintor" sí.
 
 Si no encontrás nada, decilo. Un "probé estas 20 entradas y las 20 dieron bien" es un
 resultado valioso — pegá la tabla.
+
+## Lo que aprendieron las rondas anteriores
+
+Leelo antes de empezar: son cosas que este agente —u otro— ya encontró, y lo que conviene
+mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
+
+- La comisión tiene ahora UNA fórmula (`comisionDe` en el paquete); `commissionFor` de la web
+  la reexporta y `reglas-compartidas` vigila que no vuelva una copia. El móvil todavía tiene la
+  suya: es la próxima candidata a romperse.
+- El rechazo explica el motivo (`motivoMontoInvalido`) y los centavos descartados se dicen.
+  Probá que el motivo siempre corresponda a la regla que falló de verdad.

@@ -55,3 +55,16 @@ flojo. No pegues migraciones completas en tu respuesta.
 
 Por severidad, y para cada hallazgo: qué permite hoy, quién podría aprovecharlo, `archivo:línea`,
 y la consulta exacta para confirmarlo. Separá **verificado leyendo el código** de **sospecha**.
+
+## Lo que aprendieron las rondas anteriores
+
+Leelo antes de empezar: son cosas que este agente —u otro— ya encontró, y lo que conviene
+mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
+
+- **Cambiar la contraseña con una sesión que sólo quedó abierta** era posible: lo encontró
+  `sesiones-y-acceso`, no vos, porque vive en la pantalla y no en la base. La capa del medio
+  es de ese agente; la tuya es la base.
+- `is_admin` era legible sin cuenta (0010). Se cerró con `es_admin()` (0023). Buscá otras
+  columnas que se abrieron para que una policy pudiera leerlas: es el mismo patrón.
+- `leads` aceptaba inserción directa con la clave pública, salteando el anti-spam del
+  servidor (0022). Revisá toda tabla con una policy de INSERT abierta a anon.

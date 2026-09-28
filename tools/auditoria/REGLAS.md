@@ -129,6 +129,35 @@ Y estas trampas del propio script, que ya costaron tiempo:
   `chrome-error://chromewebdata`. Para cerrar sesión alcanza con borrar las cookies — es lo que
   hace `k.salir()`.
 
+### Trampas de las pruebas que dan verde sin medir nada
+
+Todas pasaron en este proyecto. Si escribís una prueba, revisá que no caiga en ninguna, y
+**verla fallar rompiendo el arreglo a propósito es la única forma de saber que mide algo**.
+
+- **Una prueba salteada para siempre.** `doble-envio` pedía `psql` y una conexión directa que
+  desde el Codespace nunca anduvo: figuró "1 salteada" en cada corrida durante días, y el
+  "salteada" se volvió ruido. Para contar filas usá `regresiones/base.cjs` (API REST).
+- **Una respuesta que no entra en el búfer.** `pnpm audit --json` devuelve ~45 MB y
+  `execFileSync` corta en 1 MB por defecto: la prueba no podía leerla, anotaba "sin red" y
+  daba verde. Poné `maxBuffer` y, si no se pudo medir, decilo en la nota.
+- **El resumen en el medio del archivo.** `packages/dominio/pruebas.ts` imprimía "todo en
+  verde" y hacía `process.exit` antes de las pruebas que se agregaron debajo. Resumen al final.
+- **Esperas fijas con el servidor cargado.** Esperar 5 s y contar falla cuando corren seis
+  agentes a la vez, y encima lo que llega tarde queda sin limpiar. Esperá la confirmación en
+  pantalla, no un tiempo.
+- **Leer el DOM en el mismo instante del clic.** React todavía no repintó: `aria-pressed` se
+  lee viejo. Clic, esperar, y leer en OTRA llamada a `page.evaluate`.
+- **Un filtro de `--solo` que no coincide con el archivo.** `--solo cotizar` no corre
+  `ya-cotizado`: "0 filas quedaron" no probaba nada. Mirá que la línea ✓ aparezca.
+
+### Trampas de la base
+
+- **Una función nueva no existe para la API hasta recargar su caché**:
+  `notify pgrst, 'reload schema';`. Antes contesta `PGRST202`, que parece un error de
+  permisos y no lo es.
+- **`pkill -f "algo"` se mata a sí mismo** si "algo" aparece en la línea de comandos del
+  propio shell. Usá un patrón que no se contenga: `pkill -f "serve[r].js"`.
+
 ## 6. Ya conocido — está en la BITÁCORA
 
 La lista vive en `tools/auditoria/BITACORA.md`, con cuatro estados: `corregido`, `abierto`,

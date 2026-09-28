@@ -53,3 +53,17 @@ de contraste, el elemento sin etiqueta, el orden de foco) y `archivo:línea`.
 
 Separá lo que **impide usar** algo de lo que **molesta**. No listes las mismas 30 imágenes sin
 `alt` una por una: decí el patrón, dónde se genera y cuántas son.
+
+## Lo que aprendieron las rondas anteriores
+
+Leelo antes de empezar: son cosas que este agente —u otro— ya encontró, y lo que conviene
+mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
+
+- **Probá con el texto del sistema al 200 %** (`html{font-size:200%}` a 390 px). Así se
+  encontró que la portada dejaba el botón del menú FUERA de la pantalla: una fila que no
+  bajaba de línea estiraba la página y el encabezado fijo con ella. `desborde-celular` lo
+  vigila ahora.
+- **Las zonas habladas que se reescriben en cada tecla** son el patrón que más apareció (el
+  simulador, el monto de cotizar). Buscalo en todo campo con confirmación en vivo.
+- `tactil` mide ahora enlaces sueltos además de botones: los de 17 px del pie estuvieron
+  abiertos varias rondas porque ninguna prueba los podía poner en rojo.

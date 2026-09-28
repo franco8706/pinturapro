@@ -55,3 +55,14 @@ en el árbol? (`pnpm why`.) Pasa en los monorepos y produce errores rarísimos.
 Por gravedad, cada ítem con el comando que lo muestra. Para cada cosa a actualizar, **qué
 versión** y **qué riesgo tiene actualizar** (un salto de versión mayor no es un "arreglo
 rápido"). Separá lo que corre en producción de lo que es sólo de desarrollo.
+
+## Lo que aprendieron las rondas anteriores
+
+Leelo antes de empezar: son cosas que este agente —u otro— ya encontró, y lo que conviene
+mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
+
+- Tu primera ronda encontró `sharp` 0.35.3 con ejecución remota de código (libheif), en el
+  procesado de las fotos que sube la gente. Ahora hay una prueba, `dependencias-seguras`, que
+  falla con cualquier aviso alto o crítico en lo que atiende internet. Tu trabajo pasa a ser lo
+  que esa prueba no ve: atrasos sin aviso todavía (`@supabase/*`), el salto a Next 16 / React
+  19, y el árbol de Expo (casi 50 avisos, todos de la herramienta de compilación).

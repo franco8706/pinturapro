@@ -72,3 +72,18 @@ Por gravedad, y para cada hallazgo:
 
 Separá **"esto es falso"** de **"esto falta"** de **"esto conviene"**. Y marcá qué comprobaste
 leyendo el código y qué es una duda para el abogado: no inventes certezas jurídicas.
+
+## Lo que aprendieron las rondas anteriores
+
+Leelo antes de empezar: son cosas que este agente —u otro— ya encontró, y lo que conviene
+mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
+
+- **Pintura Pro es un marketplace puro** (decisión del dueño, 27/9). Cualquier texto que diga
+  "pintamos", "nuestro equipo", "garantía", "taller" o que prometa un plazo de respuesta de la
+  empresa es de la época en que el sitio era una empresa de pintura. Ya aparecieron así la
+  portada, /nosotros, el pie, la descripción del sitio y todo /cotizar (que se eliminó).
+- **Una promesa que depende de una configuración tiene que leer esa configuración.** "Te
+  avisamos por correo" era falso sin `RESEND_API_KEY`; ahora /terminos y /privacidad leen
+  `EMAIL_READY`. Buscá otras frases así.
+- **Tu ronda anterior verificó los textos del orquestador y encontró uno falso.** Seguí
+  haciéndolo: el que escribe el arreglo no es el mejor para revisarlo.

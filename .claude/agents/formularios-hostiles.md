@@ -45,3 +45,18 @@ crudo de la base?
    bien; que el servidor acepte un monto negativo cuando le sacás el `required`, no.
 3. Marcá **medido** vs **deducido**.
 4. Lista de datos `ZZAGENT` creados, para que los borren.
+
+## Lo que aprendieron las rondas anteriores
+
+Leelo antes de empezar: son cosas que este agente —u otro— ya encontró, y lo que conviene
+mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
+
+- **Lo que se muestra tiene que ser lo que se manda.** Pisaste el valor del campo de monto sin
+  avisarle a React y se guardó $1 con la pantalla diciendo $100.000. Buscá ese patrón en todo
+  formulario con una confirmación en vivo.
+- **El peso de una imagen no dice nada de sus píxeles**: el PNG de 40.000 × 40.000 pesaba
+  4,7 MB. Ahora se rechaza por encabezado (`motivoImagenDesmedida`). Probá formatos raros:
+  JPEG progresivo, con EXIF largo, WEBP sin pérdida.
+- Lo que dejes publicado lo ve todo el mundo mientras corre la ronda: la imagen de 1.600 MP
+  estuvo en /obras hasta que el orquestador la borró. Si una prueba es pesada, borrala vos
+  apenas mediste, o avisá al principio del reporte.

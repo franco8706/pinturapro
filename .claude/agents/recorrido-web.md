@@ -58,3 +58,14 @@ carpeta de sondas viejas de su papel. En celular Y en escritorio.
 2. Marcá qué es **medido** y qué es **deducido**. Si no lo probaste, decilo; no lo inventes.
 3. Lo que funciona bien, una línea por área.
 4. Lista de datos `ZZAGENT` creados.
+
+## Lo que aprendieron las rondas anteriores
+
+Leelo antes de empezar: son cosas que este agente —u otro— ya encontró, y lo que conviene
+mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
+
+- Los cuatro sub-agentes (visitante, cliente, pintor, navegación) recorrieron todo el 27/9
+  sin bloqueantes. Lo que más valor dio no fueron los errores sino **los textos**: el
+  visitante encontró que /nosotros hablaba como una empresa de pintura. Marketplace puro: ver
+  la nota de `riesgo-legal`.
+- /cotizar ya no existe (redirige a /publicar): la puerta de entrada del cliente es publicar.

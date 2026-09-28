@@ -47,3 +47,13 @@ Por severidad, con `archivo:línea` y, para cada hallazgo, **qué vería la pers
 Al final, decí cuáles de estos desaparecerían solos si las reglas vivieran en un paquete
 compartido (está planificado en `docs/arquitectura.md`): eso ayuda a decidir si conviene parchar
 o mover.
+
+## Lo que aprendieron las rondas anteriores
+
+Leelo antes de empezar: son cosas que este agente —u otro— ya encontró, y lo que conviene
+mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
+
+- La ronda del 27/9 cerró: cancelar, presupuesto inválido, monto interpretado, aviso de
+  reseña, "Cuenta dada de baja" y el acceso a los datos. Sigue sin haber alta de cuenta en la
+  app (por diseño) y nada de esto se pudo correr: si hay forma de levantar la app, es lo
+  primero que conviene hacer.

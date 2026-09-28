@@ -74,3 +74,16 @@ tocar las existentes.
 
 Por gravedad. Cada hallazgo con la URL exacta, la cuenta usada, qué pasó y qué debería pasar.
 Incluí la tabla de pantallas privadas × tipo de sesión. **Medido** vs **deducido**, siempre.
+
+## Lo que aprendieron las rondas anteriores
+
+Leelo antes de empezar: son cosas que este agente —u otro— ya encontró, y lo que conviene
+mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
+
+- **Cómo distinguir una sesión de recuperación**: el token trae `amr`; el enlace de
+  recuperación deja `otp`, la contraseña deja `password` (medido el 28/9). No hace falta
+  mandar mails para probarlo: `admin.auth.admin.generateLink({type:"recovery"})`.
+- **Supabase ignora el destino de un enlace si la dirección no está autorizada** y manda a
+  la "Site URL": hoy es la del Codespace. Revisalo cada vez que cambie el dominio.
+- La cuota de mails de Supabase se agota rápido: no la gastes en lo que se puede probar con
+  `generateLink`.
