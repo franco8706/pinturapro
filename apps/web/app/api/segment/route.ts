@@ -3,10 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// 60 y no 120: es el techo del plan Hobby de Vercel, que recorta igual. Pedir 120 sólo
-// lograba que la plataforma matara la función a los 60 con un 504 opaco — se pagaba la GPU
-// y el usuario no veía ni un error propio. Con este número el presupuesto de polling de
-// abajo cierra dentro de la ventana real.
+// El presupuesto de espera de abajo está armado para cerrar dentro de 60 s: pasado ese
+// tiempo se corta con un error propio, en vez de dejar que la plataforma mate el pedido con
+// un 504 opaco mientras la GPU se sigue pagando. El número venía del techo del plan de
+// Vercel; en Cloud Run (el destino) este `export` no hace nada y el tope lo pone
+// `--timeout` del servicio (300 s por defecto), así que 60 sigue entrando con margen.
 export const maxDuration = 60;
 
 // ─────────────────────── Límites ───────────────────────

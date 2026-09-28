@@ -75,7 +75,7 @@ API) antes de cargarla acá.
 
 | Variable | Dónde | Por qué |
 |---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_DATOS_DEMO` | Argumento de compilación **y** variable de entorno | Se hornean en el código al compilar: cambiarlas es recompilar la imagen |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_DATOS_DEMO` | Argumento de compilación (sólo) | Se hornean en el código al compilar: cambiarlas es recompilar la imagen |
 | `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `REPLICATE_API_TOKEN`, `SAM_BACKEND_TOKEN` | Secret Manager | Secretas |
 | `RESEND_FROM`, `LEADS_NOTIFY_EMAIL`, `REPLICATE_VERSION`, `REPLICATE_DEPLOYMENT`, `REPLICATE_POINTS_PER_SIDE`, `REPLICATE_PRED_IOU_THRESH`, `REPLICATE_STABILITY_THRESH`, `SAM_BACKEND_URL` | Variable de entorno | Configuración, no secreta |
 
@@ -87,7 +87,9 @@ Desde la raíz del repositorio (no desde `apps/web`):
 VERSION=$(git rev-parse --short HEAD)
 IMAGEN=${REGION}-docker.pkg.dev/${PROYECTO}/pinturapro/web:${VERSION}
 
-docker build -f apps/web/Dockerfile \
+# --platform: desde una Mac con chip Apple, Docker arma para ARM por defecto y Cloud Run
+# corre en x86. Sin esto la imagen se sube bien y después no arranca.
+docker build --platform linux/amd64 -f apps/web/Dockerfile \
   --build-arg NEXT_PUBLIC_SUPABASE_URL=https://ojdtixmysrfywgvowqie.supabase.co \
   --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=LA-ANON-KEY \
   --build-arg NEXT_PUBLIC_SITE_URL=https://el-dominio \
@@ -109,10 +111,19 @@ gcloud run deploy pinturapro-web \
   --memory=1Gi --cpu=1 --concurrency=40 \
   --min-instances=0 --max-instances=4 \
   --set-secrets=SUPABASE_SERVICE_ROLE_KEY=supabase-service-role:latest,RESEND_API_KEY=resend-api-key:latest,REPLICATE_API_TOKEN=replicate-api-token:latest \
-  --set-env-vars=NEXT_PUBLIC_SUPABASE_URL=https://ojdtixmysrfywgvowqie.supabase.co,NEXT_PUBLIC_SITE_URL=https://el-dominio,NEXT_PUBLIC_DATOS_DEMO=true,RESEND_FROM="Pintura Pro <hola@el-dominio>",LEADS_NOTIFY_EMAIL=tu-casilla@el-dominio
+  --set-env-vars=REPLICATE_VERSION=fe97b453a6455861e3bac769b441ca1f1086110da7466dbb65cf1eecfd60dc83,REPLICATE_POINTS_PER_SIDE=16,RESEND_FROM="Pintura Pro <hola@el-dominio>",LEADS_NOTIFY_EMAIL=tu-casilla@el-dominio
 ```
 
 Por qué cada número:
+
+- **`REPLICATE_VERSION`** (o `REPLICATE_DEPLOYMENT`, si creás un deployment para que no
+  arranque en frío): sin ninguna de las dos, el simulador con IA contesta 503 aunque el token
+  esté cargado, y cae al pincel manual. El sitio "anda", así que es fácil no notarlo. Lo marcó
+  el agente `listo-para-publicar`.
+- **`REPLICATE_POINTS_PER_SIDE=16`**: el código usa 32 si no se lo dice, y cada análisis
+  cuesta el doble. 16 alcanza (ver `.env.example`).
+- **Las `NEXT_PUBLIC_*` NO van acá**: se hornean al compilar (paso 4), y cargarlas en la
+  ejecución no cambia nada — sólo hace creer que alcanza con cambiarlas ahí.
 
 - **`--max-instances=4`**: el tope de gasto real. Dos cuotas viven en la memoria de cada
   instancia —el simulador con IA (12 por hora por persona) y el anti-spam de los formularios
@@ -126,15 +137,18 @@ Por qué cada número:
 
 ## 6. El dominio y las direcciones que tiene que conocer cada servicio (consola)
 
-1. **Cloud Run → Manage custom domains**: mapear `el-dominio` al servicio.
-2. **Supabase → Authentication → URL Configuration** — imprescindible, medido el 28/9: hoy la
+1. **Verificar que el dominio es tuyo en Google Search Console** (search.google.com/search-console):
+   Cloud Run no acepta mapear un dominio que no verificaste, y es lo que más traba este paso
+   la primera vez.
+2. **Cloud Run → Manage custom domains**: mapear `el-dominio` al servicio.
+3. **Supabase → Authentication → URL Configuration** — imprescindible, medido el 28/9: hoy la
    "Site URL" es la del Codespace, y el mail de "olvidé mi contraseña" manda a la gente AHÍ, a
    una dirección muerta. Poner la Site URL del dominio real y agregar en "Redirect URLs":
    `https://el-dominio/auth/callback` y `https://el-dominio/nueva-contrasena`.
-3. **Supabase → Authentication → Email → "Secure password change"**: activarla.
-4. **Google, Microsoft y Facebook** (las apps de login social): agregar el dominio nuevo a sus
+4. **Supabase → Authentication → Email → "Secure password change"**: activarla.
+5. **Google, Microsoft y Facebook** (las apps de login social): agregar el dominio nuevo a sus
    direcciones de redirección permitidas. Ver `docs/auth-oauth.md`.
-5. **Resend**: verificar el dominio para poder mandar desde `hola@el-dominio`.
+6. **Resend**: verificar el dominio para poder mandar desde `hola@el-dominio`.
 
 ## 7. El vigilante 24/7
 
