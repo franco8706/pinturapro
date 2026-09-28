@@ -40,6 +40,20 @@ const nextConfig = {
   // El motor de color vive en packages/color como TypeScript sin compilar; Next tiene que
   // transpilarlo igual que al código de la app.
   transpilePackages: ['@pinturapro/color', '@pinturapro/dominio'],
+  /**
+   * Para Google Cloud Run (decisión del dueño). `standalone` hace que la compilación deje en
+   * `.next/standalone` un servidor que trae SÓLO lo que usa: sin esto la imagen tendría que
+   * llevar el `node_modules` entero del monorepo, que mide ~980 MB (medido por el agente
+   * `nube-google`). Ver `apps/web/Dockerfile`.
+   *
+   * `outputFileTracingRoot` apunta a la raíz del monorepo: pnpm guarda las dependencias y los
+   * paquetes compartidos (@pinturapro/color, @pinturapro/dominio) FUERA de apps/web, y sin
+   * esto el rastreo de archivos no los encuentra y el servidor arranca sin ellos.
+   *
+   * En desarrollo (`next dev`) no cambia nada.
+   */
+  output: 'standalone',
+  outputFileTracingRoot: require('path').join(__dirname, '../..'),
   reactStrictMode: true,
   poweredByHeader: false, // no anunciar la versión del framework
   images: {

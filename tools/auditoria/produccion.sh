@@ -16,7 +16,7 @@ LOGS="$COPIA-logs"
 PUERTO="${PUERTO:-3100}"
 mkdir -p "$LOGS"
 
-pkill -f "next start -p $PUERTO" 2>/dev/null
+pkill -f "next [s]tart -p $PUERTO" 2>/dev/null; pkill -f "standalone/apps/web/serve[r].js" 2>/dev/null
 cd "$PROYECTO"
 git worktree remove --force "$COPIA" 2>/dev/null; rm -rf "$COPIA"; git worktree prune
 git worktree add --detach "$COPIA" HEAD >/dev/null 2>&1 || { echo "FALLO: no se pudo crear la copia"; exit 1; }
@@ -31,7 +31,14 @@ echo "commit $(git rev-parse --short HEAD) · install $((t1-t0))s · build $((t2
 if [ $rc -ne 0 ]; then echo "FALLO build"; tail -40 "$LOGS/build.log"; exit 1; fi
 echo "rutas: $(grep -cE '^[├└┌] ' "$LOGS/build.log") · avisos en la compilación:"
 grep -iE "warn|error|no se pudieron" "$LOGS/build.log" | grep -v "Compiled with warnings" | head -10 || true
-cd apps/web && (nohup npx next start -p "$PUERTO" > "$LOGS/start.log" 2>&1 &)
+# El mismo servidor que corre en Cloud Run (`output: "standalone"`, ver apps/web/Dockerfile),
+# no `next start`: lo que se mide acá tiene que ser lo que va a correr en la nube. Como en la
+# imagen, los estáticos y /public se copian a mano junto al servidor.
+cd apps/web
+cp -r .next/static .next/standalone/apps/web/.next/static
+cp -r public .next/standalone/apps/web/public 2>/dev/null || true
+cp .env.local .next/standalone/apps/web/.env.local
+(cd .next/standalone/apps/web && PORT="$PUERTO" HOSTNAME=0.0.0.0 nohup node server.js > "$LOGS/start.log" 2>&1 &)
 for i in $(seq 1 30); do
   [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "http://localhost:$PUERTO/")" = "200" ] && { echo "PRODUCCIÓN LISTA en :$PUERTO"; exit 0; }
   sleep 2

@@ -1,0 +1,15 @@
+# Lo que NO entra al contexto de la imagen. Sin esto se mandaban a Docker el node_modules
+# del monorepo (~980 MB), el .next de desarrollo y el historial de git — y, peor, los .env.
+**/node_modules
+**/.next
+.git
+**/.env
+**/.env.*
+!**/.env.example
+apps/mobile
+tools
+docs
+scripts
+supabase
+.fotos-prueba
+**/*.log

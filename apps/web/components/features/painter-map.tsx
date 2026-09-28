@@ -112,12 +112,27 @@ export function PainterMap({ painters, activeId, onSelect }: PainterMapProps) {
             </div>`,
         });
 
+        const ir = () => {
+          onSelect?.(p.id);
+          router.push(`/pintor/${p.id}`);
+        };
         const marker = L.marker([p.lat as number, p.lng as number], { icon, title: p.name })
           .addTo(map)
-          .on("click", () => {
-            onSelect?.(p.id);
-            router.push(`/pintor/${p.id}`);
+          .on("click", ir);
+        // Leaflet pone los marcadores en el recorrido del tabulador (con `role=button`), pero
+        // Enter no hacía nada: eran controles fantasma para quien usa teclado — se llegaba y no
+        // se podía abrir. Lo midió el agente `accesibilidad`. Ahora Enter y Espacio hacen lo
+        // mismo que el clic, y el marcador dice a dónde lleva.
+        const el = marker.getElement();
+        if (el) {
+          el.setAttribute("aria-label", `Ver el perfil de ${p.name}`);
+          el.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              ir();
+            }
           });
+        }
         markersRef.current.set(p.id, marker);
       }
 

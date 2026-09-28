@@ -1,0 +1,2 @@
+Archivos estáticos servidos tal cual en la raíz del sitio. Existe aunque esté vacía porque
+el Dockerfile de la web la copia a la imagen.
