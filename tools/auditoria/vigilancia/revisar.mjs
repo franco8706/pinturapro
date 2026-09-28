@@ -183,6 +183,30 @@ async function redirecciones() {
   }
 }
 
+// ── 3 quater. Los archivos del sitio cargan, no sólo la página ──
+// Un servidor puede devolver el HTML y fallar en todo lo demás: el 28/9 un servidor de
+// producción respondía 200 en cada página mientras TODOS sus archivos JavaScript y CSS daban
+// 400. Para quien lo abría era un sitio muerto —sin React, sin botones— y este vigilante,
+// que sólo pedía páginas, habría dicho "todo en orden". Pasa cuando una publicación sube el
+// HTML nuevo con los archivos viejos, o al revés.
+async function recursos() {
+  const r = await pedir("/");
+  if (!r.ok || r.status !== 200) return; // ya lo reporta `paginas()`
+  const rutas = [...new Set(r.texto.match(/\/_next\/static\/[^"'\s]+\.(?:js|css)/g) || [])].slice(0, 4);
+  if (rutas.length === 0) {
+    falla("la portada no referencia ningún archivo del sitio", "¿cambió la compilación?");
+    return;
+  }
+  for (const ruta of rutas) {
+    const a = await pedir(ruta);
+    const tipo = (a.headers && a.headers.get("content-type")) || "";
+    if (!a.ok || a.status !== 200 || !/javascript|css/.test(tipo)) {
+      falla("los archivos del sitio no cargan", `${ruta} -> HTTP ${a.status} ${tipo} · el sitio se ve pero no funciona`);
+      return;
+    }
+  }
+}
+
 // ── 4. Lo privado sigue siendo privado ──
 const PRIVADAS = ["/dashboard", "/cliente", "/admin", "/panel", "/cotizaciones", "/mi-cuenta"];
 
@@ -268,6 +292,7 @@ await paginas();
 await legales();
 await derechos();
 await redirecciones();
+await recursos();
 await privadas();
 await cabeceras();
 await sitemap();

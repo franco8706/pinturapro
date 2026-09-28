@@ -58,6 +58,27 @@ function abrirBase() {
       if (!r.ok) throw new Error(`borrar ${tabla}: HTTP ${r.status}`);
       return (await r.json()).length;
     },
+    /** Lee las filas que cumplen el filtro. `columnas` es la lista para `select` (PostgREST). */
+    async leer(tabla, filtro, columnas = "*") {
+      const r = await fetch(rest(tabla, `${filtro}&select=${columnas}`), { headers: cabeceras });
+      if (!r.ok) throw new Error(`leer ${tabla}: HTTP ${r.status}`);
+      return r.json();
+    },
+    /**
+     * Actualiza las filas que cumplen el filtro con `cambios`. Se usa para prestar un dato
+     * demo por un instante (por ejemplo, el rol de una cuenta) y devolverlo a como estaba en
+     * el `finally` de la prueba — nunca para dejarlo así (REGLAS.md, 3 bis).
+     */
+    async actualizar(tabla, filtro, cambios) {
+      if (!filtro || !/=/.test(filtro)) throw new Error("actualizar sin filtro: me niego");
+      const r = await fetch(rest(tabla, filtro), {
+        method: "PATCH",
+        headers: { ...cabeceras, "Content-Type": "application/json", Prefer: "return=representation" },
+        body: JSON.stringify(cambios),
+      });
+      if (!r.ok) throw new Error(`actualizar ${tabla}: HTTP ${r.status} ${await r.text()}`);
+      return r.json();
+    },
   };
 }
 

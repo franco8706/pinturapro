@@ -1,34 +1,44 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 const READY = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 /**
- * Muestra "Ingresar" o "Salir" en el navbar según la sesión.
+ * Muestra "Ingresar" o "Mi panel · Salir" en el navbar según haya sesión.
  * Si Supabase todavía no está configurado, no renderiza nada (no rompe el navbar).
+ *
+ * Le pregunta al servidor (`/api/sesion`) en vez de abrir el cliente de Supabase acá. Antes lo
+ * abría, y como este componente está en la barra de TODAS las páginas, cada visitante bajaba
+ * el SDK entero —52 KB comprimidos, medido en producción por el agente `rendimiento`— para
+ * leer un sí o un no, incluso en /terminos y /privacidad, que no usan sesión para nada.
+ *
+ * Se vuelve a preguntar en cada cambio de página: es lo que actualiza la barra después de
+ * ingresar (el ingreso navega a /mi-panel). Salir es un formulario que recarga la página
+ * entera, así que ahí la pregunta sale sola.
  */
 export function AuthNav({ className }: { className?: string }) {
-  const [email, setEmail] = useState<string | null>(null);
-  const [known, setKnown] = useState(false);
+  const pathname = usePathname();
+  const [sesion, setSesion] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!READY) return;
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
-      setEmail(data.user?.email ?? null);
-      setKnown(true);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => setEmail(session?.user?.email ?? null));
-    return () => sub.subscription.unsubscribe();
-  }, []);
+    let vigente = true;
+    fetch("/api/sesion", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { sesion: false }))
+      .then((d: { sesion?: boolean }) => vigente && setSesion(!!d.sesion))
+      .catch(() => vigente && setSesion(false));
+    return () => {
+      vigente = false;
+    };
+  }, [pathname]);
 
-  if (!READY || !known) return null;
+  if (!READY || sesion === null) return null;
 
-  if (email) {
+  if (sesion) {
     return (
       <div className={cn("flex items-center gap-4 sm:gap-6", className)}>
         <Link
@@ -52,7 +62,7 @@ export function AuthNav({ className }: { className?: string }) {
   return (
     <Link
       href="/ingresar"
-      className={cn("font-body text-body-sm text-concrete hover:text-ink transition-colors duration-300", className)}
+      className={cn("inline-block py-1 font-body text-body-sm text-concrete hover:text-ink transition-colors duration-300", className)}
     >
       Ingresar
     </Link>
