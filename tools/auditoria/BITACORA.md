@@ -131,6 +131,18 @@ No los vuelvas a levantar sin evidencia nueva.
 - **"Hay claves filtradas en el repositorio".** Se escanearon los 82 commits del historial: no
   hay ninguna. El único hallazgo era un ejemplo de documentación.
 
+## Tareas del dueño en paneles externos (no se hacen desde el código)
+
+- **Supabase → Authentication → URL Configuration.** Hoy la "Site URL" es la del Codespace y
+  `…/nueva-contrasena` no está en "Redirect URLs": medido el 28/9, el enlace de recuperación
+  IGNORA el destino pedido y manda a la portada del Codespace. En producción, quien olvidó la
+  contraseña terminaría en una dirección muerta. Poner la Site URL del dominio real y agregar
+  `https://<dominio>/nueva-contrasena` y `https://<dominio>/auth/callback`.
+- **Supabase → Authentication → Email → "Secure password change".** La pantalla ya pide la
+  contraseña actual si la sesión no viene del mail, pero eso frena a quien usa la pantalla,
+  no a quien tenga el token y llame a la API directo. Esa opción lo frena en el servidor.
+- **Rotar la contraseña de la base** (Settings → Database): se pegó en el chat el 27/9.
+
 ## Decisión del dueño (no son bugs)
 
 - Todos los datos visibles son de demostración: pintores, reseñas y obras inventados.

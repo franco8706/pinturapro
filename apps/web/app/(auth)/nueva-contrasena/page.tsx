@@ -24,6 +24,25 @@ export default function NuevaContrasenaPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [ok, setOk] = useState(false);
+  /**
+   * ¿Esta sesión viene del enlace de recuperación, o es una sesión común?
+   *
+   * La pantalla aceptaba CUALQUIER sesión abierta. Alguien frente a una computadora donde la
+   * cuenta quedó iniciada podía entrar acá, fijar una contraseña nueva sin saber la actual ni
+   * tener el mail, y quedarse con la cuenta para siempre. Lo midió el agente
+   * `sesiones-y-acceso`.
+   *
+   * Supabase anota en el token cómo se inició la sesión (`amr`). Medido el 28/9: el enlace de
+   * recuperación deja `otp`; una entrada con contraseña deja `password`; Google/Microsoft,
+   * `oauth`. Si no es una recuperación reciente, se pide la contraseña actual.
+   *
+   * Esto cubre a quien usa la pantalla. A quien tiene el token y llama a la API directo lo frena
+   * la opción "Secure password change" de Supabase (Authentication → Email), que exige volver a
+   * autenticarse para cambiar la contraseña: está en la lista de tareas del dueño.
+   */
+  const [esRecuperacion, setEsRecuperacion] = useState(false);
+  const [email, setEmail] = useState("");
+  const [actual, setActual] = useState("");
 
   useEffect(() => {
     if (!READY) {
@@ -34,7 +53,13 @@ export default function NuevaContrasenaPage() {
     // `getUser` valida contra el servidor, no confía en la cookie.
     supabase.auth
       .getUser()
-      .then(({ data }) => setEstado(data.user ? "lista" : "sin-sesion"))
+      .then(async ({ data }) => {
+        if (!data.user) return setEstado("sin-sesion");
+        setEmail(data.user.email ?? "");
+        const { data: s } = await supabase.auth.getSession();
+        setEsRecuperacion(vieneDeRecuperacion(s.session?.access_token));
+        setEstado("lista");
+      })
       .catch(() => setEstado("sin-sesion"));
   }, []);
 
@@ -51,6 +76,23 @@ export default function NuevaContrasenaPage() {
     }
     setLoading(true);
     const supabase = createClient();
+    if (!esRecuperacion) {
+      // Sesión común: hay que probar que se sabe la contraseña actual.
+      if (!actual) {
+        setLoading(false);
+        setError("Escribí tu contraseña actual.");
+        return;
+      }
+      const { error: malActual } = await supabase.auth.signInWithPassword({ email, password: actual });
+      if (malActual) {
+        setLoading(false);
+        setError(
+          "La contraseña actual no es correcta. Si entrás con Google, Microsoft o Facebook, tu cuenta no " +
+            "tiene contraseña: pedí un enlace en Recuperar contraseña.",
+        );
+        return;
+      }
+    }
     const { error } = await supabase.auth.updateUser({ password });
     setLoading(false);
     if (error) {
@@ -111,6 +153,9 @@ export default function NuevaContrasenaPage() {
       </p>
 
       <form onSubmit={onSubmit} className="space-y-5">
+        {!esRecuperacion && (
+          <Campo id="pass-actual" label="Contraseña actual" value={actual} onChange={setActual} invalido={!!error} />
+        )}
         <Campo
           id="pass-nueva"
           label="Contraseña nueva"
@@ -168,4 +213,17 @@ function Campo({
       />
     </label>
   );
+}
+
+/** El enlace de recuperación deja `amr: otp` en el token; se acepta si es de la última hora. */
+function vieneDeRecuperacion(token: string | undefined): boolean {
+  if (!token) return false;
+  try {
+    const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const datos = JSON.parse(atob(base64)) as { amr?: { method?: string; timestamp?: number }[] };
+    const ahora = Date.now() / 1000;
+    return (datos.amr ?? []).some((m) => m.method === "otp" && typeof m.timestamp === "number" && ahora - m.timestamp < 3600);
+  } catch {
+    return false; // ante la duda, se pide la contraseña actual
+  }
 }
