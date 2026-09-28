@@ -106,5 +106,32 @@ module.exports = {
       /revisarLargos/.test(fuente),
       "el móvil no valida los largos antes de enviar: la persona escribe todo y se entera al final",
     );
+
+    // ── La comisión: una sola fórmula ──
+    // La web tenía DOS: `comisionDe` (del paquete) para lo que ve el pintor y `commissionFor`
+    // (en lib/utils.ts) para lo que se guarda. Daban lo mismo, pero nada las ataba, y este
+    // proyecto ya mostró 8% mientras guardaba 10%. Lo marcó el agente `dinero-y-comisiones`.
+    const utils = fs.readFileSync(path.join(RAIZ, "apps/web/lib/utils.ts"), "utf8");
+    t.cierto(
+      /from "@pinturapro\/dominio"/.test(utils) && !/Math\.round\(\s*amount/.test(utils),
+      "apps/web/lib/utils.ts volvió a calcular la comisión por su cuenta en vez de tomarla de @pinturapro/dominio",
+    );
+    // El móvil no puede importar el paquete todavía (ver BITÁCORA), así que al menos tiene que
+    // usar el MISMO porcentaje en cada lugar donde la calcula.
+    const COMISION = 0.1; // espejo de packages/dominio/src/montos.ts; si cambia allá, cambia acá
+    const movil = ["apps/mobile/lib/mutations.ts", "apps/mobile/app/cotizar/[id].tsx"]
+      .map((r) => fs.readFileSync(path.join(RAIZ, r), "utf8"))
+      .join("\n");
+    const tasas = [...movil.matchAll(/\*\s*(0\.\d+)\s*\)/g)].map((m) => Number(m[1]));
+    t.cierto(tasas.length > 0, "no encontré dónde calcula la comisión el móvil: ¿cambió la forma del código?");
+    t.cierto(
+      tasas.every((x) => x === COMISION),
+      `el móvil calcula la comisión con otro porcentaje: ${tasas.join(", ")} (debería ser ${COMISION})`,
+    );
+    const montos = fs.readFileSync(path.join(RAIZ, "packages/dominio/src/montos.ts"), "utf8");
+    t.cierto(
+      new RegExp(`COMISION\\s*=\\s*${COMISION}\\b`).test(montos),
+      "la comisión del paquete cambió y esta prueba (y el móvil) no se enteraron",
+    );
   },
 };

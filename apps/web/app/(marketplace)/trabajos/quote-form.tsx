@@ -102,6 +102,13 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
               Vas a cotizar{" "}
               <strong className="text-ink">${montoLeido.toLocaleString("es-AR")}</strong>. La
               comisión del 10% son ${comisionDe(montoLeido).toLocaleString("es-AR")}.
+              {/* Los montos se guardan en pesos enteros (`amount` es int4) y el parser descarta
+                  los centavos. El número de arriba ya era el entero, pero no decía que algo
+                  se había dejado afuera: "234.567,89" mostraba $234.567 sin explicación. Lo
+                  marcó el agente `dinero-y-comisiones`. */}
+              {/,\d{1,2}\s*$/.test(monto) && !/,0{1,2}\s*$/.test(monto)
+                ? " Los centavos no se cotizan: el monto va en pesos enteros."
+                : ""}
             </span>
           )}
         </p>

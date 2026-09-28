@@ -1,3 +1,4 @@
+import { COMISION, comisionDe } from "@pinturapro/dominio";
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -18,12 +19,16 @@ export function escapeHtml(s: string): string {
 }
 
 /**
- * Comisión del marketplace. Fuente única: antes el checkout mostraba 8% mientras
- * `cotizar()` guardaba 10%, y la columna `jobs.commission_rate` tenía otro default.
+ * Comisión del marketplace: se reexporta de `@pinturapro/dominio`, no se calcula acá.
+ *
+ * Este bloque decía "Fuente única" y era una SEGUNDA copia de la fórmula: el formulario le
+ * mostraba al pintor la comisión con `comisionDe` (del paquete) y la acción guardaba la de
+ * acá. Hoy daban lo mismo, pero nada las ataba — y este proyecto ya tuvo el checkout
+ * mostrando 8% mientras `cotizar()` guardaba 10%. Lo marcó el agente `dinero-y-comisiones`.
+ * La prueba `reglas-compartidas` verifica que acá no vuelva a aparecer una fórmula propia.
  */
-export const COMMISSION_RATE = 0.1;
+
+export const COMMISSION_RATE = COMISION;
 
 /** Comisión en pesos para un monto dado. */
-export function commissionFor(amount: number): number {
-  return Math.round(amount * COMMISSION_RATE);
-}
+export const commissionFor = comisionDe;
