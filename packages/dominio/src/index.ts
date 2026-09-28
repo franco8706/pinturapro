@@ -14,3 +14,4 @@ export { TOPES, revisarLargos, type CampoConTope } from "./topes";
 export { mensajeDeError } from "./errores";
 export { puedeCotizar, puedePublicarObra, MOTIVO_NO_PUEDE_COTIZAR, type TipoDePerfil } from "./roles";
 export { esTexto, textoRecibido, esFormulario } from "./entrada";
+export { dimensionesDeImagen, motivoImagenDesmedida, MAXIMO_MEGAPIXELES, MAXIMO_LADO } from "./imagen";

@@ -52,12 +52,15 @@ export function Footer() {
           {columns.map((col) => (
             <div key={col.title} className="lg:col-span-2">
               <p className="font-mono text-mono-sm text-bone/60 uppercase tracking-widest mb-5">{col.title}</p>
-              <ul className="space-y-3">
+              {/* Los enlaces medían 17 px de alto, por debajo del piso de 24 px para tocar con
+                  el dedo. Lo marcaron cinco agentes seguidos; seguía abierto porque la prueba
+                  `tactil` sólo medía botones y además salteaba el pie a propósito. */}
+              <ul className="space-y-1">
                 {col.links.map((link) => (
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="font-body text-body-sm text-bone/70 hover:text-bone transition-colors duration-300"
+                      className="inline-block py-1 font-body text-body-sm text-bone/70 hover:text-bone transition-colors duration-300"
                     >
                       {link.label}
                     </Link>
@@ -106,7 +109,7 @@ export function Footer() {
                 WhatsApp
               </a>
             )}
-            <a href={`mailto:${CONTACTO.email}`} className="hover:text-bone transition-colors duration-300">
+            <a href={`mailto:${CONTACTO.email}`} className="inline-block py-1 hover:text-bone transition-colors duration-300">
               {CONTACTO.email}
             </a>
           </div>

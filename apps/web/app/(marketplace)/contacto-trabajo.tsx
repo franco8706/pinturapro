@@ -58,7 +58,7 @@ export function ContactoTrabajo({
           {contraparte}:{" "}
           <a
             href={`tel:${telefonoContraparte.replace(/\s/g, "")}`}
-            className="underline underline-offset-2 tabular-nums"
+            className="inline-block py-1 underline underline-offset-2 tabular-nums"
           >
             {telefonoContraparte}
           </a>

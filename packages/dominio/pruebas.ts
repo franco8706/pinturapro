@@ -7,6 +7,7 @@
  * porque ahí resuelve el empaquetador de cada app.
  */
 import { montoDesdeTexto, motivoMontoInvalido, comisionDe } from "./src/montos.ts";
+import { dimensionesDeImagen, motivoImagenDesmedida } from "./src/imagen.ts";
 import { revisarLargos, TOPES } from "./src/topes.ts";
 import { mensajeDeError } from "./src/errores.ts";
 import { puedeCotizar } from "./src/roles.ts";
@@ -92,5 +93,40 @@ igual(puedeCotizar("company"), true, "una empresa puede cotizar");
 igual(puedeCotizar("client"), false, "un cliente no puede cotizar");
 igual(puedeCotizar(null), false, "sin perfil, no");
 
+
+// ── Imágenes: el tamaño se lee del encabezado, sin decodificar ──
+// Encabezados armados a mano con las dimensiones conocidas, uno por formato.
+const png = (w: number, h: number) => {
+  const b = new Uint8Array(40); b.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+  new DataView(b.buffer).setUint32(16, w); new DataView(b.buffer).setUint32(20, h); return b;
+};
+const jpeg = (w: number, h: number) => {
+  // SOI · APP0 de 16 bytes · SOF0 con alto y ancho
+  const b = new Uint8Array(40); b.set([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]); // el APP0 ocupa 2+16
+  b.set([0xff, 0xc0, 0x00, 0x11, 0x08, h >> 8, h & 0xff, w >> 8, w & 0xff], 20); return b;
+};
+const webpX = (w: number, h: number) => {
+  const b = new Uint8Array(40); b.set([...Buffer.from("RIFF"), 0, 0, 0, 0, ...Buffer.from("WEBPVP8X")]);
+  const W = w - 1, H = h - 1; b.set([W & 0xff, (W >> 8) & 0xff, (W >> 16) & 0xff, H & 0xff, (H >> 8) & 0xff, (H >> 16) & 0xff], 24); return b;
+};
+igual(JSON.stringify(dimensionesDeImagen(png(1600, 1200))), JSON.stringify({ ancho: 1600, alto: 1200 }), "PNG: ancho y alto del IHDR");
+igual(JSON.stringify(dimensionesDeImagen(jpeg(1600, 900))), JSON.stringify({ alto: 900, ancho: 1600 }), "JPEG: saltea el APP0 y lee el SOF0");
+igual(JSON.stringify(dimensionesDeImagen(webpX(1600, 1066))), JSON.stringify({ ancho: 1600, alto: 1066 }), "WEBP extendido");
+igual(motivoImagenDesmedida(png(1600, 1200)), null, "una foto achicada por el navegador pasa");
+{
+  // Un JPEG con 80 KB de metadatos antes del cuadro (EXIF + perfil de color): el SOF queda
+  // lejos del principio y tiene que encontrarse igual.
+  const b = new Uint8Array(90000); b.set([0xff, 0xd8]);
+  let i = 2;
+  for (let k = 0; k < 2; k++) { b.set([0xff, 0xe1, 0xa0, 0x00], i); i += 2 + 0xa000; }
+  b.set([0xff, 0xc2, 0x00, 0x11, 0x08, 0x03, 0x84, 0x06, 0x40], i); // progresivo, 1600 x 900
+  igual(JSON.stringify(dimensionesDeImagen(b)), JSON.stringify({ alto: 900, ancho: 1600 }), "JPEG con metadatos largos y SOF progresivo");
+}
+igual(motivoImagenDesmedida(png(40000, 40000))?.includes("demasiado grande"), true, "la bomba de 1.600 MP que subió el agente se rechaza");
+igual(motivoImagenDesmedida(png(12000, 100))?.includes("demasiado grande"), true, "un lado de más de 10.000 px se rechaza aunque el total sea chico");
+igual(motivoImagenDesmedida(new Uint8Array(40))?.includes("No pudimos leer"), true, "sin encabezado reconocible: ante la duda, no");
+
+// El resumen va AL FINAL: estuvo en el medio y las pruebas de imágenes que se agregaron
+// debajo no corrían nunca — el archivo decía "todo en verde" y salía antes de llegar.
 console.log(fallas === 0 ? "reglas de negocio: todo en verde" : `reglas de negocio: ${fallas} fallas`);
 process.exit(fallas ? 1 : 0);

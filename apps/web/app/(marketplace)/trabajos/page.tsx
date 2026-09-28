@@ -84,7 +84,7 @@ export default async function TrabajosPage() {
                     {!user ? (
                       <Link
                         href="/ingresar?next=/trabajos"
-                        className="mt-4 inline-block font-body text-body-sm text-ink underline underline-offset-2"
+                        className="mt-4 inline-block py-1 font-body text-body-sm text-ink underline underline-offset-2"
                       >
                         Ingresá como pintor para cotizar →
                       </Link>

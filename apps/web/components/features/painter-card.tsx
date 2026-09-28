@@ -48,7 +48,11 @@ export function PainterCard({ painter, index = 0 }: { painter: Painter; index?: 
         </p>
         <div className="flex flex-wrap gap-2 mt-4">
           {painter.specialty.map((s) => (
-            <span key={s} className="px-2.5 py-1 bg-mist font-mono text-mono-sm text-concrete">
+            // `max-w-full` + cortar en cualquier letra: "Impermeabilización" en letra
+            // monoespaciada, con el texto agrandado al 200 %, era más ancha que la tarjeta y
+            // estiraba /pintores. La regla global de globals.css cubre títulos y párrafos,
+            // no etiquetas sueltas como ésta.
+            <span key={s} className="max-w-full px-2.5 py-1 bg-mist font-mono text-mono-sm text-concrete [overflow-wrap:anywhere]">
               {s}
             </span>
           ))}

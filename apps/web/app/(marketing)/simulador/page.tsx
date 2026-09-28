@@ -37,7 +37,9 @@ export default function SimuladorPage() {
           </div>
 
           {/* Toggle interior / exterior */}
-          <div className="inline-flex border border-concrete/30 mb-10">
+          {/* `flex-wrap` + `max-w-full`: con el texto agrandado al 200 % los dos botones no entraban y
+              estiraban la página (mismo efecto que el carrusel de la portada). */}
+          <div className="inline-flex flex-wrap max-w-full border border-concrete/30 mb-10">
             {(["interior", "exterior"] as Target[]).map((t) => (
               <button
                 key={t}

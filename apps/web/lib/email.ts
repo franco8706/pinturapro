@@ -47,7 +47,9 @@ async function send(to: string, subject: string, html: string): Promise<void> {
     // en silencio y nadie se enteraba de que los emails no estaban saliendo.
     if (!res.ok) {
       const detalle = await res.text().catch(() => "");
-      console.error(`[email] Resend respondió ${res.status}: ${detalle.slice(0, 200)}`);
+      // La respuesta de Resend puede repetir el destinatario ("invalid `to`: …"): se tapan
+      // las direcciones antes de loguear.
+      console.error(`[email] Resend respondió ${res.status}: ${taparEmails(detalle).slice(0, 200)}`);
     }
   } catch (e) {
     // Un email que falla no debe romper el flujo (cotizar/aceptar igual se completan),
@@ -59,7 +61,11 @@ async function send(to: string, subject: string, html: string): Promise<void> {
 /** Notifica a un usuario por email. No-op si Resend no está configurado. */
 export async function notifyUser(userId: string, subject: string, html: string): Promise<void> {
   if (!RESEND_KEY) {
-    console.warn("[email] RESEND_API_KEY sin configurar: no se envió el aviso —", subject);
+    // Sin el asunto: lleva el nombre de la persona ("Nuevo mensaje de contacto — Juana
+    // Pérez"), y en Cloud Run todo lo que se loguea queda guardado y buscable en Cloud
+    // Logging, un dato personal que /privacidad no menciona. Lo encontró el agente
+    // `nube-google` en un log real. Para diagnosticar alcanza con saber que no salió.
+    console.warn("[email] RESEND_API_KEY sin configurar: no se envió un aviso a un usuario");
     return;
   }
   const to = await getUserEmail(userId);
@@ -75,7 +81,7 @@ export async function notifyUser(userId: string, subject: string, html: string):
 export async function notifyLeadsInbox(subject: string, html: string): Promise<boolean> {
   if (!LEADS_TO) return false;
   if (!RESEND_KEY) {
-    console.warn("[email] RESEND_API_KEY sin configurar: no se envió el lead —", subject);
+    console.warn("[email] RESEND_API_KEY sin configurar: no se envió el aviso de una consulta nueva");
     return true; // había destinatario; lo que falta es la key
   }
   await send(LEADS_TO, subject, html);
@@ -128,4 +134,9 @@ export function emailLayout(title: string, body: string | SafeHtml, cta?: { labe
     }
     <p style="margin-top:28px;font-size:12px;color:#9a9a9a">Pintura Pro · Pintura profesional de obra</p>
   </div>`;
+}
+
+/** Reemplaza las direcciones de email de un texto antes de mandarlo a los registros. */
+function taparEmails(texto: string): string {
+  return texto.replace(/[^\s@"'<>]+@[^\s@"'<>]+/g, "<email>");
 }

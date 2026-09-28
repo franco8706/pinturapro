@@ -97,6 +97,34 @@ module.exports = {
         );
         t.cierto(!r.scrollHorizontal, `${ruta}: la pagina se puede desplazar de costado`);
       }
+
+      // ── Con el texto del sistema agrandado ──
+      // La gente con poca visión agranda la letra desde el celular. Al 200 % los puntos del
+      // carrusel de testimonios y el selector Interior/Exterior del simulador no entraban,
+      // estiraban la página, y el encabezado fijo se estiraba con ella hasta dejar el botón
+      // del menú FUERA de la pantalla: sin forma de navegar. Lo midió el agente
+      // `accesibilidad`. Con texto normal esta prueba daba verde, y por eso no lo veía.
+      await k.salir(page);
+      for (const ruta of ["/", "/simulador", "/pintores", "/obras", "/contacto"]) {
+        await k.ir(page, ruta);
+        await page.addStyleTag({ content: "html{font-size:200% !important}" });
+        await page.evaluate(async () => {
+          for (let y = 0; y < document.body.scrollHeight; y += 500) {
+            window.scrollTo(0, y);
+            await new Promise((r) => setTimeout(r, 60));
+          }
+          window.scrollTo(0, 0);
+        });
+        await page.waitForTimeout(400);
+        const g = await page.evaluate(() => {
+          const W = document.documentElement.clientWidth;
+          const menu = document.querySelector('header button[aria-label*="men" i]');
+          const m = menu ? menu.getBoundingClientRect() : null;
+          return { ancho: document.documentElement.scrollWidth, W, menuFuera: !!m && (m.right > W + 1 || m.left < -1) };
+        });
+        t.cierto(g.ancho <= g.W + 2, `${ruta} con el texto al 200 %: la página mide ${g.ancho} px en una pantalla de ${g.W}`);
+        t.cierto(!g.menuFuera, `${ruta} con el texto al 200 %: el botón del menú queda fuera de la pantalla`);
+      }
     } finally {
       await browser.close();
     }

@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { mensajeDeError } from "@/lib/errores-db";
-import { esTexto, textoRecibido, esFormulario } from "@pinturapro/dominio";
+import { esTexto, textoRecibido, esFormulario, motivoImagenDesmedida } from "@pinturapro/dominio";
 
 function slugify(s: string): string {
   return s
@@ -86,6 +86,10 @@ async function uploadImage(
   const bytes = await file.arrayBuffer();
   const sniffed = sniffImageType(bytes);
   if (!sniffed) return { error: "El archivo no es una imagen JPG, PNG o WEBP válida." };
+  // El peso no dice nada de los píxeles: un PNG de 40.000 × 40.000 pesa 4,7 MB y cada
+  // navegador que lo muestra tiene que decodificar 6,4 GB. Ver `imagen.ts` en el paquete.
+  const desmedida = motivoImagenDesmedida(new Uint8Array(bytes));
+  if (desmedida) return { error: desmedida };
 
   // El content-type sale de la firma del archivo, nunca de lo que declara el cliente.
   const contentType = sniffed;

@@ -33,14 +33,14 @@ export function AuthNav({ className }: { className?: string }) {
       <div className={cn("flex items-center gap-4 sm:gap-6", className)}>
         <Link
           href="/mi-panel"
-          className="font-body text-body-sm text-ink hover:text-concrete transition-colors duration-300"
+          className="inline-block py-1 font-body text-body-sm text-ink hover:text-concrete transition-colors duration-300"
         >
           Mi panel
         </Link>
         <form action="/auth/signout" method="post">
           <button
             type="submit"
-            className="font-body text-body-sm text-concrete hover:text-ink transition-colors duration-300"
+            className="inline-block py-1 font-body text-body-sm text-concrete hover:text-ink transition-colors duration-300"
           >
             Salir
           </button>

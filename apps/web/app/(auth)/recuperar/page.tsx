@@ -1,9 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 const READY = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /**
  * Pedir el mail para restablecer la contraseña.
@@ -20,27 +21,43 @@ export default function RecuperarPage() {
   const [enviado, setEnviado] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  /**
+   * Cerrojo sincrónico: tres clics seguidos mandaban TRES mails de recuperación (medido por el
+   * agente `formularios-hostiles`: 3 pedidos a /auth/v1/recover, 3 × 200). `disabled={loading}`
+   * no alcanza, igual que en los demás formularios: el estado de React se ve recién al
+   * repintar y los clics del mismo instante entran todos.
+   */
+  const enviando = useRef(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (enviando.current) return;
     setError("");
     if (!READY) {
       setError("La autenticación todavía no está configurada (falta conectar Supabase).");
       return;
     }
+    // Revisar el FORMATO no delata a nadie: sólo dice que lo escrito no es un email. Antes un
+    // email de puros espacios recibía "Revisá tu correo" y la persona esperaba un mail que
+    // nunca se mandó (Supabase contestaba 400 y acá se ignoraba).
+    if (!EMAIL_RE.test(email.trim())) {
+      setError("Revisá el email: no parece una dirección válida.");
+      return;
+    }
+    enviando.current = true;
     setLoading(true);
     const supabase = createClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: `${window.location.origin}/nueva-contrasena`,
     });
     setLoading(false);
-    // Un error de red sí se muestra; que el mail no exista, no (ver nota de arriba).
-    if (error && /network|fetch/i.test(error.message)) {
-      setError("No pudimos conectar. Revisá tu conexión y probá de nuevo.");
-      return;
-    }
-    if (error && /rate limit/i.test(error.message)) {
-      setError("Pediste el enlace varias veces seguidas. Esperá unos minutos.");
+    enviando.current = false;
+    // Supabase contesta IGUAL exista o no la cuenta, así que sus errores no delatan a nadie y
+    // se pueden mostrar. Lo que no se hace es fingir que el mail salió cuando no salió.
+    if (error) {
+      if (/network|fetch/i.test(error.message)) setError("No pudimos conectar. Revisá tu conexión y probá de nuevo.");
+      else if (/rate limit/i.test(error.message)) setError("Pediste el enlace varias veces seguidas. Esperá unos minutos.");
+      else setError("No pudimos mandar el enlace. Revisá el email y probá de nuevo.");
       return;
     }
     setEnviado(true);

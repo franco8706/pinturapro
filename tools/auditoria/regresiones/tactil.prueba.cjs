@@ -21,7 +21,7 @@ module.exports = {
   async correr(t, { k }) {
     const { browser, page } = await k.abrir({ movil: true });
     try {
-      for (const ruta of ["/", "/simulador", "/obras"]) {
+      for (const ruta of ["/", "/simulador", "/obras", "/trabajos", "/pintores"]) {
         await k.ir(page, ruta);
         // La home carga por scroll: hay que recorrerla para que aparezcan los carruseles.
         await page.evaluate(async () => {
@@ -35,8 +35,22 @@ module.exports = {
 
         const chicos = await page.evaluate((MINIMO) => {
           const fuera = [];
-          for (const el of document.querySelectorAll("button, [role=button]")) {
-            if (el.closest("footer")) continue; // navegación secundaria, ya documentada
+          // Botones Y enlaces sueltos. Esta prueba medía sólo botones y además salteaba el pie
+          // "por ser navegación secundaria": los enlaces de 17 px del pie, de la barra y de
+          // /trabajos quedaron abiertos varias rondas y los reportaron cinco agentes seguidos,
+          // porque aquí nada podía ponerse en rojo.
+          // Un enlace DENTRO de una oración está exento (WCAG 2.5.8): se reconoce porque su
+          // bloque dice más que el enlace. Uno suelto —un ítem del pie, un "Ingresá…"— no.
+          const bloque = (el) => {
+            let n = el.parentElement;
+            while (n && getComputedStyle(n).display.startsWith("inline")) n = n.parentElement;
+            return n;
+          };
+          for (const el of document.querySelectorAll("button, [role=button], a[href]")) {
+            if (el.tagName === "A") {
+              const b = bloque(el);
+              if (b && (b.innerText || "").trim().length > (el.innerText || "").trim().length + 3) continue;
+            }
             const r = el.getBoundingClientRect();
             if (r.width === 0 || r.height === 0) continue;
             if (r.height < MINIMO || r.width < MINIMO) {

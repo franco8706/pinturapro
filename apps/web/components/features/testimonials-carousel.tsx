@@ -54,8 +54,13 @@ export function TestimonialsCarousel({ items }: { items: Testimonial[] }) {
         </div>
       </div>
 
+      {/* `flex-wrap` en la fila y en los puntos: sin eso, con el texto del sistema agrandado
+          (la gente con poca visión lo usa así) los puntos no entraban, la portada quedaba más
+          ancha que la pantalla, y el encabezado fijo se estiraba con ella hasta dejar el botón
+          del menú FUERA de la pantalla, sin forma de alcanzarlo. Lo midió el agente
+          `accesibilidad` con la fuente al 200 %. */}
       {n > 1 && (
-        <div className="mt-10 flex items-center gap-4">
+        <div className="mt-10 flex flex-wrap items-center gap-4">
           <button
             type="button"
             aria-label="Anterior"
@@ -72,7 +77,7 @@ export function TestimonialsCarousel({ items }: { items: Testimonial[] }) {
           >
             →
           </button>
-          <div className="flex gap-2 ml-2">
+          <div className="flex flex-wrap gap-2 ml-2">
             {items.map((_, idx) => (
               <button
                 key={idx}

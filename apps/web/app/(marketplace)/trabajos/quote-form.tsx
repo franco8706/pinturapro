@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cotizar } from "../actions";
 import { montoDesdeTexto, motivoMontoInvalido, comisionDe } from "@pinturapro/dominio";
 
@@ -23,6 +23,28 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
    */
   const [monto, setMonto] = useState("");
   const montoLeido = montoDesdeTexto(monto);
+  /**
+   * Lo que se anuncia a un lector de pantalla, con espera.
+   *
+   * El texto de arriba se reescribía en cada tecla y era la zona hablada: escribir "320000"
+   * eran seis anuncios completos ($3, $32, … $320.000) que el lector encola uno tras otro, en
+   * la única pantalla donde un pintor decide plata. Mismo error que ya se había corregido en
+   * el simulador; lo marcó el agente `accesibilidad`. Ahora lo visible cambia al instante y lo
+   * hablado espera a que la persona deje de escribir.
+   */
+  const [anuncio, setAnuncio] = useState("");
+  useEffect(() => {
+    if (!monto.trim()) return setAnuncio("");
+    const t = setTimeout(() => {
+      const n = montoDesdeTexto(monto);
+      setAnuncio(
+        n === null
+          ? motivoMontoInvalido(monto) ?? ""
+          : `Vas a cotizar ${n.toLocaleString("es-AR")} pesos. La comisión del 10% son ${comisionDe(n).toLocaleString("es-AR")} pesos.`,
+      );
+    }, 700);
+    return () => clearTimeout(t);
+  }, [monto]);
 
   /**
    * Cerrojo sincrónico contra el doble envío. `disabled={loading}` no alcanza: el estado de
@@ -40,6 +62,12 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
     const fd = new FormData(e.currentTarget);
     fd.set("project_id", projectId);
     fd.set("client_id", clientId);
+    // Se manda lo que la pantalla MUESTRA, no lo que haya en el campo. El agente
+    // `formularios-hostiles` pisó el valor del input sin avisarle a React —como hace un
+    // autocompletado o una extensión—: la pantalla siguió diciendo "Vas a cotizar $100.000" y
+    // se guardó una cotización por $1. El eco del monto es la defensa contra un cero de más;
+    // si lo enviado puede ser otra cosa, no defiende nada.
+    fd.set("amount", monto);
     try {
       const res = await cotizar(fd);
       if (res?.error) {
@@ -93,8 +121,11 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
 
       {/* El número, de vuelta y en criollo. `aria-live` para que también se escuche: quien no
           ve la pantalla necesita esta confirmación más que nadie. */}
+      <p className="sr-only" role="status" aria-live="polite">
+        {anuncio}
+      </p>
       {monto.trim() !== "" && (
-        <p role="status" aria-live="polite" className="font-body text-body-sm">
+        <p className="font-body text-body-sm">
           {montoLeido === null ? (
             <span className="text-[#C41E3A]">{motivoMontoInvalido(monto)}</span>
           ) : (
