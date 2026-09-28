@@ -21,6 +21,10 @@ llevó puesto dos veces).
   en `http://localhost:3000`, y lo maneja el orquestador. Si no responde, reportalo; no lo reinicies.
 - **NO matar procesos** (`pkill`, `kill`).
 - **NO tocar la base con SQL directo, ni pedir la contraseña.** Todo por la interfaz o la API pública.
+- **NO disparar mails reales en volumen.** El alta, `/recuperar` y los avisos de cotización
+  mandan correos de verdad. Los rebotes a dominios inventados (`@pinturapro.demo`, `@example.com`)
+  le bajan la reputación al proyecto de Supabase y pueden limitarle los envíos. Un mail suelto
+  para verificar un flujo, sí; ráfagas, nunca: los topes se deducen del código y la configuración.
 - **NO usar las herramientas MCP de Playwright** (`mcp__playwright__*`): son un navegador compartido
   que usa el orquestador. Usá el kit, que te da tu propio Chrome.
 - **NO editar archivos del proyecto** salvo que tu tarea lo diga. Vos reportás; el orquestador corrige.
@@ -91,6 +95,12 @@ rompían las pruebas. Reglas:
 
 ## 4. Cómo reportar
 
+- **Guardá tu reporte final en el repo**, en `tools/auditoria/rondas/<ronda>/<tu-nombre>.md`
+  (o `<tu-nombre>-<papel>.md` si sos un sub-agente). La carpeta de la ronda te la da el
+  orquestador en el pedido. Es la única excepción a "no editar archivos del proyecto". Por qué:
+  hasta el 28/9 los reportes vivían sólo en el contexto del orquestador y se perdían cada vez
+  que la conversación se compactaba; en el repo, la ronda siguiente puede comparar números y el
+  agente `retroalimentacion` puede cerrar la ronda. Nada de claves ni tokens adentro.
 - En español. Concreto: **página, qué hiciste, qué esperabas, qué pasó**, con el texto exacto visto.
 - Archivo y línea cuando lo encuentres en el código.
 - Por severidad: **BLOQUEANTE** (impide usar o publicar) · **IMPORTANTE** · **MENOR**.

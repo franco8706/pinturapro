@@ -36,7 +36,7 @@ romperse.
 
 | Papel | Quién es | Qué recorre |
 |---|---|---|
-| **visitante** | alguien que llega de Google, sin cuenta | portada, obras, pintores, perfil de un pintor, simulador, colores, cotizar, contacto, nosotros, textos legales. ¿Entiende qué es el sitio y qué puede hacer sin registrarse? |
+| **visitante** | alguien que llega de Google, sin cuenta | portada, obras, pintores, perfil de un pintor, simulador, colores, publicar un pedido (sin cuenta: ¿qué le pide?), contacto, nosotros, textos legales. ¿Entiende qué es el sitio y qué puede hacer sin registrarse? |
 | **cliente** | quien tiene algo para pintar | crear cuenta → publicar un pedido → recibir cotizaciones → comparar → aceptar → contactar → calificar → mis datos → dar de baja. El ciclo completo, con datos ZZAGENT propios |
 | **pintor** | quien busca trabajo | alta como pintor → perfil → obra de portfolio con foto → tablero de pedidos → cotizar (ver el monto interpretado y la comisión) → trabajo aceptado → completarlo |
 | **navegacion** | alguien que usa el navegador como lo usa la gente | botón Atrás en medio de un formulario, recargar a mitad, dos pestañas con la misma cuenta, enlaces directos a pantallas internas, direcciones inventadas o viejas, abrir el enlace de otro usuario |

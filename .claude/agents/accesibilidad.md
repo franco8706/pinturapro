@@ -20,7 +20,7 @@ ignoran la preferencia de reducir movimiento.
 
 ## Qué probar, con el kit
 
-**Teclado, sin tocar el mouse.** Recorré `/`, `/cotizar`, `/simulador`, `/ingresar`, `/publicar`
+**Teclado, sin tocar el mouse.** Recorré `/`, `/simulador`, `/ingresar`, `/publicar`
 usando sólo `page.keyboard.press("Tab")` y `Enter`:
 - ¿Se ve SIEMPRE dónde está el foco? (`document.activeElement` + si tiene contorno visible)
 - ¿Se puede completar y enviar un formulario entero sin mouse?

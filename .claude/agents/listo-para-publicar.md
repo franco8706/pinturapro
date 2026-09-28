@@ -52,3 +52,18 @@ Dos listas separadas y sin mezclar:
 puede resolver desde el código.
 
 Marcá **verificado** vs **deducido**. Si `docs/deploy.md` dice algo que ya no es cierto, decilo.
+
+## Lo que aprendieron las rondas anteriores
+
+Leelo antes de empezar: son cosas que este agente —u otro— ya encontró, y lo que conviene
+mirar distinto por eso. El orquestador (o el agente `retroalimentacion`) lo actualiza al
+cerrar cada ronda.
+
+- 28/9: el destino es Google Cloud Run, no Vercel. La guía vigente es
+  `docs/despliegue-google-cloud.md`; `docs/deploy.md` e `infraestructura.md` quedaron superadas.
+- Las variables `NEXT_PUBLIC_*` se hornean al compilar: en el Dockerfile van como `ARG`. Una
+  que falte en el build no se arregla después cambiando el servicio.
+- Tarea del dueño todavía abierta: en Supabase, Authentication → URL Configuration apunta al
+  Codespace. El mail de recuperar contraseña manda a una dirección muerta hasta que se cambie.
+- 28/9: un `next build` falló una vez bajando las tipografías de Google (`next/font`) y a la
+  segunda anduvo. El despliegue depende de Google Fonts en el momento de compilar.

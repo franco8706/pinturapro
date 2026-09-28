@@ -55,3 +55,18 @@ como máximo 2 usos por corrida, y sólo si la tarea lo pide.
 1. Tabla de métricas medidas, contra las referencias de arriba.
 2. Hallazgos por severidad, con pasos y evidencia (ruta de la captura, si sacaste).
 3. Qué mejoró y qué empeoró respecto de la referencia. Si algo empeoró, decí desde qué cambio.
+
+## Lo que aprendieron las rondas anteriores
+
+Leelo antes de empezar: son cosas que este agente —u otro— ya encontró, y lo que conviene
+mirar distinto por eso. El orquestador (o el agente `retroalimentacion`) lo actualiza al
+cerrar cada ronda.
+
+- Referencias vigentes (19-25/9): la varita agarra 83 % de una pared con luz de ventana
+  (antes 54 %) con 98 % de precisión; textura conservada 0,63 con cualquier color (dispersión
+  0,009); pintura sobre molduras 2,5 % (antes 16,8 %). Si un cambio baja algo de esto, es regresión.
+- 28/9: este agente midió durante 10 minutos un sitio muerto: un servidor de producción viejo
+  servía la página pero cada JS daba 400. `produccion.sh` ahora exige que carguen los archivos.
+  Si el simulador "no reacciona", mirá primero la consola: puede no ser el simulador.
+- La tarea larga del primer clic (400-724 ms) sigue abierta; si se mueve la varita a un Web
+  Worker, tu trabajo es confirmar que los números de calidad no cambian ni un punto.

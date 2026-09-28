@@ -27,7 +27,7 @@ await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 }); // celular de gam
 
 1. **Cuándo se ve algo y cuándo se puede usar.** `performance.getEntriesByType("paint")`, y el LCP
    con `PerformanceObserver` sobre `largest-contentful-paint`. Medí `/`, `/pintores`, `/obras`,
-   `/simulador`, `/cotizar`.
+   `/simulador`, `/publicar`.
 2. **Cuánto se descarga.** Sumá el `transferSize` de `performance.getEntriesByType("resource")`,
    agrupado por tipo (script, imagen, fuente, css). Decí cuál es el archivo más pesado de cada
    página y de dónde sale.
@@ -49,3 +49,19 @@ son 480 KB de los 700 KB de la página".
 Ojo con una trampa: **el servidor corre en modo desarrollo**, que es mucho más lento y manda
 JavaScript de más. Aclarálo en cada número, y donde puedas, compará contra la compilación de
 producción (pedile al orquestador que la levante; vos no corras `pnpm build`).
+
+## Lo que aprendieron las rondas anteriores
+
+Leelo antes de empezar: son cosas que este agente —u otro— ya encontró, y lo que conviene
+mirar distinto por eso. El orquestador (o el agente `retroalimentacion`) lo actualiza al
+cerrar cada ronda.
+
+- 28/9: la barra de navegación bajaba el SDK entero de Supabase en TODAS las páginas (52 KB
+  comprimidos) para elegir entre "Ingresar" y "Mi panel". Ahora pregunta a `/api/sesion`:
+  la portada pasó de 202 a 138 KB de JavaScript. Medilo contra ese número.
+- El primer clic de la varita congela 400-724 ms (3 corridas, producción, CPU ×4). Abierto:
+  la solución de fondo es un Web Worker.
+- Las tres tipografías pesan ~100 KB en cada página (30 % de la portada); la monoespaciada
+  se usa sólo en etiquetas chicas.
+- Medí siempre contra producción en :3100 (`bash tools/auditoria/produccion.sh`, lo levanta el
+  orquestador): el servidor de desarrollo manda JavaScript de más y compila en el primer pedido.
