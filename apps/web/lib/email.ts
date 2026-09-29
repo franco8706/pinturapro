@@ -2,6 +2,10 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { escapeHtml } from "@/lib/utils";
+// El pie decía "Pintura profesional de obra": la identidad de cuando el sitio era una empresa
+// que pintaba. Quedó viva en el único lugar que nadie mira recorriendo pantallas (riesgo-legal,
+// 28/9). Sale de lib/site.ts para que no se vuelva a desincronizar.
+import { SITE_NAME, SITE_TAGLINE } from "@/lib/site";
 
 /**
  * Envío de emails transaccionales vía Resend.
@@ -132,7 +136,7 @@ export function emailLayout(title: string, body: string | SafeHtml, cta?: { labe
         ? `<a href="${escapeHtml(href)}" style="display:inline-block;margin-top:20px;background:#141414;color:#fff;text-decoration:none;padding:12px 20px;font-size:14px">${escapeHtml(cta.label)}</a>`
         : ""
     }
-    <p style="margin-top:28px;font-size:12px;color:#9a9a9a">Pintura Pro · Pintura profesional de obra</p>
+    <p style="margin-top:28px;font-size:12px;color:#9a9a9a">${escapeHtml(SITE_NAME)} · ${escapeHtml(SITE_TAGLINE)}. Pintores independientes: el trabajo se contrata entre cliente y pintor.</p>
   </div>`;
 }
 
