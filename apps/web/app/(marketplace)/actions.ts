@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { olvidar, ETIQUETAS } from "@/lib/cache-publico";
 import { notifyUser, emailLayout, html } from "@/lib/email";
 import { commissionFor } from "@/lib/utils";
 import { mensajeDeError } from "@/lib/errores-db";
@@ -184,6 +185,7 @@ export async function marcarCompletado(jobId: string): Promise<{ error?: string;
   if (((data ?? []) as unknown[]).length === 0) return { error: "No se encontró el trabajo o no está en curso." };
 
   revalidatePath("/dashboard");
+  olvidar(ETIQUETAS.trabajos);
   revalidatePath("/cliente");
   return { ok: true };
 }
@@ -230,6 +232,7 @@ export async function dejarResena(formData: FormData): Promise<{ error?: string;
   }
 
   revalidatePath("/cliente");
+  olvidar(ETIQUETAS.resenas, ETIQUETAS.pintores);
   revalidatePath(`/pintor/${painterId}`);
   return { ok: true };
 }

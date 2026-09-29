@@ -14,6 +14,11 @@ import type { Metadata } from "next";
 import { tarjeta } from "@/lib/tarjeta";
 import { DATOS_DEMO } from "@/lib/empresa";
 
+// Se arma en cada visita, pero sus datos salen de la caché pública (lib/cache-publico.ts): la
+// base se consulta como mucho una vez por minuto. Dinámica a propósito, para que el despliegue
+// no necesite la base al compilar.
+export const dynamic = "force-dynamic";
+
 /** Título y descripción propios por pintor; sin esto todos los perfiles se ven iguales en Google. */
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;

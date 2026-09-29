@@ -10,6 +10,11 @@ import type { Metadata } from "next";
 import { tarjeta } from "@/lib/tarjeta";
 import { DATOS_DEMO } from "@/lib/empresa";
 
+// Se arma en cada visita, pero sus datos salen de la caché pública (lib/cache-publico.ts): la
+// base se consulta como mucho una vez por minuto. Dinámica a propósito, para que el despliegue
+// no necesite la base al compilar.
+export const dynamic = "force-dynamic";
+
 /**
  * Cada obra necesita su propio título y descripción: sin esto todas comparten la metadata
  * genérica del sitio y compiten entre sí en los resultados de búsqueda.

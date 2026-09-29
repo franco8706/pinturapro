@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { olvidar, ETIQUETAS } from "@/lib/cache-publico";
 import { redirect } from "next/navigation";
 import { mensajeDeError } from "@/lib/errores-db";
 import { esTexto, textoRecibido, esFormulario, motivoImagenDesmedida } from "@pinturapro/dominio";
@@ -186,6 +187,7 @@ export async function createObra(formData: FormData): Promise<{ error?: string }
   if (error) return { error: mensajeDeError(error) };
 
   revalidatePath("/dashboard");
+  olvidar(ETIQUETAS.obras);
   revalidatePath("/obras");
   redirect("/dashboard");
 }
@@ -268,6 +270,7 @@ export async function updateObra(formData: FormData): Promise<{ error?: string }
   }
 
   revalidatePath("/dashboard");
+  olvidar(ETIQUETAS.obras);
   revalidatePath("/obras");
   if (rows[0].slug) revalidatePath(`/obras/${rows[0].slug}`);
   redirect("/dashboard");
@@ -297,6 +300,7 @@ export async function deleteObra(id: string): Promise<{ error?: string }> {
   await deleteCoverIfOwn(cover, user.id);
 
   revalidatePath("/dashboard");
+  olvidar(ETIQUETAS.obras);
   revalidatePath("/obras");
   return {};
 }
@@ -379,6 +383,7 @@ export async function updateProfile(formData: FormData): Promise<{ error?: strin
   await supabase.from("profiles").update({ pros, cons } as never).eq("id", user.id);
 
   revalidatePath("/dashboard");
+  olvidar(ETIQUETAS.pintores);
   revalidatePath("/pintores");
   revalidatePath(`/pintor/${user.id}`);
   // `?guardado=perfil`: guardaba y redirigía en silencio. La persona terminaba en otra

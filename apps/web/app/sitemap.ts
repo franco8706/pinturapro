@@ -5,7 +5,9 @@ import { DATOS_DEMO } from "@/lib/empresa";
 
 // El sitemap se regenera cada hora: las obras y los pintores cambian, pero no tanto
 // como para reconsultar la base en cada visita de un crawler.
-export const revalidate = 3600;
+// Dinámico por lo mismo que las páginas públicas: sin esto, con datos reales, el sitemap
+// consultaría la base al compilar. Los datos salen de la caché pública (lib/cache-publico.ts).
+export const dynamic = "force-dynamic";
 
 /**
  * Sitemap con las rutas públicas fijas más las dinámicas (obras y perfiles de pintor).

@@ -5,6 +5,11 @@ import { MapaClient } from "./mapa-client";
 import type { Metadata } from "next";
 import { tarjeta } from "@/lib/tarjeta";
 
+// Se arma en cada visita, pero sus datos salen de la caché pública (lib/cache-publico.ts): la
+// base se consulta como mucho una vez por minuto. Dinámica a propósito, para que el despliegue
+// no necesite la base al compilar.
+export const dynamic = "force-dynamic";
+
 // Sin canónica ni tarjeta propias, /mapa heredaba las de la portada: Google lo veía como un
 // duplicado de "/" y WhatsApp lo mostraba con la tarjeta de la portada (`buscadores`, 28/9).
 export const metadata: Metadata = {

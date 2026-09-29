@@ -15,6 +15,11 @@ import { brands } from "@/lib/brands";
 import { getNews, getRecentReviews, getProjects, getNumerosReales } from "@/lib/queries";
 import { DATOS_EMPRESA, type DatoEmpresa } from "@/lib/empresa";
 
+// Se arma en cada visita, pero sus datos salen de la caché pública (lib/cache-publico.ts): la
+// base se consulta como mucho una vez por minuto. Dinámica a propósito, para que el despliegue
+// no necesite la base al compilar.
+export const dynamic = "force-dynamic";
+
 const services = [
   "Interior",
   "Exterior",

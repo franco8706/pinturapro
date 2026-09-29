@@ -1,6 +1,9 @@
 import { cache } from "react";
 import { unstable_rethrow } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+// Lo que ve cualquiera sin cuenta se lee sin cookies y con caché (ver lib/cache-publico.ts).
+import { createPublicClient } from "@/lib/supabase/publico";
+import { publico, ETIQUETAS } from "@/lib/cache-publico";
 import { mockPainters, mockProjects, type Painter, type Project } from "@/lib/data";
 
 
@@ -87,10 +90,10 @@ function colorFor(seed: string): string {
  *
  * Pintores verificados (profiles type=painter), ordenados por rating.
  */
-export async function getPainters(): Promise<Painter[]> {
+async function leer_getPainters(): Promise<Painter[]> {
   if (!SUPA) return mockPainters;
   try {
-    const supabase = await createClient();
+    const supabase = createPublicClient();
     // Las coordenadas ya no están en el grant de columna de `profiles` (0013): eran la casa
     // de cada cliente, legible por cualquiera con la anon key. Se piden aparte, por una
     // función que sólo devuelve pintores.
@@ -141,12 +144,13 @@ export async function getPainters(): Promise<Painter[]> {
     throw new ErrorDeLecturaDeDatos("pintores", String(e));
   }
 }
+export const getPainters = publico(leer_getPainters, "getPainters", [ETIQUETAS.pintores]);
 
 /** Obras del portfolio publicadas (projects type=portfolio, published=true). */
-export async function getProjects(): Promise<Project[]> {
+async function leer_getProjects(): Promise<Project[]> {
   if (!SUPA) return mockProjects;
   try {
-    const supabase = await createClient();
+    const supabase = createPublicClient();
     const { data, error } = await supabase
       .from("projects")
       .select("id, slug, title, description, cover_url, images, location, created_at, category, accent_color")
@@ -165,6 +169,7 @@ export async function getProjects(): Promise<Project[]> {
     throw new ErrorDeLecturaDeDatos("obras", String(e));
   }
 }
+export const getProjects = publico(leer_getProjects, "getProjects", [ETIQUETAS.obras]);
 
 interface ProjectRow {
   id: string;
@@ -206,10 +211,11 @@ function mapProject(p: ProjectRow): Project {
  * que sin esto cada visita a /obras/[slug] pegaba dos veces a la base para lo mismo. El
  * cache dura lo que dura el render de ese request, no filtra entre usuarios.
  */
-export const getProjectBySlug = cache(async (slug: string): Promise<Project | null> => {
+export const getProjectBySlug = cache(
+  publico(async (slug: string): Promise<Project | null> => {
   if (!SUPA) return mockProjects.find((p) => p.slug === slug) ?? null;
   try {
-    const supabase = await createClient();
+    const supabase = createPublicClient();
     const { data, error } = await supabase
       .from("projects")
       .select("id, slug, title, description, cover_url, images, location, created_at, category, accent_color")
@@ -230,7 +236,8 @@ export const getProjectBySlug = cache(async (slug: string): Promise<Project | nu
     dbError("getProjectBySlug", e);
     throw new ErrorDeLecturaDeDatos("la obra", String(e));
   }
-});
+  }, "getProjectBySlug", [ETIQUETAS.obras]),
+);
 
 export interface PainterDetail extends Painter {
   bio: string;
@@ -249,7 +256,8 @@ export interface ReviewView {
 /** `cache()` por lo mismo que getProjectBySlug: metadata + cuerpo pedían el mismo pintor. */
 const ES_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export const getPainterById = cache(async (id: string): Promise<PainterDetail | null> => {
+export const getPainterById = cache(
+  publico(async (id: string): Promise<PainterDetail | null> => {
   if (!SUPA) {
     const m = mockPainters.find((p) => p.id === id);
     return m ? { ...m, bio: "" } : null;
@@ -260,7 +268,7 @@ export const getPainterById = cache(async (id: string): Promise<PainterDetail | 
   // gastaba una consulta por cada URL inventada que alguien probara.
   if (!ES_UUID.test(id)) return null;
   try {
-    const supabase = await createClient();
+    const supabase = createPublicClient();
     const { data, error } = await supabase
       .from("profiles")
       .select("id, full_name, avatar_url, location, bio, verified, rating, rating_count, specialties")
@@ -301,7 +309,8 @@ export const getPainterById = cache(async (id: string): Promise<PainterDetail | 
     dbError("getPainterById", e);
     throw new ErrorDeLecturaDeDatos("el pintor", String(e));
   }
-});
+  }, "getPainterById", [ETIQUETAS.pintores]),
+);
 
 /**
  * Datos PROPIOS de un panel que no se pudieron LEER (permisos, red, base caída).
@@ -347,10 +356,10 @@ function errorDeLectura(fuente: string, e: unknown): never {
 }
 
 /** Obras publicadas de un dueño (portfolio del pintor/empresa). */
-export async function getProjectsByOwner(ownerId: string): Promise<Project[]> {
+async function leer_getProjectsByOwner(ownerId: string): Promise<Project[]> {
   if (!SUPA) return [];
   try {
-    const supabase = await createClient();
+    const supabase = createPublicClient();
     const { data, error } = await supabase
       .from("projects")
       .select("id, slug, title, description, cover_url, images, location, created_at, category, accent_color")
@@ -371,6 +380,7 @@ export async function getProjectsByOwner(ownerId: string): Promise<Project[]> {
     errorDeLectura("getProjectsByOwner", e);
   }
 }
+export const getProjectsByOwner = publico(leer_getProjectsByOwner, "getProjectsByOwner", [ETIQUETAS.obras]);
 
 export interface OwnProfile {
   id: string;
@@ -617,10 +627,10 @@ export async function getOwnedProjectBySlug(ownerId: string, slug: string): Prom
 }
 
 /** Reseñas dirigidas a un pintor, con el nombre del autor resuelto. */
-export async function getReviewsForPainter(painterId: string): Promise<ReviewView[]> {
+async function leer_getReviewsForPainter(painterId: string): Promise<ReviewView[]> {
   if (!SUPA) return [];
   try {
-    const supabase = await createClient();
+    const supabase = createPublicClient();
     const { data, error } = await supabase
       .from("reviews")
       .select("id, rating, comment, created_at, author_id")
@@ -663,6 +673,7 @@ export async function getReviewsForPainter(painterId: string): Promise<ReviewVie
     errorDeLectura("getReviewsForPainter", e);
   }
 }
+export const getReviewsForPainter = publico(leer_getReviewsForPainter, "getReviewsForPainter", [ETIQUETAS.resenas]);
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 function monthYear(iso: string): string {
@@ -932,10 +943,10 @@ export interface Faq {
 }
 
 /** Preguntas básicas antes de un presupuesto. Fail-safe si la tabla no existe aún. */
-export async function getFaqs(): Promise<Faq[]> {
+async function leer_getFaqs(): Promise<Faq[]> {
   if (!SUPA) return [];
   try {
-    const supabase = await createClient();
+    const supabase = createPublicClient();
     const { data, error } = await supabase
       .from("faqs")
       .select("id, question, answer")
@@ -952,6 +963,7 @@ export async function getFaqs(): Promise<Faq[]> {
     return [];
   }
 }
+export const getFaqs = publico(leer_getFaqs, "getFaqs", [ETIQUETAS.contenido]);
 
 export type ResourceKind = "guide" | "video" | "course" | "advice";
 export interface Resource {
@@ -967,10 +979,10 @@ export interface Resource {
 }
 
 /** Recursos (guías / videos / cursos / asesoramiento). Filtrable por tipo. */
-export async function getResources(kind?: ResourceKind): Promise<Resource[]> {
+async function leer_getResources(kind?: ResourceKind): Promise<Resource[]> {
   if (!SUPA) return [];
   try {
-    const supabase = await createClient();
+    const supabase = createPublicClient();
     let q = supabase
       .from("resources")
       .select("id, kind, title, summary, body, media_url, cover_url, level, duration, sort_order")
@@ -1007,6 +1019,7 @@ export async function getResources(kind?: ResourceKind): Promise<Resource[]> {
     return [];
   }
 }
+export const getResources = publico(leer_getResources, "getResources", [ETIQUETAS.contenido]);
 
 export interface NewsItem {
   id: string;
@@ -1018,10 +1031,10 @@ export interface NewsItem {
 }
 
 /** Noticias para el carrusel. */
-export async function getNews(): Promise<NewsItem[]> {
+async function leer_getNews(): Promise<NewsItem[]> {
   if (!SUPA) return [];
   try {
-    const supabase = await createClient();
+    const supabase = createPublicClient();
     const { data, error } = await supabase
       .from("news")
       .select("id, title, excerpt, cover_url, url, published_at")
@@ -1052,6 +1065,7 @@ export async function getNews(): Promise<NewsItem[]> {
     return [];
   }
 }
+export const getNews = publico(leer_getNews, "getNews", [ETIQUETAS.contenido]);
 
 export interface Testimonial {
   id: string;
@@ -1063,10 +1077,10 @@ export interface Testimonial {
 }
 
 /** Reseñas recientes con comentario, para el carrusel de testimonios de la home. */
-export async function getRecentReviews(limit = 8): Promise<Testimonial[]> {
+async function leer_getRecentReviews(limit = 8): Promise<Testimonial[]> {
   if (!SUPA) return [];
   try {
-    const supabase = await createClient();
+    const supabase = createPublicClient();
     const { data, error } = await supabase
       .from("reviews")
       .select("id, rating, comment, author_id, target_id, created_at")
@@ -1111,12 +1125,13 @@ export async function getRecentReviews(limit = 8): Promise<Testimonial[]> {
     return [];
   }
 }
+export const getRecentReviews = publico(leer_getRecentReviews, "getRecentReviews", [ETIQUETAS.resenas]);
 
 /** Puntos a favor / a considerar del pintor. Fail-safe si las columnas no existen aún. */
-export async function getPainterExtras(id: string): Promise<{ pros: string[]; cons: string[] }> {
+async function leer_getPainterExtras(id: string): Promise<{ pros: string[]; cons: string[] }> {
   if (!SUPA) return { pros: [], cons: [] };
   try {
-    const supabase = await createClient();
+    const supabase = createPublicClient();
     const { data, error } = await supabase.from("profiles").select("pros, cons").eq("id", id).maybeSingle();
     if (error || !data) {
       if (error) dbError("getPainterExtras", error);
@@ -1129,6 +1144,7 @@ export async function getPainterExtras(id: string): Promise<{ pros: string[]; co
     return { pros: [], cons: [] };
   }
 }
+export const getPainterExtras = publico(leer_getPainterExtras, "getPainterExtras", [ETIQUETAS.pintores]);
 
 export function formatARS(n: number | null): string {
   if (n == null) return "—";
@@ -1487,11 +1503,11 @@ export interface NumerosReales {
  * cuenta; lo que no (años de oficio, obras hechas fuera de la plataforma) vive en
  * `lib/empresa.ts` esperando el dato real del dueño, y hasta entonces no se muestra.
  */
-export async function getNumerosReales(): Promise<NumerosReales> {
+async function leer_getNumerosReales(): Promise<NumerosReales> {
   const vacio: NumerosReales = { obras: 0, trabajosCompletados: 0, promedio: null, resenias: 0 };
   if (!SUPA) return vacio;
   try {
-    const supabase = await createClient();
+    const supabase = createPublicClient();
     const [obras, trabajos, resenias] = await Promise.all([
       supabase.from("projects").select("id", { count: "exact", head: true }).eq("type", "portfolio").eq("published", true),
       supabase.from("jobs").select("id", { count: "exact", head: true }).eq("status", "completed"),
@@ -1514,3 +1530,4 @@ export async function getNumerosReales(): Promise<NumerosReales> {
     return vacio;
   }
 }
+export const getNumerosReales = publico(leer_getNumerosReales, "getNumerosReales", [ETIQUETAS.obras, ETIQUETAS.resenas, ETIQUETAS.trabajos]);

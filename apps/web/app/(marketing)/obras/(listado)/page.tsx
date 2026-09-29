@@ -8,6 +8,11 @@ import { getProjects } from "@/lib/queries";
 import type { Metadata } from "next";
 import { tarjeta } from "@/lib/tarjeta";
 
+// Se arma en cada visita, pero sus datos salen de la caché pública (lib/cache-publico.ts): la
+// base se consulta como mucho una vez por minuto. Dinámica a propósito, para que el despliegue
+// no necesite la base al compilar.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Obras",
   description: "Portfolio de obras de pintura profesional: residencial, comercial e industrial. Antes y después de cada trabajo.",

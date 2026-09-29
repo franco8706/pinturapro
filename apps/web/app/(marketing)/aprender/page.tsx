@@ -8,6 +8,11 @@ import { AprenderClient } from "./aprender-client";
 import type { Metadata } from "next";
 import { tarjeta } from "@/lib/tarjeta";
 
+// Se arma en cada visita, pero sus datos salen de la caché pública (lib/cache-publico.ts): la
+// base se consulta como mucho una vez por minuto. Dinámica a propósito, para que el despliegue
+// no necesite la base al compilar.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Aprender",
   description: "Guías, videos y cursos para pintores: cómo cotizar, técnicas de terminación y gestión de obra.",

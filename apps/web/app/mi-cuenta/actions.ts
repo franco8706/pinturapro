@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { olvidar, ETIQUETAS } from "@/lib/cache-publico";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mensajeDeError } from "@/lib/errores-db";
 import { esTexto } from "@pinturapro/dominio";
@@ -146,5 +147,8 @@ export async function eliminarMiCuenta(confirmacion: string): Promise<{ error?: 
   // para que no quede una pantalla a medias.
   await supabase.auth.signOut({ scope: "local" }).catch(() => {});
 
+  // Quien se da de baja desaparece de lo público al instante, no dentro de un minuto: su
+  // perfil, sus obras y el promedio que mostraban sus reseñas salen de la caché.
+  olvidar(ETIQUETAS.pintores, ETIQUETAS.obras, ETIQUETAS.resenas, ETIQUETAS.trabajos);
   return { ok: true };
 }
