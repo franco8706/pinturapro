@@ -44,7 +44,7 @@ export default function PintoresScreen() {
       ListHeaderComponent={
         <View style={{ marginBottom: space.sm }}>
           <Mono>Directorio</Mono>
-          <Text style={[type.displayLg, { color: colors.ink, marginTop: 4 }]}>Pintores verificados</Text>
+          <Text style={[type.displayLg, { color: colors.ink, marginTop: 4 }]}>Pintores independientes</Text>
         </View>
       }
       ListEmptyComponent={

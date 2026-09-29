@@ -21,7 +21,10 @@ const path = require("path");
 
 const RAIZ = path.resolve(__dirname, "../../..");
 
-/** Casos que los dos lados tienen que contestar igual. El primero es el bug histórico. */
+/**
+ * Casos que el parser de montos tiene que contestar así, en el paquete que ahora usan la web Y
+ * el móvil. El primero es el bug histórico. Antes se corrían contra la copia del móvil.
+ */
 const CASOS = [
   ["150.000,50", 150000],
   ["320.000", 320000],
@@ -51,7 +54,7 @@ const CASOS = [
 ];
 
 module.exports = {
-  nombre: "reglas compartidas · montos, topes y la copia del móvil al día",
+  nombre: "reglas compartidas · montos, comisión y el móvil sin copias propias",
 
   async correr(t) {
     // ── 1. El paquete se prueba solo ──
@@ -65,47 +68,58 @@ module.exports = {
       t.cierto(false, `las pruebas del paquete fallaron: ${String(e.stdout || e).slice(0, 300)}`);
     }
 
-    // ── 2. La copia del móvil contesta lo mismo ──
-    // Se extrae `toInt` del archivo del móvil y se ejecuta aislada, sin importar el módulo
-    // entero (que arrastra supabase y React Native, imposibles de cargar acá).
+    // ── 2. El móvil ya no tiene copia: importa el paquete ──
+    // Hasta el 29/9 esta prueba extraía el `toInt` de la copia del móvil y lo comparaba con el
+    // de la web, caso por caso: un parche, porque cada regla copiada necesitaba su propia
+    // comparación y alguien que se acordara de escribirla. El móvil tenía su copia porque "Metro
+    // no resolvía paquetes del monorepo"; con Expo 52 sí (verificado por `arquitectura-modular` y
+    // `app-movil`). Ahora lo que se vigila es que no vuelva a aparecer una copia.
+    const pkgMovil = JSON.parse(fs.readFileSync(path.join(RAIZ, "apps/mobile/package.json"), "utf8"));
+    const dep = (pkgMovil.dependencies || {})["@pinturapro/dominio"];
+    t.cierto(!!dep, "apps/mobile/package.json no declara @pinturapro/dominio: el móvil volvió a quedar sin las reglas compartidas");
+    t.cierto(
+      !dep || dep.startsWith("file:"),
+      `el móvil declara @pinturapro/dominio como ${JSON.stringify(dep)}; tiene que ser "file:..." — "workspace:*" rompe \`npm install\` (medido el 29/9)`,
+    );
     const ruta = path.join(RAIZ, "apps/mobile/lib/mutations.ts");
     const fuente = fs.readFileSync(ruta, "utf8");
-    const desde = fuente.indexOf("function toInt(");
-    if (desde < 0) {
-      t.cierto(false, "no encontré `toInt` en apps/mobile/lib/mutations.ts: ¿cambió de nombre?");
-      return;
+    t.cierto(/from "@pinturapro\/dominio"/.test(fuente), "apps/mobile/lib/mutations.ts no importa @pinturapro/dominio");
+    for (const [patron, que] of [
+      [/function toInt\(/, "el parser de montos"],
+      [/function mensajeDeError\(/, "el traductor de errores de la base"],
+      [/const TOPES\s*=/, "los topes de largo"],
+      [/function revisarLargos\(/, "la validación de largos"],
+      [/type === "client"/, "la regla de quién puede cotizar"],
+    ]) {
+      t.cierto(!patron.test(fuente), `el móvil volvió a tener su propia copia de ${que}: tiene que venir de @pinturapro/dominio`);
     }
-    const hasta = fuente.indexOf("\n}", desde) + 2;
-    const cuerpo = fuente
-      .slice(desde, hasta)
-      .replace(/:\s*string/g, "")
-      .replace(/:\s*number \| null/g, ""); // sacar los tipos para poder evaluarlo
-
-    let toIntMovil;
+    // Los casos históricos, contra el mismo archivo que importan las dos apps.
+    const montosTs = path.join(RAIZ, "packages/dominio/src/montos.ts");
+    let respuestas = null;
     try {
-      toIntMovil = new Function(`${cuerpo}; return toInt;`)();
+      const salida = execFileSync(
+        "node",
+        ["--input-type=module", "-e",
+          `import { montoDesdeTexto } from ${JSON.stringify(montosTs)};` +
+          `console.log(JSON.stringify(${JSON.stringify(CASOS.map((c) => c[0]))}.map(montoDesdeTexto)));`],
+        { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+      );
+      respuestas = JSON.parse(salida.trim().split("\n").pop());
     } catch (e) {
-      t.cierto(false, `no pude evaluar el toInt del móvil: ${String(e).slice(0, 200)}`);
-      return;
+      t.cierto(false, `no pude correr el parser del paquete: ${String(e.stderr || e).slice(0, 200)}`);
     }
-
-    for (const [entrada, esperado] of CASOS) {
-      t.igual(
-        toIntMovil(entrada),
-        esperado,
-        `el móvil convierte ${JSON.stringify(entrada)} distinto que la web (es la copia desincronizada)`,
+    if (respuestas) {
+      CASOS.forEach(([entrada, esperado], i) =>
+        t.igual(respuestas[i], esperado, `el parser convierte ${JSON.stringify(entrada)} mal (web y móvil usan este)`),
       );
     }
 
-    // El traductor de errores del móvil también tiene que cubrir los topes de largo (0017).
-    t.cierto(
-      /23514/.test(fuente),
-      "el traductor de errores del móvil no cubre el código 23514: escribir de más cae en el mensaje genérico",
-    );
-    t.cierto(
-      /revisarLargos/.test(fuente),
-      "el móvil no valida los largos antes de enviar: la persona escribe todo y se entera al final",
-    );
+    // El paquete se resuelve desde la carpeta del móvil (lo que va a hacer Metro).
+    try {
+      require.resolve("@pinturapro/dominio", { paths: [path.join(RAIZ, "apps/mobile")] });
+    } catch {
+      t.cierto(false, "@pinturapro/dominio no se resuelve desde apps/mobile: falta `pnpm install` o el enlace se rompió");
+    }
 
     // ── La comisión: una sola fórmula ──
     // La web tenía DOS: `comisionDe` (del paquete) para lo que ve el pintor y `commissionFor`
@@ -116,18 +130,15 @@ module.exports = {
       /from "@pinturapro\/dominio"/.test(utils) && !/Math\.round\(\s*amount/.test(utils),
       "apps/web/lib/utils.ts volvió a calcular la comisión por su cuenta en vez de tomarla de @pinturapro/dominio",
     );
-    // El móvil no puede importar el paquete todavía (ver BITÁCORA), así que al menos tiene que
-    // usar el MISMO porcentaje en cada lugar donde la calcula.
+    // Y el móvil tampoco la calcula por su cuenta: escribía `amount * 0.1` a mano en dos
+    // lugares, sin constante. Ahora usa `comisionDe`, como la web.
     const COMISION = 0.1; // espejo de packages/dominio/src/montos.ts; si cambia allá, cambia acá
     const movil = ["apps/mobile/lib/mutations.ts", "apps/mobile/app/cotizar/[id].tsx"]
       .map((r) => fs.readFileSync(path.join(RAIZ, r), "utf8"))
       .join("\n");
-    const tasas = [...movil.matchAll(/\*\s*(0\.\d+)\s*\)/g)].map((m) => Number(m[1]));
-    t.cierto(tasas.length > 0, "no encontré dónde calcula la comisión el móvil: ¿cambió la forma del código?");
-    t.cierto(
-      tasas.every((x) => x === COMISION),
-      `el móvil calcula la comisión con otro porcentaje: ${tasas.join(", ")} (debería ser ${COMISION})`,
-    );
+    const tasas = [...movil.matchAll(/\*\s*0\.\d+/g)].map((m) => m[0]);
+    t.cierto(tasas.length === 0, `el móvil volvió a calcular la comisión a mano (${tasas.join(", ")}) en vez de usar comisionDe`);
+    t.cierto(/comisionDe\(/.test(movil), "no encontré comisionDe en el móvil: ¿dónde calcula ahora la comisión?");
     const montos = fs.readFileSync(path.join(RAIZ, "packages/dominio/src/montos.ts"), "utf8");
     t.cierto(
       new RegExp(`COMISION\\s*=\\s*${COMISION}\\b`).test(montos),

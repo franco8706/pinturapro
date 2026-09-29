@@ -48,8 +48,8 @@ export function AdminClient({ leads, painters }: { leads: LeadView[]; painters: 
           {tab === "Consultas" && (
             leads.length === 0 ? (
               <p className="font-body text-body-md text-concrete py-12">
-                Todavía no llegó ninguna consulta. Acá van a aparecer los pedidos de presupuesto de
-                /cotizar, los mensajes de /contacto y las postulaciones de /registro.
+                Todavía no llegó ninguna consulta. Acá van a aparecer los mensajes de /contacto y las
+                postulaciones de /registro.
               </p>
             ) : (
               <Table headers={["Tipo", "Nombre", "Contacto", "Detalle", "Fecha"]}>

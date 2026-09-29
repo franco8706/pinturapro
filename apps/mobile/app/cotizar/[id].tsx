@@ -2,6 +2,7 @@ import { useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { cotizar, toInt } from "@/lib/mutations";
+import { comisionDe } from "@pinturapro/dominio";
 import { formatARS } from "@/lib/queries";
 import { useAuth } from "@/context/auth";
 import { Button, Field, Mono, Note } from "@/components/ui";
@@ -66,7 +67,7 @@ export default function CotizarScreen() {
           ) : (
             <Text accessibilityLiveRegion="polite" style={[type.bodySm, { color: colors.concrete }]}>
               Vas a cotizar {formatARS(toInt(amount) as number)}. La comisión del 10% son{" "}
-              {formatARS(Math.round((toInt(amount) as number) * 0.1))}.
+              {formatARS(comisionDe(toInt(amount) as number))}.
             </Text>
           )
         ) : null}

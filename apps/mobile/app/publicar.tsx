@@ -43,7 +43,7 @@ export default function PublicarScreen() {
           <Mono>Nuevo pedido</Mono>
           <Text style={[type.displayMd, { color: colors.ink, marginTop: 4 }]}>Publicá tu trabajo</Text>
           <Text style={[type.bodySm, { color: colors.concrete, marginTop: 4 }]}>
-            Contanos qué necesitás. Los pintores verificados te van a enviar cotizaciones.
+            Contanos qué necesitás. Los pintores van a ver tu pedido y te van a enviar cotizaciones.
           </Text>
         </View>
 

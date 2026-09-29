@@ -1,4 +1,13 @@
 import { supabase } from "./supabase";
+import {
+  montoDesdeTexto as toInt,
+  mensajeDeError,
+  comisionDe,
+  revisarLargos,
+  puedeCotizar,
+  MOTIVO_NO_PUEDE_COTIZAR,
+  type TipoDePerfil,
+} from "@pinturapro/dominio";
 
 /**
  * Mutaciones del marketplace, ejecutadas con la sesión del usuario (anon key).
@@ -8,59 +17,6 @@ import { supabase } from "./supabase";
  */
 
 type Result = { ok?: boolean; error?: string };
-
-/**
- * Traduce el error de la base a algo que una persona pueda entender.
- *
- * Espejo de `mensajeDeError` en la web (`app/(marketplace)/actions.ts`). Sin esto la app
- * mostraba el texto crudo de Postgres —"new row violates row-level security policy for
- * table \"jobs\"" o el nombre de un índice—: incomprensible, en inglés, y filtrando nombres
- * de tablas y constraints. Importa especialmente acá, donde los triggers de la migración
- * 0009 rechazan transiciones con mensajes pensados para el log, no para la pantalla.
- */
-function mensajeDeError(error: { message?: string; code?: string }): string {
-  const m = error?.message ?? "";
-  const code = error?.code ?? "";
-
-  if (code === "23505" || /duplicate key/i.test(m)) {
-    if (/uniq_jobs_quote_viva/.test(m)) return "Ya enviaste una cotización para este pedido.";
-    return "Ese registro ya existe.";
-  }
-  // 23514: los topes de largo de la migración 0017. Sin esta rama, escribir de más caía en
-  // el mensaje genérico y la persona no sabía qué corregir.
-  if (code === "23514" || /violates check constraint/i.test(m)) {
-    if (/title_largo/.test(m)) return "El título es demasiado largo (máximo 120 caracteres).";
-    if (/description_largo/.test(m)) return "La descripción es demasiado larga (máximo 2000 caracteres).";
-    if (/location_largo/.test(m)) return "La ubicación es demasiado larga (máximo 120 caracteres).";
-    if (/bio_largo/.test(m)) return "La descripción del perfil es demasiado larga (máximo 1200 caracteres).";
-    if (/note_largo/.test(m)) return "El mensaje de la cotización es demasiado largo (máximo 1200 caracteres).";
-    if (/comment_largo/.test(m)) return "El comentario es demasiado largo (máximo 1200 caracteres).";
-    return "Alguno de los datos es demasiado largo. Revisalo y probá de nuevo.";
-  }
-  // El trigger de 0015: alguien se quedó con el pedido mientras mirabas la pantalla.
-  if (/ya tiene un pintor asignado/i.test(m)) {
-    return "Este pedido ya tiene un pintor asignado.";
-  }
-  // 40P01: dos personas operando sobre el mismo pedido a la vez.
-  if (code === "40P01" || /deadlock detected/i.test(m)) {
-    return "Alguien más estaba operando sobre este pedido. Actualizá la pantalla y probá de nuevo.";
-  }
-  if (code === "42501" || /row-level security/i.test(m)) {
-    return "No podés hacer esa acción sobre este trabajo.";
-  }
-  if (/Transición no permitida/i.test(m)) {
-    return "Ese cambio de estado no está permitido para este trabajo.";
-  }
-  // Los `raise` de los triggers ya están escritos para el usuario final.
-  if (/monto|comisión/i.test(m) && /no puede|no corresponde|fuera de rango/i.test(m)) {
-    return m;
-  }
-  if (/fetch failed|network|Failed to fetch|ENOTFOUND/i.test(m)) {
-    return "No pudimos conectar. Revisá tu conexión y probá de nuevo.";
-  }
-  console.error("[mutations] error sin traducir:", m);
-  return "No pudimos completar la acción. Probá de nuevo.";
-}
 
 function slugify(s: string): string {
   return s
@@ -73,88 +29,16 @@ function slugify(s: string): string {
 }
 
 /**
- * Convierte lo que escribió una persona en un monto en pesos.
- *
- * Esta función era `parseInt(v.replace(/[^\d]/g, ""))`, la versión que la web ya había
- * corregido, y acá se quedó. Rompía de dos formas, las dos silenciosas:
- *
- *  · "150.000,50" → 15.000.050. Escribir el monto como se escribe en Argentina lo
- *    multiplicaba por cien, y ese número viajaba a una cotización que el cliente aceptaba.
- *  · "-99999" → 99999. El signo desaparecía y la cotización salía positiva: el pintor creía
- *    haber mandado una cosa y llegaba otra.
- *
- * La versión buena vive en `packages/dominio` (`montoDesdeTexto`), compartida con la web.
- * Todavía no se importa desde acá porque Metro, el empaquetador de Expo, necesita
- * configuración extra para resolver paquetes del monorepo y eso no se puede probar sin
- * levantar la app. Mientras tanto esta copia tiene que decir exactamente lo mismo, y hay una
- * prueba que lo verifica (`tools/auditoria/regresiones/reglas-compartidas.prueba.cjs`).
+ * Las reglas (el monto que escribe una persona, la comisión, los topes de largo, quién puede
+ * cotizar, cómo se traduce un error de la base) vienen de `@pinturapro/dominio`, el mismo
+ * paquete que usa la web. Antes el móvil tenía su copia de cada una, y ya se había
+ * desincronizado: el parser de montos convertía "150.000,50" en $15.000.050 meses después de
+ * que la web lo arreglara, y al traductor de errores le faltaban cuatro topes de largo. La
+ * copia existía porque "Metro no resuelve paquetes del monorepo"; con Expo 52 sí los resuelve
+ * (lo verificaron `arquitectura-modular` y `app-movil`, 29/9). `file:` y no `workspace:*`:
+ * `workspace:*` rompe `npm install`, que es como se instala el móvil (medido).
  */
-export function toInt(v: string): number | null {
-  const crudo = String(v ?? "").trim();
-  if (!crudo) return null;
-  if (/^-/.test(crudo)) return null; // negativo: se rechaza, no se "arregla" solo
-
-  // Ante la duda NO se adivina: un monto mal adivinado viaja a una cotización que el cliente
-  // acepta, y nadie lo ve. "1,500,000" (planilla en inglés) daba 1, y "1500.50" daba 150.050.
-  // La explicación completa, con la tabla de lo que salía mal, está en `montos.ts`.
-  if (/[^\d.,\s$]/.test(crudo)) return null;
-
-  const limpio = crudo.replace(/[\s$]/g, "");
-  if (!limpio) return null;
-
-  const comas = (limpio.match(/,/g) ?? []).length;
-  if (comas > 1) return null; // "1,500,000" es notación inglesa de miles
-  if (comas === 1 && limpio.indexOf(",") < limpio.lastIndexOf(".")) return null; // "150,000.50"
-
-  const [entero, decimales = ""] = limpio.split(",");
-  if (comas === 1 && !/^\d{1,2}$/.test(decimales)) return null; // "1,500"
-
-  const grupos = entero.split(".");
-  if (!/^\d+$/.test(grupos[0] ?? "")) return null;
-  // Un grupo que no es de tres dígitos significa que ese punto era un decimal inglés.
-  if (grupos.length > 1 && !grupos.slice(1).every((g) => /^\d{3}$/.test(g))) return null;
-
-  const n = parseInt(grupos.join(""), 10);
-  // Más de mil millones en un trabajo de pintura es un error de tipeo, y `amount` es int4.
-  if (!Number.isFinite(n) || n <= 0 || n > 1_000_000_000) return null;
-  return n;
-}
-
-/**
- * Topes de largo, espejo de los check constraints de la migración 0017.
- *
- * Sin esto, la persona escribía una nota de 2.000 caracteres, enviaba, y leía "No pudimos
- * completar la acción" sin enterarse de que el problema era el largo.
- */
-const TOPES = {
-  titulo: 120,
-  descripcion: 2000,
-  ubicacion: 120,
-  bio: 1200,
-  nombre: 120,
-  notaCotizacion: 1200,
-  comentarioResena: 1200,
-} as const;
-
-const NOMBRE_DEL_CAMPO: Record<keyof typeof TOPES, string> = {
-  titulo: "El título",
-  descripcion: "La descripción",
-  ubicacion: "La ubicación",
-  bio: "La descripción del perfil",
-  nombre: "El nombre",
-  notaCotizacion: "El mensaje de la cotización",
-  comentarioResena: "El comentario",
-};
-
-function revisarLargos(campos: Partial<Record<keyof typeof TOPES, string | null | undefined>>): string | null {
-  for (const campo of Object.keys(campos) as (keyof typeof TOPES)[]) {
-    const largo = (campos[campo] ?? "").length;
-    if (largo > TOPES[campo]) {
-      return `${NOMBRE_DEL_CAMPO[campo]} no puede superar los ${TOPES[campo]} caracteres.`;
-    }
-  }
-  return null;
-}
+export { toInt };
 
 /** El cliente publica un pedido de trabajo (projects type='service'). */
 export async function publicarTrabajo(input: {
@@ -231,8 +115,8 @@ export async function cotizar(input: {
   // pero a esta pantalla se puede llegar por un link directo (`pinturapro://cotizar/<id>`),
   // y ahí el único freno era la policy de la base, que contesta un permiso denegado genérico.
   const { data: perfil } = await supabase.from("profiles").select("type").eq("id", user.id).maybeSingle();
-  if ((perfil as { type?: string } | null)?.type === "client") {
-    return { error: "Las cotizaciones las envían los pintores. Tu cuenta es de cliente." };
+  if (!puedeCotizar((perfil as { type?: TipoDePerfil } | null)?.type)) {
+    return { error: MOTIVO_NO_PUEDE_COTIZAR };
   }
 
   const notaMal = revisarLargos({ notaCotizacion: input.note });
@@ -244,7 +128,7 @@ export async function cotizar(input: {
     painter_id: user.id,
     status: "quoted",
     amount,
-    commission_amount: Math.round(amount * 0.1),
+    commission_amount: comisionDe(amount),
     note: input.note.trim() || null,
   };
 

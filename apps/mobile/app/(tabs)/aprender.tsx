@@ -42,7 +42,16 @@ export default function AprenderScreen() {
     setRefreshing(false);
   }, [load]);
 
-  const open = (url: string) => url && Linking.openURL(url.startsWith("http") ? url : `https://pinturapro.app${url}`);
+  // Una dirección relativa ("/colores") se abre en el sitio. Antes se le pegaba
+  // `https://pinturapro.app`, que no es el dominio del sitio: las cuatro novedades de la base
+  // tienen dirección relativa, así que "Leer más" llevaba siempre a otro lado (contenido-
+  // confianza, 29/9). Misma variable que usa la pantalla de Cuenta; sin ella, no se abre nada.
+  const open = (url: string) => {
+    if (!url) return;
+    if (url.startsWith("http")) return Linking.openURL(url);
+    const sitio = process.env.EXPO_PUBLIC_SITE_URL;
+    if (sitio) return Linking.openURL(`${sitio}${url}`);
+  };
 
   return (
     <ScrollView

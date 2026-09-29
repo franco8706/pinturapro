@@ -134,7 +134,7 @@ export default function RegistroPage() {
     {
       id: "contacto",
       title: "¿Cómo te contactamos?",
-      subtitle: "Es por acá que te avisamos cuando activemos tu perfil.",
+      subtitle: "Por si necesitamos consultarte algo sobre tu postulación.",
       isValid: /\S+@\S+\.\S+/.test(email) && phone.trim().length >= 6,
       content: (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl">
@@ -173,7 +173,17 @@ export default function RegistroPage() {
               </div>
               <h1 className="font-display text-display-lg mb-4">¡Bienvenido, {name.split(" ")[0]}!</h1>
               <p className="font-body text-body-lg text-concrete max-w-md mx-auto">
-                Recibimos tu postulación. Vamos a revisar tus datos y te escribimos a <strong className="text-ink">{email}</strong> para activar tu perfil.
+                Recibimos tu postulación. Para aparecer en el directorio y cotizar no hace falta esperar a
+                que te escribamos: creá tu cuenta de pintor con{" "}
+                <strong className="text-ink">{email}</strong>.
+                {/* Decía "vamos a revisar tus datos para activar tu perfil": no existe ninguna
+                    revisión ni activación, y la cuenta de pintor aparece en /pintores apenas se
+                    crea (contenido-confianza, 29/9). */}
+              </p>
+              <p className="mt-6">
+                <a href="/crear-cuenta" className="font-body text-body-md text-ink underline underline-offset-4">
+                  Crear mi cuenta de pintor →
+                </a>
               </p>
             </div>
           ) : (
