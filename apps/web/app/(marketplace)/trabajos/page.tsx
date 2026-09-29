@@ -13,6 +13,10 @@ export const metadata: Metadata = {
   title: "Trabajos disponibles",
   description: "Pedidos de pintura publicados por clientes. Cotizá y sumá trabajo a tu agenda.",
   alternates: { canonical: "/trabajos" },
+  // Se ve sin cuenta (los pintores llegan de afuera), pero fuera de Google: son pedidos de
+  // personas, con su zona y su presupuesto. Decisión por defecto de la ronda de escala (29/9);
+  // si el dueño quiere el tablero indexado, se saca esta línea y se vuelve a sumar al sitemap.
+  robots: { index: false, follow: true },
   ...tarjeta({ titulo: "Trabajos disponibles", descripcion: "Pedidos de pintura publicados por clientes. Cotizá y sumá trabajo a tu agenda.", ruta: "/trabajos" }),
 };
 

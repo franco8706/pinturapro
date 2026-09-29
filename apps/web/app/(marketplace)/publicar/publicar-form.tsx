@@ -19,7 +19,11 @@ const BUDGETS: Record<string, [number | null, number | null]> = {
   "A definir": [null, null],
 };
 
-export function PublicarForm() {
+/**
+ * `avisaPorMail` viene del servidor (lib/email.ts es sólo de servidor): sin clave de Resend no
+ * sale ningún mail, y la confirmación decía igual "Te avisamos cuando llegue la primera".
+ */
+export function PublicarForm({ avisaPorMail }: { avisaPorMail: boolean }) {
   const [title, setTitle] = useState("");
   const [tipo, setTipo] = useState("");
   const [surface, setSurface] = useState("");
@@ -124,8 +128,12 @@ export function PublicarForm() {
               value={zone}
               onChange={(e) => setZone(e.target.value)}
               placeholder="Ej: Palermo, CABA"
+              aria-describedby="zona-publica"
               className="w-full bg-transparent border-b-2 border-concrete/30 py-2 font-body text-body-lg focus:outline-none focus:border-ink transition-colors"
             />
+            <span id="zona-publica" className="block mt-2 font-body text-body-sm text-concrete">
+              Poné el barrio, no la dirección: la zona se ve en el tablero de trabajos.
+            </span>
           </label>
         </div>
       ),
@@ -167,7 +175,10 @@ export function PublicarForm() {
               </div>
               <h1 className="font-display text-display-lg mb-4">Tu trabajo está publicado</h1>
               <p className="font-body text-body-lg text-concrete max-w-md mx-auto mb-8">
-                Los pintores de tu zona ya pueden verlo y enviarte cotizaciones. Te avisamos cuando llegue la primera.
+                Ya está en el tablero de trabajos: los pintores pueden verlo y enviarte cotizaciones.
+                {avisaPorMail
+                  ? " Te avisamos por mail cuando llegue la primera."
+                  : " Las vas a ver en tus cotizaciones apenas lleguen."}
               </p>
               <a href="/cotizaciones" className="font-body text-body-md text-ink underline underline-offset-4">
                 Ver mis cotizaciones →
@@ -176,7 +187,15 @@ export function PublicarForm() {
           ) : (
             <>
               <p className="font-mono text-mono-sm text-concrete uppercase tracking-widest mb-4">Publicar trabajo</p>
-              <h1 className="font-display text-display-xl mb-12">Recibí cotizaciones de pintores de tu zona.</h1>
+              <h1 className="font-display text-display-xl mb-6">Recibí cotizaciones de pintores independientes.</h1>
+              {/* Nada le decía al cliente que el pedido es público. El tablero no filtra por zona
+                  (decía "pintores de tu zona"), y el título y la zona los escribe la persona: ahí
+                  puede terminar una dirección. Encontrado en la ronda de escala, 29/9. */}
+              <p className="font-body text-body-md text-concrete max-w-xl mb-12">
+                Tu pedido —título, tipo, superficie, zona y presupuesto— se publica en el tablero de
+                trabajos, a la vista de cualquiera. Tu contacto no: se comparte recién cuando aceptás
+                una cotización, y tu nombre sólo lo ven los pintores con cuenta.
+              </p>
               <MultiStepForm steps={steps} onComplete={onComplete} submitLabel="Publicar trabajo" />
               {error && <p role="alert" className="mt-6 font-body text-body-sm text-[#C41E3A]">{error}</p>}
             </>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PublicarForm } from "./publicar-form";
+import { EMAIL_READY } from "@/lib/email";
 
 
 // Panel privado: título propio (antes usaba el genérico de la home) y fuera de
@@ -26,5 +27,5 @@ export default async function PublicarPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/ingresar?next=/publicar");
 
-  return <PublicarForm />;
+  return <PublicarForm avisaPorMail={EMAIL_READY} />;
 }

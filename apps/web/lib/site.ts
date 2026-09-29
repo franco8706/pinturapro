@@ -35,7 +35,6 @@ export const PUBLIC_ROUTES = [
   { path: "/aprender", priority: 0.7, changeFrequency: "weekly" },
   { path: "/novedades", priority: 0.6, changeFrequency: "weekly" },
   { path: "/asesoramiento", priority: 0.6, changeFrequency: "monthly" },
-  { path: "/trabajos", priority: 0.6, changeFrequency: "daily" },
   { path: "/nosotros", priority: 0.5, changeFrequency: "yearly" },
   { path: "/contacto", priority: 0.5, changeFrequency: "yearly" },
   // Prioridad baja pero indexables a propósito: Facebook y Google verifican que la URL de

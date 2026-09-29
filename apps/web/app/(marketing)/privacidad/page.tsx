@@ -107,6 +107,13 @@ export default function PrivacidadPage() {
               que enviás o recibís, los montos acordados y las reseñas que escribís.
             </p>
             <p>
+              <strong>Lo que es público:</strong> un pedido abierto se ve en el tablero de trabajos
+              —título, tipo, superficie, zona y presupuesto— sin necesidad de cuenta. Tu nombre sólo
+              lo ven los pintores con cuenta, y tu teléfono o email recién la persona con la que
+              cerrás el trabajo. El tablero no aparece en buscadores como Google. Las reseñas y el
+              perfil de un pintor sí son públicos.
+            </p>
+            <p>
               <strong>Si nos escribís por un formulario</strong> de contacto o de postulación
               como pintor: los datos que completes, incluido tu teléfono si lo dejás.
             </p>
