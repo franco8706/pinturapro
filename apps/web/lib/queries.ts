@@ -684,6 +684,8 @@ export interface JobView {
   status: string;
   statusLabel: string;
   amount: number | null;
+  /** La comisión que se guardó al cotizar (0018 exige que sea el 10 %). */
+  commission: number | null;
   client: string;
   project: string | null;
 }
@@ -705,7 +707,7 @@ export async function getJobsForPainter(painterId: string): Promise<JobView[]> {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("jobs")
-      .select("id, status, amount, client_id, project_id, created_at")
+      .select("id, status, amount, commission_amount, client_id, project_id, created_at")
       .eq("painter_id", painterId)
       .order("created_at", { ascending: false })
       .limit(50); // tope: los ids alimentan .in() derivados
@@ -717,6 +719,7 @@ export async function getJobsForPainter(painterId: string): Promise<JobView[]> {
       id: string;
       status: string;
       amount: number | null;
+      commission_amount: number | null;
       client_id: string;
       project_id: string | null;
     }[];
@@ -739,6 +742,7 @@ export async function getJobsForPainter(painterId: string): Promise<JobView[]> {
       status: r.status,
       statusLabel: JOB_STATUS_LABEL[r.status] ?? r.status,
       amount: r.amount,
+      commission: r.commission_amount,
       client: r.client_id ? names.get(r.client_id) ?? "Cliente" : BAJA,
       project: r.project_id ? titles.get(r.project_id) ?? null : null,
     }));

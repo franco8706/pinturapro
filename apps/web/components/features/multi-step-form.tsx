@@ -10,6 +10,19 @@ export interface FormStep {
   content: ReactNode;
   /** Validación opcional del paso antes de avanzar. */
   isValid?: boolean;
+  /**
+   * Qué falta, con el nombre que ve la persona ("el título", "la zona"). Si se da, manda sobre
+   * `isValid`: el paso vale cuando la lista está vacía, y el aviso dice QUÉ completar. Antes
+   * decía "completá los datos de este paso" aunque faltaran dos campos distintos, y quien usa
+   * lector de pantalla tenía que recorrer el paso entero para adivinar (accesibilidad, 29/9).
+   */
+  faltan?: string[];
+}
+
+/** "a", "a y b", "a, b y c". */
+function enLista(cosas: string[]): string {
+  if (cosas.length <= 1) return cosas.join("");
+  return `${cosas.slice(0, -1).join(", ")} y ${cosas[cosas.length - 1]}`;
 }
 
 interface MultiStepFormProps {
@@ -57,7 +70,7 @@ export function MultiStepForm({ steps, onComplete, submitLabel = "Enviar" }: Mul
   const [faltaCompletar, setFaltaCompletar] = useState(false);
   const isLast = current === steps.length - 1;
   const step = steps[current];
-  const canAdvance = step.isValid !== false;
+  const canAdvance = step.faltan ? step.faltan.length === 0 : step.isValid !== false;
 
   const next = async () => {
     if (submitting || enVuelo.current) return;
@@ -138,7 +151,9 @@ export function MultiStepForm({ steps, onComplete, submitLabel = "Enviar" }: Mul
 
       {faltaCompletar && (
         <p id="falta-completar" role="status" className="mt-8 font-body text-body-sm text-[#C41E3A]">
-          Para seguir, completá los datos de este paso.
+          {step.faltan?.length
+            ? `Para seguir, completá ${enLista(step.faltan)}.`
+            : "Para seguir, completá los datos de este paso."}
         </p>
       )}
 
@@ -148,7 +163,7 @@ export function MultiStepForm({ steps, onComplete, submitLabel = "Enviar" }: Mul
           type="button"
           onClick={back}
           disabled={current === 0}
-          className="font-body text-body-sm text-concrete hover:text-ink transition-colors disabled:opacity-0"
+          className="py-1.5 font-body text-body-sm text-concrete hover:text-ink transition-colors disabled:opacity-0"
         >
           ← Atrás
         </button>

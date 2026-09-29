@@ -92,7 +92,7 @@ export function MapaClient({ painters }: { painters: Painter[] }) {
               <div>
                 <p className="font-display text-body-lg">{p.name}</p>
                 <p className="font-body text-body-sm text-concrete">
-                  ★ {p.rating.toFixed(1)} · {p.zone}
+                  {p.reviews > 0 ? `★ ${p.rating.toFixed(1)}` : "Nuevo"} · {p.zone}
                 </p>
               </div>
               <LevelBadge level={p.level} />

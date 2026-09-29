@@ -107,7 +107,7 @@ export function PainterMap({ painters, activeId, onSelect }: PainterMapProps) {
                 transition:background .2s,color .2s,border-color .2s;
               ">
                 <span style="font-weight:500">${escapeHtml(p.name)}</span>
-                <span style="opacity:.65">★ ${p.rating.toFixed(1)}</span>
+                <span style="opacity:.65">${p.reviews > 0 ? `★ ${p.rating.toFixed(1)}` : "Nuevo"}</span>
               </div>
             </div>`,
         });

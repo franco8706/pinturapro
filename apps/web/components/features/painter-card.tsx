@@ -38,13 +38,20 @@ export function PainterCard({ painter, index = 0 }: { painter: Painter; index?: 
       <div className="p-5">
         <div className="flex items-center justify-between gap-3">
           <h3 className="font-display text-display-md leading-tight">{painter.name}</h3>
-          <div className="flex items-center gap-1 font-mono text-mono-sm text-ink">
-            <span aria-hidden>★</span>
-            {painter.rating.toFixed(1)}
-          </div>
+          {/* Sin reseñas decía "★ 0.0", que se lee como una nota pésima y no como "todavía nadie
+              lo calificó": un pintor recién llegado arrancaba con cara de malo (29/9). */}
+          {painter.reviews > 0 ? (
+            <div className="flex items-center gap-1 font-mono text-mono-sm text-ink">
+              <span aria-hidden>★</span>
+              {painter.rating.toFixed(1)}
+            </div>
+          ) : (
+            <span className="font-mono text-mono-sm text-concrete uppercase tracking-widest">Nuevo</span>
+          )}
         </div>
         <p className="font-body text-body-sm text-concrete mt-1">
-          {painter.zone} · {painter.reviews} reseñas
+          {painter.zone}
+          {painter.reviews > 0 ? ` · ${painter.reviews} reseñas` : " · Todavía sin reseñas"}
         </p>
         <div className="flex flex-wrap gap-2 mt-4">
           {painter.specialty.map((s) => (

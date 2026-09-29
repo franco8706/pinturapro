@@ -193,7 +193,16 @@ export default async function PainterDashboardPage({
                       <span className="font-mono text-mono-sm text-concrete uppercase tracking-widest">
                         {job.statusLabel}
                       </span>
-                      <span className="font-body text-body-md text-ink tabular-nums">{formatARS(job.amount)}</span>
+                      {/* El pintor veía el 10 % una sola vez, en el formulario, antes de cotizar;
+                          después, en ningún lado (dinero-y-comisiones y recorrido-web, 29/9). */}
+                      <span className="text-right">
+                        <span className="block font-body text-body-md text-ink tabular-nums">{formatARS(job.amount)}</span>
+                        {job.commission != null && job.amount != null && (
+                          <span className="block font-body text-body-sm text-concrete tabular-nums">
+                            Comisión 10 %: {formatARS(job.commission)}
+                          </span>
+                        )}
+                      </span>
                     </div>
                   </div>
                   {job.status === "accepted" && (

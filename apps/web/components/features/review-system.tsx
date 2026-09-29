@@ -39,6 +39,20 @@ export function ReviewSystem({ reviews, average, total }: ReviewSystemProps) {
     return { star, count, pct: reviews.length ? (count / reviews.length) * 100 : 0 };
   });
 
+  // Sin reseñas, el resumen mostraba "0.0" con cero estrellas y la lista quedaba en blanco:
+  // se leía como una calificación pésima. Lo encontró `recorrido-web` (visitante), 29/9.
+  if (total === 0 && reviews.length === 0) {
+    return (
+      <div className="max-w-xl">
+        <p className="font-display text-display-md">Todavía sin reseñas</p>
+        <p className="font-body text-body-md text-concrete mt-3">
+          Las reseñas las dejan los clientes que lo contrataron por Pintura Pro, cuando el trabajo
+          termina. Si es nuevo en la plataforma, mirá sus obras y pedile una cotización.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
       {/* Resumen */}
@@ -91,7 +105,7 @@ export function ReviewSystem({ reviews, average, total }: ReviewSystemProps) {
             </div>
             <p className="font-body text-body-md text-concrete leading-relaxed">{review.comment}</p>
             {review.project && (
-              <p className="font-mono text-mono-sm text-concrete/70 mt-2">Proyecto: {review.project}</p>
+              <p className="font-mono text-mono-sm text-concrete mt-2">Proyecto: {review.project}</p>
             )}
           </article>
         ))}

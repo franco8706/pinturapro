@@ -74,13 +74,13 @@ export default function IngresarPage() {
       </form>
 
       <p className="mt-6 font-body text-body-sm text-concrete">
-        <Link href="/recuperar" className="text-ink underline underline-offset-2">
+        <Link href="/recuperar" className="inline-block py-1 text-ink underline underline-offset-2">
           Olvidé mi contraseña
         </Link>
       </p>
       <p className="mt-2 font-body text-body-sm text-concrete">
         ¿No tenés cuenta?{" "}
-        <Link href="/crear-cuenta" className="text-ink underline underline-offset-2">
+        <Link href="/crear-cuenta" className="inline-block py-1 text-ink underline underline-offset-2">
           Creá una
         </Link>
       </p>

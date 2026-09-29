@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { MultiStepForm, type FormStep } from "@/components/features/multi-step-form";
@@ -21,6 +21,11 @@ export default function RegistroPage() {
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [website, setWebsite] = useState(""); // honeypot anti-bot
+  // Mismo problema que /publicar: al terminar, el foco quedaba en <body> (accesibilidad, 29/9).
+  const listoRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (done) listoRef.current?.focus();
+  }, [done]);
 
   // La postulación se PERSISTE en `leads`. Antes el formulario decía "te avisamos cuando
   // tu perfil esté activo" sin guardar nada — y sin siquiera pedir un dato de contacto.
@@ -58,7 +63,7 @@ export default function RegistroPage() {
       id: "datos",
       title: "Empecemos por vos",
       subtitle: "Tu nombre como aparecerá en tu perfil público.",
-      isValid: name.trim() !== "" && Number(years) > 0,
+      faltan: [name.trim() === "" && "tu nombre", !(Number(years) > 0) && "los años de experiencia"].filter((x): x is string => !!x),
       content: (
         <div className="space-y-8 max-w-md">
           <label className="block">
@@ -89,7 +94,7 @@ export default function RegistroPage() {
     {
       id: "zona",
       title: "¿En qué zona trabajás?",
-      isValid: zone !== "",
+      faltan: zone === "" ? ["tu zona"] : [],
       content: (
         <div className="flex flex-wrap gap-3">
           {zones.map((z) => (
@@ -112,7 +117,7 @@ export default function RegistroPage() {
       id: "especialidades",
       title: "¿Cuáles son tus especialidades?",
       subtitle: "Elegí hasta 4. Aparecerán en tu perfil.",
-      isValid: specs.length > 0,
+      faltan: specs.length === 0 ? ["al menos una especialidad"] : [],
       content: (
         <div className="flex flex-wrap gap-3">
           {specialties.map((s) => (
@@ -135,7 +140,7 @@ export default function RegistroPage() {
       id: "contacto",
       title: "¿Cómo te contactamos?",
       subtitle: "Por si necesitamos consultarte algo sobre tu postulación.",
-      isValid: /\S+@\S+\.\S+/.test(email) && phone.trim().length >= 6,
+      faltan: [!/\S+@\S+\.\S+/.test(email) && "un email válido", phone.trim().length < 6 && "tu teléfono"].filter((x): x is string => !!x),
       content: (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl">
           <label className="block">
@@ -171,7 +176,9 @@ export default function RegistroPage() {
               <div className="w-16 h-16 rounded-full bg-ink text-bone mx-auto mb-8 flex items-center justify-center text-display-md">
                 ✓
               </div>
-              <h1 className="font-display text-display-lg mb-4">¡Bienvenido, {name.split(" ")[0]}!</h1>
+              <h1 ref={listoRef} tabIndex={-1} className="font-display text-display-lg mb-4 outline-none">
+                ¡Bienvenido, {name.split(" ")[0]}!
+              </h1>
               <p className="font-body text-body-lg text-concrete max-w-md mx-auto">
                 Recibimos tu postulación. Para aparecer en el directorio y cotizar no hace falta esperar a
                 que te escribamos: creá tu cuenta de pintor con{" "}

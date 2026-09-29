@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useBorrador } from "@/hooks/use-borrador";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
@@ -31,6 +31,12 @@ export function PublicarForm({ avisaPorMail }: { avisaPorMail: boolean }) {
   const [budget, setBudget] = useState("");
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
+  // Al publicar, el formulario desaparece y con él el elemento que tenía el foco: quedaba en
+  // <body> y un lector de pantalla no se enteraba de que había funcionado (accesibilidad, 29/9).
+  const listoRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (done) listoRef.current?.focus();
+  }, [done]);
 
   // Recargar a mitad del formulario borraba todo sin avisar (medido). Ver use-borrador.ts.
   const borrador = useMemo(() => ({ title, tipo, surface, zone, budget }), [title, tipo, surface, zone, budget]);
@@ -74,7 +80,7 @@ export function PublicarForm({ avisaPorMail }: { avisaPorMail: boolean }) {
       id: "detalle",
       title: "¿Qué trabajo necesitás?",
       subtitle: "Un título claro atrae mejores cotizaciones.",
-      isValid: title.trim() !== "" && tipo !== "",
+      faltan: [title.trim() === "" && "el título", tipo === "" && "el tipo de trabajo"].filter((x): x is string => !!x),
       content: (
         <div className="space-y-8 max-w-xl">
           <label className="block">
@@ -107,7 +113,7 @@ export function PublicarForm({ avisaPorMail }: { avisaPorMail: boolean }) {
     {
       id: "medidas",
       title: "Superficie y ubicación",
-      isValid: Number(surface) > 0 && zone.trim() !== "",
+      faltan: [!(Number(surface) > 0) && "la superficie", zone.trim() === "" && "la zona"].filter((x): x is string => !!x),
       content: (
         <div className="space-y-8 max-w-md">
           <label className="block">
@@ -173,7 +179,9 @@ export function PublicarForm({ avisaPorMail }: { avisaPorMail: boolean }) {
               <div className="w-16 h-16 rounded-full bg-ink text-bone mx-auto mb-8 flex items-center justify-center text-display-md">
                 ✓
               </div>
-              <h1 className="font-display text-display-lg mb-4">Tu trabajo está publicado</h1>
+              <h1 ref={listoRef} tabIndex={-1} className="font-display text-display-lg mb-4 outline-none">
+                Tu trabajo está publicado
+              </h1>
               <p className="font-body text-body-lg text-concrete max-w-md mx-auto mb-8">
                 Ya está en el tablero de trabajos: los pintores pueden verlo y enviarte cotizaciones.
                 {avisaPorMail

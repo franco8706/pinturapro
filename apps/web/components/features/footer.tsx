@@ -78,10 +78,10 @@ export function Footer() {
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-mono-sm text-bone/60">
             <p>© {year} Pintura Pro · Buenos Aires, Argentina</p>
             <span aria-hidden className="text-bone/20">·</span>
-            <Link href="/privacidad" className="hover:text-bone transition-colors duration-300">
+            <Link href="/privacidad" className="inline-block py-1 hover:text-bone transition-colors duration-300">
               Privacidad
             </Link>
-            <Link href="/terminos" className="hover:text-bone transition-colors duration-300">
+            <Link href="/terminos" className="inline-block py-1 hover:text-bone transition-colors duration-300">
               Términos
             </Link>
           </div>

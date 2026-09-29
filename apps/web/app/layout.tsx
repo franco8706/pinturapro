@@ -1,29 +1,36 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, SITE_TAGLINE } from "@/lib/site";
 import { LenisProvider } from "@/components/providers/lenis-provider";
 import { ScrollProgress } from "@/components/features/scroll-progress";
 import { IMAGEN_TARJETA } from "@/lib/tarjeta";
 
-const inter = Inter({
-  subsets: ["latin"],
+// Las tipografías viven en el repo (app/fonts/, ver LEEME.md). Con `next/font/google` cada
+// compilación las bajaba de Google, y el 28/9 una falló ahí sin que cambiara una línea de
+// código: en Cloud Build es una versión que no sale. Mismos archivos, mismas variables CSS.
+const inter = localFont({
+  src: "./fonts/inter-latin.woff2",
   variable: "--font-inter",
   display: "swap",
+  weight: "100 900",
 });
 
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
+const spaceGrotesk = localFont({
+  src: "./fonts/space-grotesk-latin.woff2",
   variable: "--font-space-grotesk",
   display: "swap",
-  weight: ["400", "500", "700"],
+  weight: "300 700",
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
+const jetbrainsMono = localFont({
+  src: "./fonts/jetbrains-mono-latin.woff2",
   variable: "--font-jetbrains-mono",
   display: "swap",
-  weight: ["400", "500"],
+  weight: "100 800",
+  // Se usa sólo en etiquetas chicas: que no compita con Inter y Space Grotesk por la red al
+  // cargar la página.
+  preload: false,
 });
 
 export const metadata: Metadata = {

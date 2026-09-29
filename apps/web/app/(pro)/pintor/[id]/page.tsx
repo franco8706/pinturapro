@@ -103,7 +103,7 @@ export default async function PainterProfilePage({ params }: { params: Promise<{
                   className="object-cover"
                 />
               ) : (
-                <span className="font-display text-display-xl text-concrete/50">{initials(painter.name)}</span>
+                <span className="font-display text-display-xl text-ink/70">{initials(painter.name)}</span>
               )}
             </div>
           </div>
@@ -118,10 +118,18 @@ export default async function PainterProfilePage({ params }: { params: Promise<{
             </div>
             <h1 className="font-display text-display-xl mb-3">{painter.name}</h1>
             <div className="flex items-center gap-4 mb-6">
-              <span className="font-mono text-body-lg text-ink">★ {painter.rating.toFixed(1)}</span>
-              <span className="font-body text-body-sm text-concrete">
-                {painter.reviews} reseñas · {painter.zone}
-              </span>
+              {painter.reviews > 0 ? (
+                <>
+                  <span className="font-mono text-body-lg text-ink">★ {painter.rating.toFixed(1)}</span>
+                  <span className="font-body text-body-sm text-concrete">
+                    {painter.reviews} reseñas · {painter.zone}
+                  </span>
+                </>
+              ) : (
+                <span className="font-body text-body-sm text-concrete">
+                  Todavía sin reseñas{painter.zone ? ` · ${painter.zone}` : ""}
+                </span>
+              )}
             </div>
             {painter.bio && <p className="font-body text-body-lg text-concrete mb-8 max-w-xl">{painter.bio}</p>}
             {painter.specialty.length > 0 && (
