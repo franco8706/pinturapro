@@ -4,15 +4,17 @@ import { MagneticButton } from "@/components/features/magnetic-button";
 import { Reveal, SectionLabel } from "@/components/features/states";
 
 import type { Metadata } from "next";
+import { tarjeta } from "@/lib/tarjeta";
 
 export const metadata: Metadata = {
   title: "Nosotros",
   description: "Pintura Pro conecta a quien tiene algo para pintar con pintores independientes. Cómo funciona y qué no hacemos.",
   alternates: { canonical: "/nosotros" },
-  openGraph: {
-    title: "Nosotros",
-    description: "Pintura Pro conecta a quien tiene algo para pintar con pintores independientes. Cómo funciona y qué no hacemos.",
-  },
+  ...tarjeta({
+    titulo: "Nosotros",
+    descripcion: "Pintura Pro conecta a quien tiene algo para pintar con pintores independientes. Cómo funciona y qué no hacemos.",
+    ruta: "/nosotros",
+  }),
 };
 
 /**

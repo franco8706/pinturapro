@@ -4,12 +4,13 @@ import { Footer } from "@/components/features/footer";
 import { SectionLabel } from "@/components/features/states";
 
 import type { Metadata } from "next";
+import { tarjeta } from "@/lib/tarjeta";
 
 export const metadata: Metadata = {
   title: "Política de privacidad",
   description: "Qué datos recolecta Pintura Pro, para qué los usa, con quién los comparte y cómo ejercer tus derechos.",
   alternates: { canonical: "/privacidad" },
-  openGraph: { title: "Política de privacidad", description: "Qué datos recolecta Pintura Pro, para qué los usa y con quién los comparte." },
+  ...tarjeta({ titulo: "Política de privacidad", descripcion: "Qué datos recolecta Pintura Pro, para qué los usa y con quién los comparte.", ruta: "/privacidad" }),
 };
 
 /**

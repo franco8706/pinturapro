@@ -5,6 +5,7 @@ import { getPainters } from "@/lib/queries";
 import { PintoresClient } from "./pintores-client";
 
 import type { Metadata } from "next";
+import { tarjeta } from "@/lib/tarjeta";
 
 // El copy decía "pintores verificados" y prometía "verificación de oficio y antecedentes".
 // Ese proceso no existe: `profiles.verified` no lo escribe ninguna parte del código, sólo se
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
   title: "Directorio de pintores",
   description: "Pintores profesionales por zona y especialidad, con reseñas de clientes que los contrataron por la plataforma.",
   alternates: { canonical: "/pintores" },
-  openGraph: { title: "Directorio de pintores", description: "Pintores profesionales por zona y especialidad, con reseñas de clientes que los contrataron por la plataforma." },
+  ...tarjeta({ titulo: "Directorio de pintores", descripcion: "Pintores profesionales por zona y especialidad, con reseñas de clientes que los contrataron por la plataforma.", ruta: "/pintores" }),
 };
 
 export default async function PintoresPage() {

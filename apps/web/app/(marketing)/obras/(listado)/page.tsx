@@ -6,12 +6,13 @@ import { MagneticButton } from "@/components/features/magnetic-button";
 import { getProjects } from "@/lib/queries";
 
 import type { Metadata } from "next";
+import { tarjeta } from "@/lib/tarjeta";
 
 export const metadata: Metadata = {
   title: "Obras",
   description: "Portfolio de obras de pintura profesional: residencial, comercial e industrial. Antes y después de cada trabajo.",
   alternates: { canonical: "/obras" },
-  openGraph: { title: "Obras", description: "Portfolio de obras de pintura profesional: residencial, comercial e industrial. Antes y después de cada trabajo." },
+  ...tarjeta({ titulo: "Obras", descripcion: "Portfolio de obras de pintura profesional: residencial, comercial e industrial. Antes y después de cada trabajo.", ruta: "/obras" }),
 };
 
 /**

@@ -6,12 +6,13 @@ import { getResources } from "@/lib/queries";
 import { AprenderClient } from "./aprender-client";
 
 import type { Metadata } from "next";
+import { tarjeta } from "@/lib/tarjeta";
 
 export const metadata: Metadata = {
   title: "Aprender",
   description: "Guías, videos y cursos para pintores: cómo cotizar, técnicas de terminación y gestión de obra.",
   alternates: { canonical: "/aprender" },
-  openGraph: { title: "Aprender", description: "Guías, videos y cursos para pintores: cómo cotizar, técnicas de terminación y gestión de obra." },
+  ...tarjeta({ titulo: "Aprender", descripcion: "Guías, videos y cursos para pintores: cómo cotizar, técnicas de terminación y gestión de obra.", ruta: "/aprender" }),
 };
 
 export default async function AprenderPage() {

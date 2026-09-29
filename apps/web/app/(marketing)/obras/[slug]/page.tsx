@@ -7,6 +7,8 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 
 import type { Metadata } from "next";
+import { tarjeta } from "@/lib/tarjeta";
+import { DATOS_DEMO } from "@/lib/empresa";
 
 /**
  * Cada obra necesita su propio título y descripción: sin esto todas comparten la metadata
@@ -23,20 +25,23 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
   const desc =
     project.description?.slice(0, 155) ||
-    `${project.category} en ${project.location || "Buenos Aires"}. Obra de pintura profesional de Pintura Pro.`;
+    `${project.category} en ${project.location || "Buenos Aires"}. Obra publicada por un pintor independiente en Pintura Pro.`;
   const cover = project.images.find((i) => i.startsWith("http"));
 
   return {
     title: project.title,
     description: desc,
     alternates: { canonical: `/obras/${project.slug}` },
-    openGraph: {
-      type: "article",
-      title: project.title,
-      description: desc,
-      url: `/obras/${project.slug}`,
-      ...(cover ? { images: [{ url: cover, alt: project.title }] } : {}),
-    },
+    // Mientras el sitio muestre obras inventadas, no se indexan: el sitemap ya las saca, pero
+    // Google las encuentra igual por los enlaces de /obras (medido por `buscadores`, 28/9).
+    ...(DATOS_DEMO ? { robots: { index: false, follow: true } } : {}),
+    ...tarjeta({
+      titulo: project.title,
+      descripcion: desc,
+      ruta: `/obras/${project.slug}`,
+      tipo: "article",
+      imagen: cover ? { url: cover, alt: project.title } : undefined,
+    }),
   };
 }
 

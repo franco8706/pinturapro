@@ -7,12 +7,13 @@ import { getOpenServiceRequests, getOwnProfile, getPedidosYaCotizados, formatARS
 import { QuoteForm } from "./quote-form";
 
 import type { Metadata } from "next";
+import { tarjeta } from "@/lib/tarjeta";
 
 export const metadata: Metadata = {
   title: "Trabajos disponibles",
   description: "Pedidos de pintura publicados por clientes. Cotizá y sumá trabajo a tu agenda.",
   alternates: { canonical: "/trabajos" },
-  openGraph: { title: "Trabajos disponibles", description: "Pedidos de pintura publicados por clientes. Cotizá y sumá trabajo a tu agenda." },
+  ...tarjeta({ titulo: "Trabajos disponibles", descripcion: "Pedidos de pintura publicados por clientes. Cotizá y sumá trabajo a tu agenda.", ruta: "/trabajos" }),
 };
 
 function budgetLabel(min: number | null, max: number | null): string {

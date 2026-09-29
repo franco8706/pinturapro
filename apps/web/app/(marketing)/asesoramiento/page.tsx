@@ -5,12 +5,13 @@ import { getResources } from "@/lib/queries";
 import { AdvisorClient } from "./advisor-client";
 
 import type { Metadata } from "next";
+import { tarjeta } from "@/lib/tarjeta";
 
 export const metadata: Metadata = {
   title: "Asesoramiento",
   description: "Qué pintura usar según el ambiente, cuánta necesitás y cómo tratar humedad y grietas.",
   alternates: { canonical: "/asesoramiento" },
-  openGraph: { title: "Asesoramiento", description: "Qué pintura usar según el ambiente, cuánta necesitás y cómo tratar humedad y grietas." },
+  ...tarjeta({ titulo: "Asesoramiento", descripcion: "Qué pintura usar según el ambiente, cuánta necesitás y cómo tratar humedad y grietas.", ruta: "/asesoramiento" }),
 };
 
 export default async function AsesoramientoPage() {

@@ -4,12 +4,13 @@ import { Footer } from "@/components/features/footer";
 import { SectionLabel } from "@/components/features/states";
 
 import type { Metadata } from "next";
+import { tarjeta } from "@/lib/tarjeta";
 
 export const metadata: Metadata = {
   title: "Términos y condiciones",
   description: "Las reglas de uso de Pintura Pro: qué hace la plataforma, qué no, y qué se espera de cada parte.",
   alternates: { canonical: "/terminos" },
-  openGraph: { title: "Términos y condiciones", description: "Las reglas de uso de Pintura Pro." },
+  ...tarjeta({ titulo: "Términos y condiciones", descripcion: "Las reglas de uso de Pintura Pro.", ruta: "/terminos" }),
 };
 
 /**

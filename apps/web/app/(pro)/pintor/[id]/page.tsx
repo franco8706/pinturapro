@@ -11,6 +11,8 @@ import { unstable_rethrow } from "next/navigation";
 import { getPainterById, getProjectsByOwner, getReviewsForPainter, getPainterExtras } from "@/lib/queries";
 
 import type { Metadata } from "next";
+import { tarjeta } from "@/lib/tarjeta";
+import { DATOS_DEMO } from "@/lib/empresa";
 
 /** Título y descripción propios por pintor; sin esto todos los perfiles se ven iguales en Google. */
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -31,13 +33,15 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     title: `${painter.name} — Pintor ${painter.level}`,
     description: desc,
     alternates: { canonical: `/pintor/${painter.id}` },
-    openGraph: {
-      type: "profile",
-      title: `${painter.name} — Pintor profesional`,
-      description: desc,
-      url: `/pintor/${painter.id}`,
-      ...(foto ? { images: [{ url: foto, alt: painter.name }] } : {}),
-    },
+    // Perfiles inventados: fuera de Google hasta que haya pintores reales (ver /obras/[slug]).
+    ...(DATOS_DEMO ? { robots: { index: false, follow: true } } : {}),
+    ...tarjeta({
+      titulo: `${painter.name} — Pintor profesional`,
+      descripcion: desc,
+      ruta: `/pintor/${painter.id}`,
+      tipo: "profile",
+      imagen: foto ? { url: foto, alt: painter.name } : undefined,
+    }),
   };
 }
 
@@ -100,9 +104,11 @@ export default async function PainterProfilePage({ params }: { params: Promise<{
           <div className="lg:col-span-6 flex flex-col justify-center">
             <div className="mb-4 flex items-center gap-3">
               <LevelBadge level={painter.level} />
-              {painter.level === "Master" && (
-                <span className="font-mono text-mono-sm text-concrete uppercase tracking-widest">Verificado</span>
-              )}
+              {/* Acá decía "Verificado" a todo nivel Master, y no hay ningún proceso de
+                  verificación: `profiles.verified` sólo se escribe a mano por SQL, sin criterio
+                  registrado. Un cliente puede entender que se comprobó identidad o antecedentes
+                  (Ley 24.240, art. 8: lo publicitado obliga). Lo encontró `riesgo-legal` el 28/9.
+                  Vuelve el día que exista una verificación real, con su texto de qué se verificó. */}
             </div>
             <h1 className="font-display text-display-xl mb-3">{painter.name}</h1>
             <div className="flex items-center gap-4 mb-6">

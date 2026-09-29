@@ -2,10 +2,20 @@ import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { getPainters } from "@/lib/queries";
 import { MapaClient } from "./mapa-client";
+import type { Metadata } from "next";
+import { tarjeta } from "@/lib/tarjeta";
 
-export const metadata = {
+// Sin canónica ni tarjeta propias, /mapa heredaba las de la portada: Google lo veía como un
+// duplicado de "/" y WhatsApp lo mostraba con la tarjeta de la portada (`buscadores`, 28/9).
+export const metadata: Metadata = {
   title: "Mapa de pintores",
-  description: "Encontrá pintores por zona en CABA y el conurbano.",
+  description: "Encontrá pintores independientes por zona en CABA y el conurbano, con sus reseñas.",
+  alternates: { canonical: "/mapa" },
+  ...tarjeta({
+    titulo: "Mapa de pintores",
+    descripcion: "Encontrá pintores independientes por zona en CABA y el conurbano, con sus reseñas.",
+    ruta: "/mapa",
+  }),
 };
 
 export default async function MapaPage() {

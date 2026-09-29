@@ -4,6 +4,7 @@ import "./globals.css";
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, SITE_TAGLINE } from "@/lib/site";
 import { LenisProvider } from "@/components/providers/lenis-provider";
 import { ScrollProgress } from "@/components/features/scroll-progress";
+import { IMAGEN_TARJETA } from "@/lib/tarjeta";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -38,9 +39,9 @@ export const metadata: Metadata = {
   applicationName: SITE_NAME,
   authors: [{ name: SITE_NAME }],
   keywords: [
-    "pintura profesional",
     "pintores",
-    "pintura de obra",
+    "pintores independientes",
+    "cotizaciones de pintura",
     "presupuesto de pintura",
     "simulador de color",
     "Buenos Aires",
@@ -53,11 +54,13 @@ export const metadata: Metadata = {
     siteName: SITE_NAME,
     title: `${SITE_NAME} | ${SITE_TAGLINE}`,
     description: SITE_DESCRIPTION,
+    images: [IMAGEN_TARJETA],
   },
+  // Sin título ni descripción A PROPÓSITO: Next los completa con los del openGraph de cada
+  // página. Fijados acá, todas las páginas se compartían en X con el título de la portada.
   twitter: {
     card: "summary_large_image",
-    title: `${SITE_NAME} | ${SITE_TAGLINE}`,
-    description: SITE_DESCRIPTION,
+    images: [IMAGEN_TARJETA],
   },
   robots: {
     index: true,
