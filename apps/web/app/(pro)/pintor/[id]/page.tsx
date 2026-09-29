@@ -8,7 +8,7 @@ import { MagneticButton } from "@/components/features/magnetic-button";
 import { ReviewSystem } from "@/components/features/review-system";
 import { SectionLabel } from "@/components/features/states";
 import { unstable_rethrow } from "next/navigation";
-import { getPainterById, getProjectsByOwner, getReviewsForPainter, getPainterExtras } from "@/lib/queries";
+import { getPainterById, getProjectsByOwner, getReviewsForPainter, getPainterExtras, conNombresDeAutores } from "@/lib/queries";
 
 import type { Metadata } from "next";
 import { tarjeta } from "@/lib/tarjeta";
@@ -80,7 +80,8 @@ export default async function PainterProfilePage({ params }: { params: Promise<{
     getPainterExtras(id),
   ]);
   const portfolio = portfolioRes.datos;
-  const reviews = reviewsRes.datos;
+  // El nombre del autor, sólo para quien tiene sesión (ver conNombresDeAutores).
+  const reviews = await conNombresDeAutores(reviewsRes.datos);
   const hasPhoto = painter.image?.startsWith("http");
 
   return (

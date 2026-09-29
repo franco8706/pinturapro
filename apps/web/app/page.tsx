@@ -12,7 +12,7 @@ import { Marquee } from "@/components/features/marquee";
 import { CountUp } from "@/components/features/count-up";
 import { HeroSpotlight } from "@/components/features/hero-spotlight";
 import { brands } from "@/lib/brands";
-import { getNews, getRecentReviews, getProjects, getNumerosReales } from "@/lib/queries";
+import { getNews, getRecentReviews, getProjects, getNumerosReales, conNombresDeAutores } from "@/lib/queries";
 import { DATOS_EMPRESA, type DatoEmpresa } from "@/lib/empresa";
 
 // Se arma en cada visita, pero sus datos salen de la caché pública (lib/cache-publico.ts): la
@@ -76,7 +76,7 @@ export default async function HomePage() {
   // Se muestra el resto y la sección de obras queda vacía.
   const [news, testimonials, obras, numeros] = await Promise.all([
     getNews(),
-    getRecentReviews(),
+    getRecentReviews().then(conNombresDeAutores),
     getProjects().catch((e) => {
       // Primero dejar pasar las señales internas de Next. Al compilar, Next intenta armar la
       // portada como página estática; `cookies()` lanza una excepción A PROPÓSITO para avisar

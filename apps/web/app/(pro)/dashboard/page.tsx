@@ -16,6 +16,7 @@ import {
   getOwnProfile,
   getProjectsByOwner,
   getReviewsForPainter,
+  conNombresDeAutores,
   getJobsForPainter,
   getContactoDelTrabajo,
   getMiTelefono,
@@ -56,7 +57,7 @@ export default async function PainterDashboardPage({
 
   const [projects, reviews, jobs, miTelefono] = await Promise.all([
     getProjectsByOwner(user.id),
-    getReviewsForPainter(user.id),
+    getReviewsForPainter(user.id).then(conNombresDeAutores),
     getJobsForPainter(user.id),
     getMiTelefono(),
   ]);

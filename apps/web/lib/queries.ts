@@ -246,6 +246,8 @@ export interface PainterDetail extends Painter {
 export interface ReviewView {
   id: string;
   author: string;
+  /** Sólo para completar el nombre con los permisos de quien mira (`conNombresDeAutores`). */
+  autorId?: string | null;
   rating: number;
   date: string;
   comment: string;
@@ -651,17 +653,13 @@ async function leer_getReviewsForPainter(painterId: string): Promise<ReviewView[
     // `author_id` puede venir en NULL: quien escribió la reseña dio de baja su cuenta y la
     // reseña quedó, sin nombre (migración 0019). Se filtran para no pedirle a la base un id
     // que no existe.
-    const authorIds = [...new Set(rows.map((r) => r.author_id).filter(Boolean))] as string[];
-    const names = new Map<string, string>();
-    if (authorIds.length) {
-      const { data: authors } = await supabase.from("profiles").select("id, full_name").in("id", authorIds);
-      for (const a of (authors ?? []) as unknown as { id: string; full_name: string | null }[]) {
-        names.set(a.id, a.full_name ?? "Cliente");
-      }
-    }
+    // El nombre del autor NO se busca acá: esta lectura se guarda en caché como visitante
+    // anónimo, que no puede leer perfiles de clientes (0013). Lo completa
+    // `conNombresDeAutores` con los permisos de quien mira.
     return rows.map((r) => ({
       id: r.id,
-      author: r.author_id ? names.get(r.author_id) ?? "Cliente" : BAJA,
+      author: r.author_id ? "Cliente" : BAJA,
+      autorId: r.author_id,
       rating: r.rating,
       date: monthYear(r.created_at),
       comment: r.comment ?? "",
@@ -1070,6 +1068,8 @@ export const getNews = publico(leer_getNews, "getNews", [ETIQUETAS.contenido]);
 export interface Testimonial {
   id: string;
   author: string;
+  /** Sólo para completar el nombre con los permisos de quien mira (`conNombresDeAutores`). */
+  autorId?: string | null;
   rating: number;
   comment: string;
   painter: string;
@@ -1103,7 +1103,8 @@ async function leer_getRecentReviews(limit = 8): Promise<Testimonial[]> {
     // quien la escribió. Se filtra para no mandarle NULL a la consulta, y más abajo esos
     // casos se muestran como cuenta dada de baja en vez de "Cliente", que haría pensar que
     // hay alguien ahí.
-    const ids = [...new Set([...rows.map((r) => r.author_id), ...rows.map((r) => r.target_id)].filter(Boolean))] as string[];
+    // Sólo los pintores: son públicos. El autor lo completa `conNombresDeAutores` (ver arriba).
+    const ids = [...new Set(rows.map((r) => r.target_id).filter(Boolean))] as string[];
     const names = new Map<string, string>();
     if (ids.length) {
       const { data: ps } = await supabase.from("profiles").select("id, full_name").in("id", ids);
@@ -1114,7 +1115,8 @@ async function leer_getRecentReviews(limit = 8): Promise<Testimonial[]> {
       .filter((r) => (r.comment ?? "").trim().length > 0)
       .map((r) => ({
         id: r.id,
-        author: r.author_id ? names.get(r.author_id) || "Cliente" : BAJA,
+        author: r.author_id ? "Cliente" : BAJA,
+        autorId: r.author_id,
         rating: r.rating,
         comment: (r.comment ?? "").trim(),
         painter: names.get(r.target_id) || "un pintor",
@@ -1126,6 +1128,39 @@ async function leer_getRecentReviews(limit = 8): Promise<Testimonial[]> {
   }
 }
 export const getRecentReviews = publico(leer_getRecentReviews, "getRecentReviews", [ETIQUETAS.resenas]);
+
+/**
+ * Completa el nombre del autor de cada reseña con los permisos de QUIEN MIRA, y saca el id del
+ * autor antes de que nada llegue al navegador.
+ *
+ * Las reseñas salen de la caché pública, que lee como visitante anónimo, y un anónimo no
+ * puede leer el perfil de un cliente (0013): para él, el autor es "Cliente". Pero quien tiene
+ * cuenta sí ve el nombre —lo prometen /privacidad y el formulario de reseña—. La caché lo
+ * había roto para todos (lo encontró `recorrido-web` cliente, 29/9): una reseña recién escrita
+ * aparecía como "Cliente" hasta para su autora. Sin sesión no se consulta nada.
+ */
+export async function conNombresDeAutores<T extends { author: string; autorId?: string | null }>(
+  items: T[],
+): Promise<Omit<T, "autorId">[]> {
+  const sinId = ({ autorId: _autorId, ...resto }: T) => resto;
+  const ids = [...new Set(items.map((i) => i.autorId).filter(Boolean))] as string[];
+  if (!SUPA || !ids.length) return items.map(sinId);
+  try {
+    const supabase = await createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return items.map(sinId);
+    const { data } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+    const nombres = new Map<string, string>();
+    for (const p of (data ?? []) as unknown as { id: string; full_name: string | null }[])
+      if (p.full_name) nombres.set(p.id, p.full_name);
+    return items.map((i) => sinId({ ...i, author: (i.autorId && nombres.get(i.autorId)) || i.author }));
+  } catch (e) {
+    unstable_rethrow(e);
+    return items.map(sinId);
+  }
+}
 
 /** Puntos a favor / a considerar del pintor. Fail-safe si las columnas no existen aún. */
 async function leer_getPainterExtras(id: string): Promise<{ pros: string[]; cons: string[] }> {
