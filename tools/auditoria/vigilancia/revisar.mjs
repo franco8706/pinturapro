@@ -207,6 +207,34 @@ async function recursos() {
   }
 }
 
+// ── 3 quinquies. Cómo se ve el sitio al compartirlo, y qué no va a Google ──
+// Dos cosas que se arreglaron el 29/9 y se rompen sin que nadie lo note, porque ninguna se ve
+// navegando el sitio:
+//  · La imagen de la vista previa (WhatsApp, Facebook). Next REEMPLAZA entero el `openGraph`
+//    del layout cuando una página define el suyo: bastaba con que una página nueva lo
+//    definiera a mano para que se compartiera sin imagen. Y si /og.png deja de responder,
+//    TODAS las tarjetas quedan vacías.
+//  · El tablero de pedidos se ve sin cuenta pero no se indexa: son pedidos de personas, con
+//    su zona y su presupuesto. Si pierde el `noindex`, van a Google.
+async function compartir() {
+  const img = await pedir("/og.png");
+  const tipo = (img.headers && img.headers.get("content-type")) || "";
+  if (!img.ok || img.status !== 200 || !/image\/png/.test(tipo)) {
+    falla("la imagen para compartir (/og.png) no responde", `HTTP ${img.status} ${tipo}`);
+  }
+  for (const ruta of ["/", "/pintores"]) {
+    const r = await pedir(ruta);
+    if (!r.ok || r.status !== 200) continue; // ya lo reporta `paginas()`
+    if (!/<meta property="og:image" content="[^"]+"/.test(r.texto)) {
+      falla(`${ruta} se comparte sin imagen`, "falta og:image: ver lib/tarjeta.ts");
+    }
+  }
+  const t = await pedir("/trabajos");
+  if (t.ok && t.status === 200 && !/<meta name="robots" content="[^"]*noindex/.test(t.texto)) {
+    falla("/trabajos perdió el noindex", "los pedidos de la gente quedan a la vista de Google");
+  }
+}
+
 // ── 4. Lo privado sigue siendo privado ──
 const PRIVADAS = ["/dashboard", "/cliente", "/admin", "/panel", "/cotizaciones", "/mi-cuenta"];
 
@@ -293,6 +321,7 @@ await legales();
 await derechos();
 await redirecciones();
 await recursos();
+await compartir();
 await privadas();
 await cabeceras();
 await sitemap();
