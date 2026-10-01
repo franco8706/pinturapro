@@ -128,11 +128,11 @@ porque es lo primero que hay que hacer en cualquier cuenta de nube.
 
 ---
 
-## Si un día migran el sitio a Cloud Run
+## Cuando cambia la dirección del sitio
 
-Cuando la web deje de estar en Vercel y pase a Google Cloud, esto no cambia: el vigilante
-apunta a una dirección, no a una plataforma. Lo único que hay que actualizar es
-`PINTURAPRO_URL` en el trabajo:
+La web va a Cloud Run (decisión del dueño; guía en `docs/despliegue-google-cloud.md`). El
+vigilante apunta a una dirección, no a una plataforma: al publicar con el dominio definitivo,
+lo único que hay que actualizar es `PINTURAPRO_URL` en el trabajo:
 
 ```bash
 gcloud run jobs update vigilancia --region southamerica-east1 \

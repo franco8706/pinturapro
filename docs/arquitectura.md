@@ -1,13 +1,16 @@
 # Cómo está partido el proyecto (y cómo seguir partiéndolo)
 
-Decisión del dueño, septiembre 2026: **el proyecto no tiene que ser un bloque único**. Hoy casi
-todo vive dentro de `apps/web`, y eso tiene dos costos concretos, no teóricos:
+Decisión del dueño, septiembre 2026: **el proyecto no tiene que ser un bloque único**. Cuando
+casi todo vivía dentro de `apps/web`, eso tenía dos costos concretos, no teóricos:
 
-- **La app móvil no puede reusar nada.** `apps/mobile` ya tiene su propia copia de las consultas y
-  de las escrituras. Cada regla de negocio que cambia hay que acordarse de cambiarla dos veces, y
-  ya pasó que quedaran desincronizadas (los triggers de la migración 0009).
-- **Nada se puede probar por separado.** Para medir el motor de color hay que levantar Next entero
-  y un navegador.
+- **La app móvil no podía reusar nada.** `apps/mobile` tenía su propia copia de cada regla. Cada
+  cambio había que acordarse de hacerlo dos veces, y ya pasó que quedaran desincronizadas (los
+  triggers de la migración 0009, el parser de montos que multiplicaba por cien).
+- **Nada se podía probar por separado.** Para medir el motor de color había que levantar Next
+  entero y un navegador.
+
+Estado al 29/9/2026: las **reglas** ya viven en un solo lugar y las usan las dos apps. Las
+**consultas** a la base siguen duplicadas: es lo que sigue.
 
 ## Qué hay hoy
 
@@ -17,6 +20,9 @@ apps/
   mobile/              Expo / React Native
 packages/
   color/               ✅ motor del simulador: varita mágica + color en OKLab
+  dominio/             ✅ reglas del negocio: montos y comisión, topes de largo, mensajes de
+                          error, quién puede cotizar, guardas de lo que llega por la red, tamaño
+                          de imágenes. Lo importan la web (`workspace:*`) y el móvil (`file:`).
   ui/                  (existe pero nadie lo usa todavía)
 tools/
   auditoria/           kit de navegador y reglas para los agentes
@@ -37,13 +43,20 @@ sintéticas y una máscara de referencia (ver `tools/auditoria/`).
 
 ## Lo que sigue, en orden de lo que más duele
 
-1. **`packages/dominio`** — las reglas del negocio que hoy están repartidas entre las acciones de
-   la web y las de móvil: qué estados puede tener un trabajo y qué transición es válida, cómo se
-   calcula la comisión, qué puede hacer cada rol, y los textos de error traducidos
-   (`lib/errores-db.ts`). Es lo que más se desincroniza entre las dos apps.
+1. ~~**`packages/dominio`**~~ — **hecho.** La web lo usa desde el 22/9 y el móvil desde el 29/9
+   (borró 138 líneas de copias). El móvil lo declara con `"file:../../packages/dominio"` y no
+   con `workspace:*`, que rompe `npm install` (medido). Metro lo resuelve solo desde Expo 52, sin
+   `metro.config.js`. Falta probarlo en un celular: desde el Codespace la app no se puede
+   correr. Lo vigila la prueba `reglas-compartidas`.
 2. **`packages/datos`** — las lecturas de Supabase (`lib/queries.ts`) y las escrituras, con los
-   tipos generados del esquema. Hoy están duplicadas en web y móvil.
-3. **`packages/ui`** — los tokens de diseño (colores, tipografías, escalas). No los componentes:
+   tipos generados del esquema. Hoy están duplicadas en web y móvil. Antes de moverlas conviene
+   partir `apps/web/lib/queries.ts` (más de 1.500 líneas) por tema: `pintores`, `obras`,
+   `pedidos`, `resenas`, `contenido`, `metricas-admin` y una `base` con lo común. El corte, con
+   la lista de funciones de cada archivo, está en
+   `tools/auditoria/rondas/2026-09-28-escala/arquitectura-modular.md`.
+3. **Pruebas propias de `packages/color`**: hoy su única medición abre un navegador
+   (`simulador-calidad`). Separado en el código, no en la verificación.
+4. **`packages/ui`** — los tokens de diseño (colores, tipografías, escalas). No los componentes:
    la web usa Tailwind y el móvil StyleSheet, así que lo que se comparte son los valores, no el
    markup.
 

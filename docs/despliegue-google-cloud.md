@@ -81,6 +81,10 @@ API) antes de cargarla acá.
 
 ## 4. Construir y subir la imagen
 
+La compilación no baja nada de internet salvo las dependencias de npm: las tipografías viven en
+el repo (`apps/web/app/fonts/`) desde el 29/9. Antes se bajaban de Google en cada build, y una
+compilación llegó a fallar ahí sin que cambiara una línea de código.
+
 Desde la raíz del repositorio (no desde `apps/web`):
 
 ```bash
@@ -110,6 +114,7 @@ gcloud run deploy pinturapro-web \
   --allow-unauthenticated --port=8080 \
   --memory=1Gi --cpu=1 --concurrency=40 \
   --min-instances=0 --max-instances=4 \
+  --session-affinity \
   --set-secrets=SUPABASE_SERVICE_ROLE_KEY=supabase-service-role:latest,RESEND_API_KEY=resend-api-key:latest,REPLICATE_API_TOKEN=replicate-api-token:latest \
   --set-env-vars=REPLICATE_VERSION=fe97b453a6455861e3bac769b441ca1f1086110da7466dbb65cf1eecfd60dc83,REPLICATE_POINTS_PER_SIDE=16,RESEND_FROM="Pintura Pro <hola@el-dominio>",LEADS_NOTIFY_EMAIL=tu-casilla@el-dominio
 ```
@@ -129,6 +134,14 @@ Por qué cada número:
   instancia —el simulador con IA (12 por hora por persona) y el anti-spam de los formularios
   (5 por hora)—, así que con N instancias el tope es N veces eso. Sin este límite, Cloud Run
   levanta las que quiera y el simulador con IA se paga por uso.
+- **`--session-affinity`**: las páginas públicas (portada, pintores, obras, perfiles) leen sus
+  datos de una caché de 60 segundos que vive EN CADA INSTANCIA (`lib/cache-publico.ts`). Cuando
+  un pintor guarda su perfil, la instancia que lo atendió limpia su caché al instante — las
+  otras no se enteran y pueden mostrar lo viejo hasta un minuto. Con afinidad, Cloud Run manda a
+  la misma persona a la misma instancia mientras exista, así que quien hizo el cambio lo ve
+  enseguida; el resto lo ve, como mucho, un minuto después. Si algún día hace falta que sea
+  instantáneo para todos, el camino es un `cacheHandler` compartido (Redis/Memorystore), que
+  cuesta plata todo el mes: no vale la pena antes de tener tráfico.
 - **`--min-instances=0`**: no se paga nada mientras nadie entra. La primera visita después de
   un rato tarda unos segundos más en arrancar. Si eso molesta, `1` la deja siempre encendida
   (se paga las 24 h).
@@ -171,6 +184,13 @@ Volver atrás es desplegar la imagen anterior: `gcloud run services update-traff
 pinturapro-web --region=$REGION --to-revisions=LA-REVISION-ANTERIOR=100`.
 
 ## Cuánto cuesta, más o menos
+
+Estimado por el agente `nube-google` (29/9, precios de lista de us-east1, sin verificar en la
+consola): a **1.000 visitas por día**, centavos; a **10.000**, alrededor de un dólar por mes; a
+**100.000**, unos US$ 50 por mes de cómputo si cada visita consultara la base, y menos de US$ 1
+con la caché de las páginas públicas (que ya está). A ese volumen pesa más la salida de datos
+(~US$ 115 por mes sin un CDN delante) que el cómputo. Detalle y supuestos en
+`tools/auditoria/rondas/2026-09-28-escala/nube-google.md`.
 
 Con poco tráfico, casi todo entra en el nivel gratuito de Cloud Run (se cobra sólo mientras
 atiende pedidos). Lo que puede crecer: el simulador con IA (Replicate, por uso — poné un tope
