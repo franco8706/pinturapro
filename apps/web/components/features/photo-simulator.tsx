@@ -17,6 +17,15 @@ type Status = "empty" | "ready" | "segmenting" | "error";
 
 interface PhotoSimulatorProps {
   color: string | null;
+  /**
+   * Intensidad del color (0,4 a 1), si la maneja la página.
+   *
+   * El control vivía acá adentro, ANTES de la grilla de colores en el orden del teclado, y se
+   * usa DESPUÉS de elegir uno: volver costaba de 7 a 14 Shift+Tab (medido por `accesibilidad`
+   * y `simulador-color`). La página lo dibuja ahora junto al color elegido y le pasa el valor.
+   * Sin esta prop, el componente sigue trayendo su propio control.
+   */
+  strength?: number;
 }
 
 const MAX_DIM = 1024;
@@ -66,7 +75,7 @@ function tanhRapido(x: number): number {
  *
  * El pincel manual queda como herramienta de ajuste / fallback si no hay backend.
  */
-export function PhotoSimulator({ color }: PhotoSimulatorProps) {
+export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimulatorProps) {
   const viewRef = useRef<HTMLCanvasElement>(null);
   const baseImageData = useRef<ImageData | null>(null);
   const compositeRef = useRef<ImageData | null>(null);
@@ -103,6 +112,14 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
    * después de pedirlo: si en el medio cambió la generación, ya no corresponde aplicarlo.
    */
   const generacionRef = useRef(0);
+  /**
+   * La selección tal como estaba antes de la última acción, para "Deshacer".
+   *
+   * No había forma de volver un paso atrás: sólo "Limpiar selección", que borra todo. Un clic
+   * de más —la varita agarró el techo— obligaba a empezar de nuevo. Un solo nivel alcanza.
+   */
+  const deshacerRef = useRef<Uint8Array | null>(null);
+  const [puedeDeshacer, setPuedeDeshacer] = useState(false);
   /** Los clics se atienden de a uno, en orden: el segundo suma sobre lo que dejó el primero. */
   const colaClicsRef = useRef<Promise<unknown>>(Promise.resolve());
   /** Arrastrando la sensibilidad: un pedido en vuelo y, como mucho, el último valor esperando. */
@@ -114,7 +131,8 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
   const [errorMsg, setErrorMsg] = useState("");
   const [brush, setBrush] = useState<"off" | "add" | "erase">("off");
   const [brushSize, setBrushSize] = useState(36);
-  const [strength, setStrength] = useState(0.9); // intensidad del color (0..1)
+  const [strengthPropia, setStrength] = useState(0.9); // intensidad del color (0..1)
+  const strength = strengthDeAfuera ?? strengthPropia;
   const [hasSelection, setHasSelection] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [tolerance, setTolerance] = useState(26); // sensibilidad de la varita (0..100)
@@ -225,6 +243,8 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
       // Preproceso de la varita: YCbCr + gradiente + percentiles (~25 ms). Se hace acá, una
       // sola vez, para que después cada clic sea instantáneo.
       generacionRef.current++;
+      deshacerRef.current = null;
+      setPuedeDeshacer(false);
       wandRef.current = null;
       if (workerRef.current) {
         // Se manda una COPIA de los píxeles (la original se sigue usando acá para pintar) y se
@@ -648,6 +668,31 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
    * la mira: un clic y un Enter tienen que hacer exactamente lo mismo, y la única forma de
    * garantizarlo es que sea el mismo código.
    */
+  const recordarParaDeshacer = (antes: Uint8Array | null) => {
+    deshacerRef.current = antes ? new Uint8Array(antes) : null;
+    setPuedeDeshacer(!!antes);
+  };
+
+  /** Vuelve la selección a como estaba antes del último clic, pincelada o "Limpiar". */
+  const deshacer = () => {
+    const antes = deshacerRef.current;
+    const mask = maskRef.current;
+    if (!antes || !mask || antes.length !== mask.length) return;
+    mask.set(antes);
+    deshacerRef.current = null;
+    setPuedeDeshacer(false);
+    // Ya no hay un "último clic" que recalcular con la sensibilidad, y lo que esté en vuelo
+    // no corresponde a esta selección.
+    lastClickRef.current = null;
+    maskBeforeClickRef.current = null;
+    generacionRef.current++;
+    recomputeMaskDerived(true);
+    repaint();
+    setHasSelection(mask.some((v) => v === 1));
+    setErrorMsg("");
+    setAviso("Se deshizo el último cambio.");
+  };
+
   const aplicarEn = (nx: number, ny: number): Promise<void> => {
     // En cola: la varita contesta un instante después, y un segundo clic que llegue antes
     // tiene que sumar sobre lo que dejó el primero, no pisarlo.
@@ -675,6 +720,7 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
         if (!ok) return;
       }
       if (await pickAt(nx, ny)) {
+        recordarParaDeshacer(maskBeforeClickRef.current);
         setHasSelection(true);
         setAviso("Superficie seleccionada. Elegí un color de la lista para aplicarlo.");
       } else setErrorMsg("No detectamos una superficie ahí. Probá el modo Varita o el 🖌 Pincel.");
@@ -684,6 +730,7 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
     lastClickRef.current = { x: nx, y: ny };
     const resultado = await applyWand(nx, ny, tolerance);
     if (resultado === "ok") {
+      recordarParaDeshacer(maskBeforeClickRef.current);
       setHasSelection(true);
       setAviso("Superficie seleccionada. Elegí un color de la lista para aplicarlo.");
     } else if (resultado === "chica")
@@ -810,6 +857,7 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
       setMira(actual);
       setErrorMsg("");
       if (brush !== "off") {
+        recordarParaDeshacer(maskRef.current);
         pintarEn(actual.x, actual.y);
         setAviso(brush === "add" ? "Sumaste pintura en la mira." : "Borraste pintura en la mira.");
       } else {
@@ -856,6 +904,7 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
   }, [recomputeMaskDerived, repaint]);
 
   const clearSelection = () => {
+    recordarParaDeshacer(maskRef.current);
     if (maskRef.current) maskRef.current.fill(0);
     lastClickRef.current = null;
     maskBeforeClickRef.current = null;
@@ -878,6 +927,8 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
     pendingAnalyzeRef.current = false;
     wandRef.current = null;
     generacionRef.current++;
+    deshacerRef.current = null;
+    setPuedeDeshacer(false);
     workerRef.current?.postMessage({ tipo: "soltar" } satisfies PedidoVarita);
     lastClickRef.current = null;
     maskBeforeClickRef.current = null;
@@ -942,6 +993,7 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
                 )}
                 onPointerDown={(e) => {
                   if (brush === "off") return;
+                  recordarParaDeshacer(maskRef.current);
                   drawing.current = true;
                   (e.target as HTMLElement).setPointerCapture(e.pointerId);
                   paintAt(e.clientX, e.clientY);
@@ -1071,7 +1123,7 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
               </button>
             </div>
 
-            {hasSelection && (
+            {hasSelection && strengthDeAfuera === undefined && (
               <label className="flex items-center gap-2 font-mono text-mono-sm text-concrete">
                 Intensidad
                 <input
@@ -1084,8 +1136,13 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
               </label>
             )}
 
+            {puedeDeshacer && (
+              <button onClick={deshacer} disabled={segmenting} className="py-1 font-body text-body-sm text-concrete hover:text-ink transition-colors disabled:opacity-40">
+                Deshacer
+              </button>
+            )}
             {hasSelection && (
-              <button onClick={clearSelection} disabled={segmenting} className="font-body text-body-sm text-concrete hover:text-ink transition-colors disabled:opacity-40">
+              <button onClick={clearSelection} disabled={segmenting} className="py-1 font-body text-body-sm text-concrete hover:text-ink transition-colors disabled:opacity-40">
                 Limpiar selección
               </button>
             )}

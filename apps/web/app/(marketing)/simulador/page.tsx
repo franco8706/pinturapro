@@ -16,6 +16,9 @@ export default function SimuladorPage() {
   const [brandId, setBrandId] = useState(brands[0].id);
   const [color, setColor] = useState<string | null>(null);
   const [colorName, setColorName] = useState<string>("");
+  // Intensidad del color sobre la foto (0,4 a 1). Vive acá para dibujar su control junto al
+  // color elegido; el simulador la recibe como prop.
+  const [intensidad, setIntensidad] = useState(0.9);
 
   const brand = useMemo(() => brands.find((b) => b.id === brandId)!, [brandId]);
   const colors = useMemo(() => colorsByUsage(brand, target), [brand, target]);
@@ -61,7 +64,7 @@ export default function SimuladorPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
             {/* Lienzo */}
             <div className="lg:col-span-8">
-              <PhotoSimulator color={color} />
+              <PhotoSimulator color={color} strength={intensidad} />
             </div>
 
             {/* Selector de marca + colores */}
@@ -121,6 +124,20 @@ export default function SimuladorPage() {
                       </p>
                     </div>
                   </div>
+                  {/* Intensidad: acá, al lado del color recién elegido, y no dentro del lienzo
+                      (que en el orden del teclado queda antes de la grilla de colores). */}
+                  <label className="mt-4 flex items-center gap-3 font-mono text-mono-sm text-concrete">
+                    Intensidad
+                    <input
+                      type="range"
+                      min={40}
+                      max={100}
+                      value={Math.round(intensidad * 100)}
+                      onChange={(e) => setIntensidad(Number(e.target.value) / 100)}
+                      className="flex-1 min-w-0"
+                    />
+                    <span className="tabular-nums w-10 text-right">{Math.round(intensidad * 100)}%</span>
+                  </label>
                   <MagneticButton href="/publicar" variant="primary" className="w-full justify-center mt-4">
                     Pedir cotizaciones
                   </MagneticButton>
