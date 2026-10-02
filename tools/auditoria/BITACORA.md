@@ -161,8 +161,9 @@ Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arri
 - **Topes sin "ver más"** (escala-y-volumen, 29/9): el directorio, el mapa y el sitemap muestran
   60 pintores; /obras, 60 obras. El número 61 no aparece en ningún lado. Con 3 pintores no se
   nota. **Hay que resolverlo antes de llegar a 60.**
-- **`getPedidosYaCotizados` y los trabajos de `getPedidosDelCliente` no tienen límite**: pasadas
-  las 1.000 filas, la API los corta y el panel muestra estados equivocados. Lejos hoy.
+- **Los trabajos de `getPedidosDelCliente` no tienen límite**: un cliente con más de 1.000
+  cotizaciones entre sus pedidos vería estados equivocados en su panel. Lejos hoy.
+  (`getPedidosYaCotizados` ya se acotó a los pedidos en pantalla, 1/10.)
 - **Los contadores del panel del pintor y del cliente** ("trabajos completados", "activos") se
   cuentan sobre los últimos 50 trabajos. **Severidad: menor.**
 - **El almacenamiento de fotos es el límite real del plan** (integridad-datos): una foto de obra
