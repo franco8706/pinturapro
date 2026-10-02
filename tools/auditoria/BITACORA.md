@@ -58,6 +58,11 @@ Estos ya no se reportan. `pnpm verificar` los revisa en cada corrida.
 | Tres clics en "Publicar trabajo" creaban tres pedidos | Cada envío arma su propio slug, así que el índice único no los frenaba | `duplicados-publicar` |
 | Guardar el perfil no avisaba | La persona volvía al panel sin saber si el cambio entró, y guardaba de nuevo por las dudas | `perfil-guardado` |
 | El sitemap mandaba a indexar datos de demostración | Los pintores y obras inventados están en la base como filas normales y el filtro los dejaba pasar | `sitemap-demo` |
+| La caché de las páginas públicas mostraba datos viejos | Sin limpiar la caché al guardar, el perfil público seguía con la bio anterior hasta un minuto (29/9) | `cache-publico` |
+| Nadie veía el autor de una reseña | La caché lee como anónimo, que no puede leer perfiles de clientes: "Cliente" hasta para la autora (29/9) | `autor-de-resenas` |
+| El móvil tenía su propia copia de las reglas | Parser de montos, comisión (`* 0.1` a mano), topes y errores duplicados; ya se habían desincronizado una vez | `reglas-compartidas` |
+| Los formularios de pasos no decían qué faltaba | "Completá los datos de este paso" aunque faltaran dos campos distintos | `formularios-de-pasos`, `accesibilidad` |
+| Al publicar, el foco quedaba en la página | El formulario desaparece y un lector de pantalla no se entera de que funcionó | `formularios-de-pasos` |
 ## Corregido, sin prueba todavía
 
 Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arriba.
@@ -101,14 +106,32 @@ Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arri
 - **La app móvil**: cancelar, presupuesto inválido, monto interpretado, aviso de reseña y
   acceso a los datos (27/9). No se puede correr la app desde el Codespace.
 
+- **Las páginas públicas consultaban la base en cada visita** (29/9): salían `private, no-store`
+  por una sola causa (el cliente de Supabase lee las cookies). Ahora un cliente sin cookies y
+  caché de datos de 60 s (`lib/cache-publico.ts`). La portada: 1.505 → 166 ms con 10 visitas a
+  la vez. `cache-publico` vigila la limpieza; el tiempo no tiene prueba (se mide con
+  `tools/auditoria/escala/carga.mjs`).
+- **Ninguna página tenía imagen al compartirla** (29/9): Next reemplaza entero el `openGraph`
+  del layout. `lib/tarjeta.ts` + `/og.png`. Lo mira el vigilante 24/7 (`compartir()`), no una
+  prueba de regresión.
+- **"Verificado" en el perfil del pintor sin ningún proceso detrás** (29/9, riesgo-legal).
+- **El pie de los mails decía "Pintura profesional de obra"** (29/9, riesgo-legal).
+- **El cliente no sabía que su pedido es público**, y /trabajos estaba en el sitemap (29/9):
+  aviso en /publicar y /privacidad; `noindex`. Lo mira el vigilante.
+- **/registro prometía "activar tu perfil"**, el móvil decía "pintores verificados" y abría
+  `pinturapro.app` (29/9, contenido-confianza).
+- **Un pintor sin reseñas mostraba "★ 0.0"** (29/9): se lee como una nota pésima. Los datos demo
+  no tienen ningún pintor sin reseñas: por eso nadie lo había visto, y por eso no tiene prueba.
+- **El pintor no volvía a ver su comisión después de cotizar** (29/9): ahora en cada fila de su panel.
+- **El build bajaba las tipografías de Google** y una compilación falló ahí (28/9): ahora en el
+  repo, y acotadas a los pesos que se usan (111 → 79,6 KB por página).
+- **La fecha de los textos legales no cambiaba** aunque el texto sí (1/10).
+
 ## Abierto
 
 - **El primer clic del simulador congela la pantalla 400-724 ms** (re-medido el 28/9 por `rendimiento`, 3 corridas; antes figuraba ~400) (medido en producción, celular de
   gama media). Es la varita recorriendo la imagen. Se arreglaría de verdad moviendo el cálculo a
   un Web Worker con OffscreenCanvas. **Severidad: menor, pero se nota.**
-- **La app móvil mantiene una copia de las reglas** en vez de importar `packages/dominio`: Metro
-  necesita configuración para resolver paquetes del monorepo, y no se puede probar sin levantar
-  la app. Hay una prueba que avisa si las dos copias se desincronizan. **Severidad: deuda.**
 - **Faltan datos legales del responsable** (razón social, CUIT, domicilio). La pantalla ahora lo
   avisa en vez de aparentar estar completa, pero el dato lo tiene que poner el dueño. Además de
   la Ley 25.326 (AAIP), es un requisito de la normativa de comercio electrónico de Defensa del
@@ -124,13 +147,34 @@ Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arri
   arrepentimiento que el sitio no menciona. **No es una certeza: es la pregunta para el
   abogado.**
 
-- **Las tres tipografías pesan 100 KB en cada página**, el 30 % de la portada: Inter completa
-  (48,7 KB), Space Grotesk y JetBrains Mono, en el layout raíz. La monoespaciada se usa sólo
-  en etiquetas chicas. **Severidad: mejora de peso, decisión de diseño.**
-- **Los formularios de pasos no dicen qué campo falta** cuando hay más de uno en el paso.
-  **Severidad: menor.**
 - **Un pintor puede publicar un pedido** en /publicar (sólo se pide sesión). No rompe nada;
   es una pregunta de producto para el dueño. **Severidad: decisión.**
+
+- **Migraciones 0024 y 0025 escritas y probadas, SIN aplicar** (29/9). 0024: los números de la
+  portada calculados en la base (hoy la app baja todas las reseñas y la API corta en 1.000),
+  el tablero con "ver anteriores" (hoy muestra los 50 pedidos más nuevos y el resto desaparece
+  para siempre), tres índices, las 14 policies envueltas en `(select …)`, y `es_service_role`
+  cerrada. 0025: las preguntas frecuentes de la base dicen "pintamos" y "nuestro equipo", y una
+  novedad anuncia "pintores verificados". El clasificador de permisos frenó aplicarlas y
+  commitearlas: **las tiene que autorizar el dueño**. Después falta conectar la web
+  (`getNumerosReales` → `resumen_publico()`, y la paginación de /trabajos).
+- **Topes sin "ver más"** (escala-y-volumen, 29/9): el directorio, el mapa y el sitemap muestran
+  60 pintores; /obras, 60 obras. El número 61 no aparece en ningún lado. Con 3 pintores no se
+  nota. **Hay que resolverlo antes de llegar a 60.**
+- **`getPedidosYaCotizados` y los trabajos de `getPedidosDelCliente` no tienen límite**: pasadas
+  las 1.000 filas, la API los corta y el panel muestra estados equivocados. Lejos hoy.
+- **Los contadores del panel del pintor y del cliente** ("trabajos completados", "activos") se
+  cuentan sobre los últimos 50 trabajos. **Severidad: menor.**
+- **El almacenamiento de fotos es el límite real del plan** (integridad-datos): una foto de obra
+  pesa ~295 KB; 3.000 pintores con una sola obra ya pasan el 1 GB gratuito.
+- **En Cloud Run, la caché de las páginas públicas vive en cada instancia**: quien cambia su
+  perfil lo ve al instante (con `--session-affinity`), los demás hasta un minuto después.
+- **Sin captcha en el alta ni en /recuperar** (abuso-marketplace): es configuración de Supabase.
+- **Las fotos de /obras se ven borrosas en celulares de alta densidad** (rendimiento, 1/10): son
+  apaisadas, metidas en tarjetas verticales; hay que agrandarlas 2,1×. Son fotos de stock demo.
+- **Cotización de prueba sin retirar**: $550.000 de Martín (cuenta `pintor`) sobre el pedido demo
+  "Pintura completa de PH en Barracas". La dejó el script de un agente; el sistema de permisos
+  le bloqueó retirarla. Se retira desde /dashboard con esa cuenta.
 
 ## Descartado (se midió y no era)
 
@@ -162,6 +206,16 @@ No los vuelvas a levantar sin evidencia nueva.
 - **"Hay claves filtradas en el repositorio".** Se escanearon los 82 commits del historial: no
   hay ninguna. El único hallazgo era un ejemplo de documentación.
 
+- **"/trabajos muestra el nombre completo de los clientes sin sesión"** (buscadores, 29/9): falso.
+  Sin sesión dice "Cliente": RLS no deja leer perfiles de clientes a un anónimo. Se dedujo del
+  código sin medirlo.
+- **"`getProjects` tarda 893 ms y el panel del admin 1,9 s con 300.000 filas"** (escala-y-volumen,
+  29/9): no se repitió (62 ms y 54 ms en la segunda corrida). Era la primera lectura de filas
+  recién insertadas. Con volumen sintético hay que medir dos veces.
+- **"El enlace a una obra borrada sigue en los listados por la caché"** (recorrido-web, 29/9): no
+  era la caché, que se limpia al instante (`cache-publico`); la obra la borró otro agente
+  mientras el visitante miraba una página ya cargada.
+
 ## Tareas del dueño en paneles externos (no se hacen desde el código)
 
 - **Supabase → Authentication → URL Configuration.** Hoy la "Site URL" es la del Codespace y
@@ -174,6 +228,16 @@ No los vuelvas a levantar sin evidencia nueva.
   no a quien tenga el token y llame a la API directo. Esa opción lo frena en el servidor.
 - **Rotar la contraseña de la base** (Settings → Database): se pegó en el chat el 27/9.
 
+- **Supabase → Authentication: SMTP propio.** Los mails de confirmar cuenta y recuperar
+  contraseña salen por el servidor de fábrica de Supabase, que es para pruebas y tiene un tope
+  de pocos por hora. Con 50 altas en una hora, la mayoría no recibe nada (escala-y-volumen, 29/9).
+- **Supabase → Authentication: captcha** (Turnstile, gratis) en el alta y en recuperar: hoy un
+  programa puede crear cuentas o llenarle el correo a un tercero sin tope propio.
+- **AAIP: inscribir la base de datos personales** (Ley 25.326). Trámite gratuito, con CUIT; es
+  distinto de identificar al responsable, que también falta (riesgo-legal, 29/9).
+- **Preguntarle al abogado** por el botón de arrepentimiento (Res. 424/2020) aplicado a un
+  intermediario que no vende.
+
 ## Decisión del dueño (no son bugs)
 
 - Todos los datos visibles son de demostración: pintores, reseñas y obras inventados.
@@ -181,3 +245,10 @@ No los vuelvas a levantar sin evidencia nueva.
 - No hay `RESEND_API_KEY`: no salen emails.
 - `/publicar` no tiene descripción libre ni presupuesto numérico: se arma solo y se elige de una
   lista.
+- **Cómo se cobra la comisión** (29/9, dinero-y-comisiones): la base guarda el 10 % de cada
+  trabajo pero no hay cobro, ni estado "pagada", ni deuda por pintor, ni aviso al completar. El
+  mínimo para empezar está en `tools/auditoria/rondas/2026-09-28-escala/dinero-y-comisiones.md`.
+- **¿El nombre del autor de una reseña se le muestra a quien no tiene cuenta?** Hoy no (0013):
+  el anónimo ve "Cliente". Mostrar el nombre de pila daría más confianza y expone más.
+- **¿El tablero /trabajos va a Google?** Hoy no (`noindex`, 29/9): son pedidos de personas.
+
