@@ -139,6 +139,15 @@ Y estas trampas del propio script, que ya costaron tiempo:
   `chrome-error://chromewebdata`. Para cerrar sesión alcanza con borrar las cookies — es lo que
   hace `k.salir()`.
 
+- **Playwright no hace clic en un botón con `aria-disabled`.** Espera 30 s "a que se habilite" y
+  explota, y parece que el formulario está roto. Los formularios de pasos dejan "Continuar"
+  apretable a propósito (explica qué falta): una persona lo puede apretar, `page.click` no.
+  Usá el teclado: `page.focus(...)` y `page.keyboard.press("Enter")`.
+- **`img.naturalWidth` miente en el celular emulado.** Para una imagen de `next/image` con
+  `fill` + `object-cover` devuelve el ancho PINTADO (390), no el del archivo (1200): cualquier
+  cuenta de "imagen más grande de lo que se muestra" da que está perfecta. Mirá el archivo real
+  (`curl` y medirlo) o el `w=` de la dirección de `/_next/image`.
+
 ### Trampas de las pruebas que dan verde sin medir nada
 
 Todas pasaron en este proyecto. Si escribís una prueba, revisá que no caiga en ninguna, y
@@ -167,6 +176,29 @@ Todas pasaron en este proyecto. Si escribís una prueba, revisá que no caiga en
   permisos y no lo es.
 - **`pkill -f "algo"` se mata a sí mismo** si "algo" aparece en la línea de comandos del
   propio shell. Usá un patrón que no se contenga: `pkill -f "serve[r].js"`.
+
+- **Con volumen sintético, la primera lectura miente.** Postgres tarda mucho más la primera vez
+  que lee filas recién insertadas (tiene que marcarlas): una consulta dio 893 ms y el panel del
+  admin 1,9 s; en la corrida siguiente, 62 y 54 ms sin cambiar nada. Medí dos veces y quedate
+  con la segunda.
+- **Las variables de psql no se reemplazan dentro de `$$ … $$`.** `:N_PINTORES` adentro de un
+  bloque `do $$` es un error de sintaxis. Y `disable trigger all` incluye los triggers internos
+  de las claves foráneas, que no se pueden tocar: es `disable trigger user`.
+- **Los scripts SQL de prueba van siempre entre `begin` y `rollback`**, y los corre el
+  orquestador (`tools/auditoria/escala/volumen.sql` es el modelo). Aplicar una migración a la
+  base real lo autoriza el dueño: el sistema de permisos lo frena, y no se le busca la vuelta.
+
+### Lo que le pasó al orquestador (para el que lance agentes)
+
+- **Un agente lanzado como `general-purpose` puede editar**, aunque su definición diga
+  `tools: Bash, Read, Glob, Grep`. Pasó el 28/9 con `buscadores` (su tipo todavía no estaba
+  registrado): editó 17 archivos del producto por su cuenta y el límite de uso lo cortó a la
+  mitad. Lanzá cada agente por su tipo; si no se puede, decile explícitamente que no edite.
+- **El límite de uso corta agentes a mitad de tarea.** Lo que hayan creado en la base queda
+  ahí, y un "romper el arreglo para ver fallar la prueba" a medio hacer deja el producto roto.
+  Después de un corte: `git status` y contar filas, antes de reanudar a nadie.
+- **Tandas chicas.** Seis o siete agentes a la vez agotaron el cupo tres veces en esta ronda.
+  De a dos o tres, y con el reporte guardado en el repo apenas tengan hallazgos.
 
 ## 6. Ya conocido — está en la BITÁCORA
 

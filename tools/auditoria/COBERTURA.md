@@ -1,10 +1,10 @@
 # Mapa de cobertura — Pintura Pro
 
-Generado por `node tools/auditoria/cobertura.mjs` el 2026-09-28. **No se edita a mano**: se vuelve a generar.
+Generado por `node tools/auditoria/cobertura.mjs` el 2026-10-02. **No se edita a mano**: se vuelve a generar.
 
 🟢 lo nombra una prueba de regresión · 🟡 sólo un agente o el vigilante · 🔴 no lo nombra nadie
 
-**Total:** 40 🟢 · 17 🟡 · 24 🔴 — 25 archivos de prueba, 21 agentes.
+**Total:** 42 🟢 · 15 🟡 · 25 🔴 — 28 archivos de prueba, 21 agentes.
 
 Que algo esté 🟢 no quiere decir que esté bien probado: quiere decir que alguien lo nombra. Lo 🔴
 seguro que no lo mira nadie. El agente `retroalimentacion` lee este archivo al cerrar cada ronda.
@@ -19,7 +19,6 @@ Las páginas que ve la gente. 🔴 = ninguna prueba, agente ni vigilante la nomb
 | 🟡 | `/bienvenida` | — | buscadores, sesiones-y-acceso | — |
 | 🟡 | `/cotizaciones` | — | buscadores, dinero-y-comisiones, sesiones-y-acceso | sí |
 | 🟡 | `/dashboard/editar/[slug]` | — | sesiones-y-acceso | — |
-| 🟡 | `/pintor/[id]` | — | buscadores, escala-y-volumen | — |
 | 🟢 | `/` | accesibilidad, desborde-celular, perfil-guardado, tactil | accesibilidad, dependencias, escala-y-volumen, rendimiento | sí |
 | 🟢 | `/admin` | admin-panel-empresa | buscadores, sesiones-y-acceso | sí |
 | 🟢 | `/aprender` | titulos | buscadores | — |
@@ -30,7 +29,7 @@ Las páginas que ve la gente. 🔴 = ninguna prueba, agente ni vigilante la nomb
 | 🟢 | `/crear-cuenta` | admin-panel-empresa, titulos | — | — |
 | 🟢 | `/dashboard` | admin-panel-empresa, desborde-celular, foto-reemplazada, perfil-guardado, ya-cotizado | dinero-y-comisiones, sesiones-y-acceso | sí |
 | 🟢 | `/dashboard/nueva-obra` | acciones-hostiles, seguridad-roles | sesiones-y-acceso | — |
-| 🟢 | `/dashboard/perfil` | acciones-hostiles, perfil-guardado | sesiones-y-acceso | — |
+| 🟢 | `/dashboard/perfil` | acciones-hostiles, cache-publico, perfil-guardado | sesiones-y-acceso | — |
 | 🟢 | `/ingresar` | mis-datos, titulos | accesibilidad, sesiones-y-acceso | — |
 | 🟢 | `/mapa` | titulos | — | — |
 | 🟢 | `/mi-cuenta` | acciones-hostiles, desborde-celular, mis-datos | buscadores, sesiones-y-acceso | sí |
@@ -41,14 +40,15 @@ Las páginas que ve la gente. 🔴 = ninguna prueba, agente ni vigilante la nomb
 | 🟢 | `/obras` | desborde-celular, filtros-obras, sitemap-demo, tactil, textos-largos, titulos | buscadores, escala-y-volumen, formularios-hostiles, rendimiento | sí |
 | 🟢 | `/obras/[slug]` | titulos | buscadores | — |
 | 🟢 | `/panel` | admin-panel-empresa | contenido-confianza, dinero-y-comisiones, sesiones-y-acceso | sí |
+| 🟢 | `/pintor/[id]` | autor-de-resenas, cache-publico | buscadores, escala-y-volumen | — |
 | 🟢 | `/pintores` | accesibilidad, desborde-celular, sitemap-demo, tactil, textos-largos, titulos | buscadores, contenido-confianza, escala-y-volumen, rendimiento | sí |
-| 🟢 | `/privacidad` | desborde-celular, titulos | buscadores, contenido-confianza, riesgo-legal | sí |
-| 🟢 | `/publicar` | accesibilidad, acciones-hostiles, borrador, desborde-celular, duplicados-publicar | accesibilidad, buscadores, recorrido-web, rendimiento, sesiones-y-acceso | sí |
+| 🟢 | `/privacidad` | autor-de-resenas, desborde-celular, titulos | buscadores, contenido-confianza, riesgo-legal | sí |
+| 🟢 | `/publicar` | accesibilidad, acciones-hostiles, borrador, desborde-celular, duplicados-publicar, formularios-de-pasos | accesibilidad, buscadores, recorrido-web, rendimiento, sesiones-y-acceso | sí |
 | 🟢 | `/recuperar` | titulos | abuso-marketplace | — |
-| 🟢 | `/registro` | duplicados-publicar, titulos | — | — |
+| 🟢 | `/registro` | duplicados-publicar, formularios-de-pasos, titulos | — | — |
 | 🟢 | `/simulador` | desborde-celular, foto-rechazada, sangrado-moldura, simulador-calidad, simulador-teclado, tactil, titulos | accesibilidad, buscadores, rendimiento, simulador-color | sí |
 | 🟢 | `/terminos` | desborde-celular, titulos | buscadores, contenido-confianza, riesgo-legal | sí |
-| 🟢 | `/trabajos` | acciones-hostiles, desborde-celular, seguridad-roles, tactil, textos-largos, titulos, ya-cotizado | buscadores, dinero-y-comisiones | — |
+| 🟢 | `/trabajos` | acciones-hostiles, desborde-celular, seguridad-roles, tactil, textos-largos, titulos, ya-cotizado | buscadores, dinero-y-comisiones | sí |
 
 ## Puntos de la API (6)
 
@@ -93,13 +93,13 @@ Sacadas de `supabase/migrations/`.
 | 🔴 | `faqs` | — | — | — |
 | 🔴 | `news` | — | — | — |
 | 🔴 | `resources` | — | — | — |
-| 🟡 | `reviews` | — | abuso-marketplace, integridad-datos | — |
 | 🟢 | `jobs` | ya-cotizado | abuso-marketplace, dinero-y-comisiones, integridad-datos | — |
 | 🟢 | `leads` | doble-envio | abuso-marketplace, seguridad-rls | — |
-| 🟢 | `profiles` | admin-panel-empresa | escala-y-volumen, integridad-datos | — |
-| 🟢 | `projects` | duplicados-publicar, foto-reemplazada | integridad-datos | — |
+| 🟢 | `profiles` | admin-panel-empresa, autor-de-resenas, cache-publico | escala-y-volumen, integridad-datos | — |
+| 🟢 | `projects` | duplicados-publicar, formularios-de-pasos, foto-reemplazada | integridad-datos | — |
+| 🟢 | `reviews` | autor-de-resenas | abuso-marketplace, integridad-datos | — |
 
-## Funciones de la base (19)
+## Funciones de la base (20)
 
 Cada una necesita `revoke ... from public, anon` al crearse (ver REGLAS, trampas de la base).
 
@@ -115,6 +115,7 @@ Cada una necesita `revoke ... from public, anon` al crearse (ver REGLAS, trampas
 | 🔴 | `on_review_change` | — | — | — |
 | 🔴 | `pedidos_abiertos` | — | — | — |
 | 🔴 | `pintores_geolocalizados` | — | — | — |
+| 🔴 | `resumen_publico` | — | — | — |
 | 🔴 | `set_updated_at` | — | — | — |
 | 🔴 | `volumen_mensual` | — | — | — |
 | 🟡 | `enforce_job_rules` | — | escala-y-volumen | — |
