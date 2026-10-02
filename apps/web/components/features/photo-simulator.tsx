@@ -9,7 +9,9 @@ import {
   rgbAOklch,
   oklabASrgb,
   type WandImage,
+  type WandOptions,
 } from "@pinturapro/color";
+import type { PedidoVarita, RespuestaVarita } from "./varita.worker";
 
 type Status = "empty" | "ready" | "segmenting" | "error";
 
@@ -87,7 +89,24 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
   const pendingAnalyzeRef = useRef(false); // disparar análisis tras montar la imagen
 
   // ── Varita mágica (selección local, sin servidor) ──
-  const wandRef = useRef<WandImage | null>(null); // preproceso de la foto (se calcula una vez)
+  // La varita corre en un Web Worker (ver varita.worker.ts): el primer clic congelaba la
+  // pantalla unos 600 ms. `wandRef` queda sólo como respaldo, para cuando no hay worker.
+  const wandRef = useRef<WandImage | null>(null);
+  const workerRef = useRef<Worker | null>(null);
+  const pedidosRef = useRef(
+    new Map<number, { x: number; y: number; opciones: WandOptions; resolver: (r: Uint8Array | null) => void }>(),
+  );
+  const secuenciaRef = useRef(0);
+  /**
+   * Cambia cada vez que la selección deja de ser la que era por algo que hizo la persona (otro
+   * clic, una pincelada, limpiar, otra foto). El resultado de la varita llega un instante
+   * después de pedirlo: si en el medio cambió la generación, ya no corresponde aplicarlo.
+   */
+  const generacionRef = useRef(0);
+  /** Los clics se atienden de a uno, en orden: el segundo suma sobre lo que dejó el primero. */
+  const colaClicsRef = useRef<Promise<unknown>>(Promise.resolve());
+  /** Arrastrando la sensibilidad: un pedido en vuelo y, como mucho, el último valor esperando. */
+  const arrastreRef = useRef<{ enVuelo: boolean; pendiente: number | null }>({ enVuelo: false, pendiente: null });
   const lastClickRef = useRef<{ x: number; y: number } | null>(null); // para re-aplicar al mover el slider
   const maskBeforeClickRef = useRef<Uint8Array | null>(null); // selección previa al último clic
 
@@ -205,7 +224,17 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
 
       // Preproceso de la varita: YCbCr + gradiente + percentiles (~25 ms). Se hace acá, una
       // sola vez, para que después cada clic sea instantáneo.
-      wandRef.current = prepareWandImage(base);
+      generacionRef.current++;
+      wandRef.current = null;
+      if (workerRef.current) {
+        // Se manda una COPIA de los píxeles (la original se sigue usando acá para pintar) y se
+        // transfiere, no se clona: el worker prepara ahí la foto y este hilo no la guarda.
+        const copia = base.data.slice().buffer;
+        const pedido: PedidoVarita = { tipo: "foto", datos: copia, ancho: w, alto: h };
+        workerRef.current.postMessage(pedido, [copia]);
+      } else {
+        wandRef.current = prepareWandImage(base);
+      }
       lastClickRef.current = null;
       maskBeforeClickRef.current = null;
 
@@ -348,6 +377,43 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
     }
     canvas.getContext("2d")!.putImageData(composite, 0, 0);
   }, [color, strength]);
+
+  // El worker de la varita nace con el componente y muere con él. Si el navegador no tiene
+  // workers, o el archivo no carga, todo sigue andando en este hilo, como antes.
+  useEffect(() => {
+    if (typeof Worker === "undefined") return;
+    let hilo: Worker;
+    try {
+      hilo = new Worker(new URL("./varita.worker.ts", import.meta.url));
+    } catch {
+      return;
+    }
+    const pedidos = pedidosRef.current;
+    hilo.onmessage = (e: MessageEvent<RespuestaVarita>) => {
+      const pedido = pedidos.get(e.data.id);
+      pedidos.delete(e.data.id);
+      pedido?.resolver(e.data.region);
+    };
+    // Si el worker se rompe, lo que estaba esperando se calcula acá y no se vuelve a usar.
+    hilo.onerror = () => {
+      workerRef.current = null;
+      hilo.terminate();
+      if (!wandRef.current && baseImageData.current) wandRef.current = prepareWandImage(baseImageData.current);
+      for (const [id, p] of pedidos) {
+        pedidos.delete(id);
+        p.resolver(wandRef.current ? magicWand(wandRef.current, p.x, p.y, p.opciones) : null);
+      }
+    };
+    workerRef.current = hilo;
+    return () => {
+      workerRef.current = null;
+      hilo.terminate();
+      for (const [id, p] of pedidos) {
+        pedidos.delete(id);
+        p.resolver(null);
+      }
+    };
+  }, []);
 
   // dibujar al montar / cambiar color
   useEffect(() => {
@@ -522,35 +588,56 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
   // Parte de la selección que había ANTES del último clic y le suma la región nueva. Guardar
   // ese estado previo es lo que permite mover el slider de sensibilidad y ver el resultado
   // recalcularse en vivo, sin perder los clics anteriores ni acumular basura.
+  /** La región que la varita agarra en un punto: en el worker si hay, acá si no. */
+  const regionDe = useCallback((x: number, y: number, opciones: WandOptions): Promise<Uint8Array | null> => {
+    const hilo = workerRef.current;
+    if (hilo) {
+      return new Promise((resolver) => {
+        const id = ++secuenciaRef.current;
+        pedidosRef.current.set(id, { x, y, opciones, resolver });
+        const pedido: PedidoVarita = { tipo: "varita", id, x, y, opciones };
+        hilo.postMessage(pedido);
+      });
+    }
+    if (!wandRef.current && baseImageData.current) wandRef.current = prepareWandImage(baseImageData.current);
+    return Promise.resolve(wandRef.current ? magicWand(wandRef.current, x, y, opciones) : null);
+  }, []);
+
+  /**
+   * Aplica la varita en un punto. Devuelve "ok", "chica" (no había una superficie clara) o
+   * "viejo" (mientras se calculaba, la persona hizo otra cosa: no se toca nada).
+   */
   const applyWand = useCallback(
-    (nx: number, ny: number, tol: number, opts?: { rapido?: boolean }): boolean => {
-      const wand = wandRef.current;
+    async (nx: number, ny: number, tol: number, opts?: { rapido?: boolean }): Promise<"ok" | "chica" | "viejo"> => {
       const out = maskRef.current;
       const { w, h } = dims.current;
-      if (!wand || !out) return false;
+      if (!out) return "viejo";
+      const generacion = generacionRef.current;
 
       // `rapido` = se está arrastrando el slider: se saltea el cierre de huecos, que es el
       // 66% del costo. El resultado se ve casi igual y la mano no siente el tirón.
-      const region = magicWand(wand, nx * w, ny * h, {
+      const region = await regionDe(nx * w, ny * h, {
         tolerance: tol,
         ...(opts?.rapido ? { fillHoles: 0 } : {}),
       });
+      if (generacion !== generacionRef.current || maskRef.current !== out) return "viejo";
+      if (!region) return "chica";
 
       // Un clic sobre un objeto pequeño y muy contrastado (un cuadro, un enchufe, una junta)
       // queda encerrado entre bordes y devuelve una región mínima. Eso no le sirve a nadie:
       // mejor no ensuciar la selección y decirle al usuario dónde tocar.
       let area = 0;
       for (let i = 0; i < region.length; i++) area += region[i];
-      if (area < region.length * 0.002) return false;
+      if (area < region.length * 0.002) return "chica";
 
       const prev = maskBeforeClickRef.current;
       for (let i = 0; i < out.length; i++) out[i] = (prev?.[i] ?? 0) || region[i] ? 1 : 0;
 
       recomputeMaskDerived(true);
       repaint();
-      return true;
+      return "ok";
     },
-    [recomputeMaskDerived, repaint],
+    [recomputeMaskDerived, repaint, regionDe],
   );
 
   // ---- Clic en el canvas → selecciona la superficie tocada ----
@@ -561,12 +648,22 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
    * la mira: un clic y un Enter tienen que hacer exactamente lo mismo, y la única forma de
    * garantizarlo es que sea el mismo código.
    */
-  const aplicarEn = async (nx: number, ny: number) => {
+  const aplicarEn = (nx: number, ny: number): Promise<void> => {
+    // En cola: la varita contesta un instante después, y un segundo clic que llegue antes
+    // tiene que sumar sobre lo que dejó el primero, no pisarlo.
+    const turno = colaClicsRef.current.then(() => aplicarEnAhora(nx, ny)).catch(() => {});
+    colaClicsRef.current = turno;
+    return turno;
+  };
+
+  const aplicarEnAhora = async (nx: number, ny: number) => {
     if (brush !== "off" || status !== "ready") return;
     const canvas = viewRef.current;
     if (!canvas) return;
 
     // Congelamos la selección actual como base: este clic SUMA sobre ella.
+    generacionRef.current++;
+    arrastreRef.current.pendiente = null;
     maskBeforeClickRef.current = maskRef.current ? new Uint8Array(maskRef.current) : null;
     setErrorMsg("");
 
@@ -585,10 +682,11 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
     }
 
     lastClickRef.current = { x: nx, y: ny };
-    if (applyWand(nx, ny, tolerance)) {
+    const resultado = await applyWand(nx, ny, tolerance);
+    if (resultado === "ok") {
       setHasSelection(true);
       setAviso("Superficie seleccionada. Elegí un color de la lista para aplicarlo.");
-    } else
+    } else if (resultado === "chica")
       setErrorMsg(
         "Ahí no hay una superficie clara (puede ser un mueble, un cuadro o una junta). Tocá una zona más lisa de la pared, o subí la Sensibilidad.",
       );
@@ -611,14 +709,38 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
    */
   const onToleranceChange = (value: number) => {
     setTolerance(value);
+    recalcularArrastre(value);
+  };
+
+  /**
+   * Un pedido a la vez mientras se arrastra. Cada movimiento del slider dispara un recálculo
+   * y la respuesta ya no es inmediata: sin esto se apilan veinte pedidos y la imagen llega
+   * con segundos de atraso. Se guarda sólo el último valor y se manda cuando vuelve el anterior.
+   */
+  const recalcularArrastre = (value: number) => {
     const last = lastClickRef.current;
-    if (last && status === "ready") applyWand(last.x, last.y, value, { rapido: true });
+    if (!last || status !== "ready") return;
+    const a = arrastreRef.current;
+    if (a.enVuelo) {
+      a.pendiente = value;
+      return;
+    }
+    a.enVuelo = true;
+    void applyWand(last.x, last.y, value, { rapido: true }).finally(() => {
+      a.enVuelo = false;
+      if (a.pendiente !== null) {
+        const siguiente = a.pendiente;
+        a.pendiente = null;
+        recalcularArrastre(siguiente);
+      }
+    });
   };
 
   /** Al soltar el slider: una pasada con la calidad completa. */
   const onToleranceCommit = () => {
     const last = lastClickRef.current;
-    if (last && status === "ready") applyWand(last.x, last.y, tolerance);
+    arrastreRef.current.pendiente = null; // que un valor en espera no pise la pasada final
+    if (last && status === "ready") void applyWand(last.x, last.y, tolerance);
   };
 
   // ---- Pincel (ajuste manual) ----
@@ -647,6 +769,7 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
       // así mover la sensibilidad después no se lleva puesto lo que el usuario ajustó a mano.
       lastClickRef.current = null;
       maskBeforeClickRef.current = null;
+      generacionRef.current++;
 
       recomputeMaskDerived(false);
       repaint();
@@ -736,6 +859,7 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
     if (maskRef.current) maskRef.current.fill(0);
     lastClickRef.current = null;
     maskBeforeClickRef.current = null;
+    generacionRef.current++;
     recomputeMaskDerived(true);
     repaint();
     setHasSelection(false);
@@ -753,6 +877,8 @@ export function PhotoSimulator({ color }: PhotoSimulatorProps) {
     segmentedRef.current = false;
     pendingAnalyzeRef.current = false;
     wandRef.current = null;
+    generacionRef.current++;
+    workerRef.current?.postMessage({ tipo: "soltar" } satisfies PedidoVarita);
     lastClickRef.current = null;
     maskBeforeClickRef.current = null;
     setHasSelection(false);
