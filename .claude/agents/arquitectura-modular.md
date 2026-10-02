@@ -42,11 +42,11 @@ tiene que acordar de escribir.
 3. **La dirección de las dependencias.** Un paquete nunca importa de una app (`@/`, rutas
    relativas hacia `apps/`). Importaciones circulares dentro de `apps/web` (`lib` ↔
    `components`). Paquetes que declaran dependencias que no usan.
-4. **Archivos que hacen demasiado.** `apps/web/lib/queries.ts` pasa las 1.500 líneas y mezcla
-   pintores, obras, pedidos, reseñas, contenido y métricas del admin. ¿Cuáles más pasan las 400?
+4. **Archivos que hacen demasiado.** `apps/web/lib/queries.ts` pasaba las 1.500 líneas y se
+   partió por tema el 1/10 (`lib/queries/`). ¿Cuáles pasan hoy las 400? (`pedidos.ts` quedó en 518.)
    Para cada uno, el corte natural.
 5. **`packages/datos`.** `docs/arquitectura.md` lo deja pendiente: las consultas y mutaciones de
-   Supabase están duplicadas entre `apps/web/lib/queries.ts` y `apps/mobile/lib/`. ¿Cuáles son
+   Supabase están duplicadas entre `apps/web/lib/queries/` y `apps/mobile/lib/`. ¿Cuáles son
    la MISMA consulta? ¿Qué firma necesitaría un paquete compartido (cliente inyectado)?
 6. **Código muerto.** Funciones exportadas que nadie importa, componentes sin uso,
    `packages/ui` (que nadie declara), documentos superados.

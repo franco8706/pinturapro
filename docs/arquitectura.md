@@ -48,12 +48,13 @@ sintéticas y una máscara de referencia (ver `tools/auditoria/`).
    con `workspace:*`, que rompe `npm install` (medido). Metro lo resuelve solo desde Expo 52, sin
    `metro.config.js`. Falta probarlo en un celular: desde el Codespace la app no se puede
    correr. Lo vigila la prueba `reglas-compartidas`.
-2. **`packages/datos`** — las lecturas de Supabase (`lib/queries.ts`) y las escrituras, con los
-   tipos generados del esquema. Hoy están duplicadas en web y móvil. Antes de moverlas conviene
-   partir `apps/web/lib/queries.ts` (más de 1.500 líneas) por tema: `pintores`, `obras`,
-   `pedidos`, `resenas`, `contenido`, `metricas-admin` y una `base` con lo común. El corte, con
-   la lista de funciones de cada archivo, está en
-   `tools/auditoria/rondas/2026-09-28-escala/arquitectura-modular.md`.
+2. **`packages/datos`** — las lecturas de Supabase y las escrituras, con los tipos generados
+   del esquema. Hoy están duplicadas en web y móvil. El paso previo ya está hecho (1/10):
+   `apps/web/lib/queries.ts`, que tenía 1.577 líneas, es ahora `lib/queries/` — `base`,
+   `pintores`, `obras`, `resenas`, `pedidos`, `contenido` y `metricas-admin`, con un `index.ts`
+   que re-exporta lo mismo que antes. Todos dependen sólo de `base`. Lo que falta para que sea
+   un paquete: que cada función reciba el cliente de Supabase en vez de crearlo (la web usa
+   cookies de Next y el móvil AsyncStorage).
 3. **Pruebas propias de `packages/color`**: hoy su única medición abre un navegador
    (`simulador-calidad`). Separado en el código, no en la verificación.
 4. **`packages/ui`** — los tokens de diseño (colores, tipografías, escalas). No los componentes:

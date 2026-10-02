@@ -57,7 +57,7 @@ notas, nombres o emails. Listalas con id: las borra el orquestador.
 de `packages/dominio/src/topes.ts`; los estados que acepta la base contra los que usa el código.
 Si difieren, el usuario ve un error genérico en vez del mensaje que corresponde.
 
-**6. Índices.** Las consultas de `apps/web/lib/queries.ts` filtran por `owner_id`, `client_id`,
+**6. Índices.** Las consultas de `apps/web/lib/queries/` filtran por `owner_id`, `client_id`,
 `painter_id`, `project_id`, `status`, `type`. ¿Hay índice para cada una? (Leé las migraciones:
 `create index`.) Con 3 pintores no se nota; con 3.000, sí.
 

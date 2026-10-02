@@ -16,7 +16,7 @@ API salteándose las páginas y las acciones del servidor.
 ## Qué mirar
 
 Migraciones en `supabase/migrations/`, acciones en `apps/web/app/**/actions.ts`, lecturas en
-`apps/web/lib/queries.ts`.
+`apps/web/lib/queries/` (un archivo por tema).
 
 Preguntas que tenés que contestar con evidencia:
 

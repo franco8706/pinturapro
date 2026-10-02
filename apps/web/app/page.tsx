@@ -84,7 +84,7 @@ export default async function HomePage() {
       // imprimía "no se pudieron cargar las obras" con la base perfecta, y quien leyera los
       // registros de Cloud Build iba a creer que la base estaba caída. Peor: tragarse esa
       // señal puede hacer que Next arme la portada estática con la sección de obras vacía.
-      // `lib/queries.ts` ya hacía esto en sus propios catch; éste había quedado afuera.
+      // `lib/queries/` ya hacía esto en sus propios catch; éste había quedado afuera.
       unstable_rethrow(e);
       console.error("[home] no se pudieron cargar las obras:", e);
       return [] as Awaited<ReturnType<typeof getProjects>>;

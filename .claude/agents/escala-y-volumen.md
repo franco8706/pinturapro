@@ -14,7 +14,7 @@ base tiene 3 pintores, 7 obras, 25 trabajos y 20 reseñas: con esos números tod
 nada de lo que importa a escala se nota. Reportás con números; no corregís.
 
 **Leé primero:** `tools/auditoria/REGLAS.md`, `tools/auditoria/BITACORA.md`,
-`apps/web/lib/queries.ts`, `docs/despliegue-google-cloud.md` y las migraciones de
+`apps/web/lib/queries/` (un archivo por tema), `docs/despliegue-google-cloud.md` y las migraciones de
 `supabase/migrations/` (la última versión de cada policy es la que manda: 0016 y 0023
 reescribieron varias).
 
@@ -34,7 +34,7 @@ Cada sub-agente se lanza con su papel. Si no te dieron uno, hacé los dos, empez
    fila en vez de una vez por consulta (el asesor de Supabase lo llama `auth_rls_initplan`).
    Con 20 filas no se nota; con 200.000, una lista tarda segundos. Listá cada policy afectada con
    su migración y cómo quedaría.
-2. **Índices.** Cada filtro y cada orden de `lib/queries.ts` (y de las funciones `security
+2. **Índices.** Cada filtro y cada orden de `lib/queries/` (y de las funciones `security
    definer` de las migraciones) contra los `create index`. Claves foráneas sin índice. Índices
    que no usa nadie (se pagan en cada escritura).
 3. **Triggers que recalculan todo.** `recalc_profile_rating` recorre todas las reseñas del
@@ -70,7 +70,7 @@ Cada sub-agente se lanza con su papel. Si no te dieron uno, hacé los dos, empez
    lee las cookies, y leer cookies vuelve dinámica la página entera. Para cada página pública
    dinámica: ¿qué parte depende de quién mira? Si ninguna, decí cómo se volvería estática o
    revalidada (un cliente sin cookies para datos públicos + `revalidate`) y qué se gana.
-2. **Topes sin paginación.** `lib/queries.ts` corta el directorio en 60 pintores, el portfolio
+2. **Topes sin paginación.** `lib/queries/` corta el directorio en 60 pintores, el portfolio
    en 60 obras, el tablero en 100 pedidos. Con 61 pintores, ¿qué pasa con el que queda afuera?
    ¿Lo ve alguien? ¿Aparece en el mapa, en el sitemap, en una búsqueda? Un tope sin "ver más" es
    un pintor que paga lo mismo y no existe.
