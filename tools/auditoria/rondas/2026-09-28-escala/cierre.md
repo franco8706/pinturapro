@@ -27,6 +27,12 @@ retroalimentándote". Cuando un reporte y este cierre no coinciden, **vale este 
 Medido: la portada bajó de 1.505 a 158 ms (p50, 10 simultáneas, :3100); /pintores 132 → 93,
 /obras 124 → 95, /pintor 173 → 91.
 
+Después del cierre parcial (1/10): 706f841 tipografías acotadas (111 → 79,6 KB) y fecha real en
+los textos legales · 5ab3814 prueba `formularios-de-pasos` · 91e4ee5 "ya cotizaste" acotado a los
+pedidos en pantalla · 9ec75e4 `/api/sesion` fuera del middleware (3 → 2 llamadas a Auth por
+visita con sesión) · e6845e0 el vigilante mira /og.png, og:image y el noindex de /trabajos.
+Suite completa: **27/27 en verde** (corrida por el orquestador el 1/10).
+
 ## Resultó falso o distinto de lo reportado
 
 - **buscadores**: "/trabajos muestra el nombre completo de clientes sin sesión" — falso. Sin sesión
@@ -65,6 +71,14 @@ Medido: la portada bajó de 1.505 a 158 ms (p50, 10 simultáneas, :3100); /pinto
 | Primer clic de la varita | 400-724 ms | 571-599 ms (sin cambios: nadie tocó el simulador) |
 | Pruebas de regresión | 24 | 26 + las que deje `regresiones` |
 | Cobertura (🟢 · 🟡 · 🔴) | — | 40 · 10 · 31 al empezar |
+
+- **sesiones-y-acceso**: propuso limitar el middleware a las rutas privadas para ahorrar las
+  llamadas a Auth en las páginas públicas. Se aplicó sólo a `/api/sesion` y rutas técnicas: en
+  las públicas, la portada y el perfil leen la sesión (autor de las reseñas) y sin el middleware
+  un Server Component renovaría el permiso sin poder guardar la cookie — Supabase puede cerrar
+  todas las sesiones al verlo reusado. Y el costo que midió (3 llamadas por visita) es sólo de
+  quien TIENE sesión: un visitante anónimo no genera ninguna. Confirmó, eso sí, que ninguna
+  lectura cacheada usa el cliente con cookies y que `getSession()` no decide nada de seguridad.
 
 ## Agentes que se pasaron de su papel
 

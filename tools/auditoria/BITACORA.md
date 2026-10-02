@@ -234,6 +234,9 @@ No los vuelvas a levantar sin evidencia nueva.
   de pocos por hora. Con 50 altas en una hora, la mayoría no recibe nada (escala-y-volumen, 29/9).
 - **Supabase → Authentication: captcha** (Turnstile, gratis) en el alta y en recuperar: hoy un
   programa puede crear cuentas o llenarle el correo a un tercero sin tope propio.
+- **Supabase → Authentication: tope de intentos de ingreso.** El sitio no tiene freno propio
+  contra probar contraseñas en /ingresar: el login va directo a Supabase. Seis intentos fallidos
+  seguidos no activaron ningún bloqueo (sesiones-y-acceso, 1/10). Se configura en el panel.
 - **AAIP: inscribir la base de datos personales** (Ley 25.326). Trámite gratuito, con CUIT; es
   distinto de identificar al responsable, que también falta (riesgo-legal, 29/9).
 - **Preguntarle al abogado** por el botón de arrepentimiento (Res. 424/2020) aplicado a un
