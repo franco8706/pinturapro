@@ -47,8 +47,10 @@ module.exports = {
           await page.waitForTimeout(700);
           t.contiene(
             await page.evaluate(() => document.body.innerText),
-            "completá los datos de este paso",
-            "apretar 'Continuar' con el paso incompleto no explica qué falta",
+            // Desde el 29/9 nombra los campos: antes decía "completá los datos de este paso"
+            // aunque faltaran dos cosas distintas, y había que recorrer el paso para adivinar.
+            "Para seguir, completá el título y el tipo de trabajo.",
+            "apretar 'Continuar' con el paso incompleto no dice QUÉ falta",
           );
         }
 
