@@ -44,6 +44,28 @@ Medido: la portada bajó de 1.505 a 158 ms (p50, 10 simultáneas, :3100); /pinto
   (la prueba `cache-publico` y el sub-agente pintor midieron invalidación al instante): la obra
   la borró otro sub-agente mientras el visitante navegaba una página ya cargada.
 
+- **rendimiento**: "el Cache-Control sigue en private porque el layout sigue leyendo cookies" —
+  no: las páginas son `force-dynamic` a propósito (para no pedir la base al compilar) y lo que se
+  guarda en caché son los datos. Su medición sí es correcta y coincide con la del orquestador:
+  la portada 1.505 → 166 ms (p50, 10 simultáneas); JS de la portada 138,1 KB, sin regresión.
+- **rendimiento** encontró una trampa propia: bajo la emulación de celular, `img.naturalWidth`
+  de una imagen `fill` + `object-cover` devuelve el ancho PINTADO (390), no el del archivo
+  (1200). Para medir "imagen de más" hay que mirar el archivo real o el `w=` de `/_next/image`.
+
+## Números de la ronda (producción :3100, celular, 4G flojo, CPU ×4)
+
+| | Ronda anterior | Esta ronda |
+|---|---|---|
+| Portada, p50 con 10 visitas simultáneas | 1.505 ms | 158-166 ms |
+| /pintores · /obras · /pintor (ídem) | 132 · 124 · 173 ms | 93-96 · 90-95 · 85-91 ms |
+| JS de la portada | 138 KB | 138,1 KB |
+| Tipografías por página | ~100 KB (de Google) | 109,5 KB (locales) → 79,5 KB tras acotar pesos |
+| FCP / LCP de la portada | — | 912 / 912 ms |
+| LCP de /obras | — | 2.272 ms (la foto de portada compite con fuentes y JS) |
+| Primer clic de la varita | 400-724 ms | 571-599 ms (sin cambios: nadie tocó el simulador) |
+| Pruebas de regresión | 24 | 26 + las que deje `regresiones` |
+| Cobertura (🟢 · 🟡 · 🔴) | — | 40 · 10 · 31 al empezar |
+
 ## Agentes que se pasaron de su papel
 
 - **buscadores** (lanzado como general-purpose porque su tipo todavía no estaba registrado)
