@@ -53,6 +53,17 @@ export function mensajeDeError(error: { message?: string; code?: string }): stri
     if (/phone_largo/.test(m)) return "El teléfono es demasiado largo.";
     return "Alguno de los datos es demasiado largo. Revisalo y probá de nuevo.";
   }
+  // Los topes por hora y el piso de la cotización, cuando los frena la base y no la web
+  // (migración 0026: la app móvil y quien le hable directo a la API pasan por ahí).
+  if (/muchos pedidos en poco tiempo/i.test(m)) {
+    return "Publicaste muchos pedidos en poco tiempo. Probá de nuevo en un rato.";
+  }
+  if (/muchas cotizaciones en poco tiempo/i.test(m)) {
+    return "Enviaste muchas cotizaciones en poco tiempo. Probá de nuevo en un rato.";
+  }
+  if (/monto mínimo de una cotización/i.test(m)) {
+    return "El monto mínimo de una cotización es $1.000.";
+  }
   if (/monto|comisión/i.test(m) && /no puede|no corresponde|fuera de rango/i.test(m)) {
     return m; // los raise del trigger ya están escritos para el usuario
   }

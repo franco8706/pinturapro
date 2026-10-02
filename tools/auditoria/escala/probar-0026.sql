@@ -36,6 +36,7 @@ begin
   end;
 end $$;
 reset role;
+select set_config('request.jwt.claims', '', true); -- sin identidad: lo que sigue es preparación
 
 -- ── 2. Piso y tope de cotizaciones ──
 set local role authenticated;
@@ -63,6 +64,7 @@ exception when others then
   raise notice '¡FALLÓ! 2b: una cotización normal se rechazó -> %', sqlerrm;
 end $$;
 reset role;
+select set_config('request.jwt.claims', '', true); -- sin identidad: lo que sigue es preparación
 
 -- El tope de 30: se completa hasta 30 con la clave de servicio (sin tope) y se prueba la 31.
 do $$
@@ -91,6 +93,7 @@ exception when others then
   raise notice 'OK 2c: la cotización 31 se rechaza -> %', sqlerrm;
 end $$;
 reset role;
+select set_config('request.jwt.claims', '', true); -- sin identidad: lo que sigue es preparación
 
 -- ── 3. Un pedido adjudicado no se edita; uno abierto sí; una obra con historial también ──
 update public.jobs set status = 'accepted'
@@ -110,6 +113,7 @@ begin
   else raise notice '¡FALLÓ! 3b: no se pudo editar un pedido abierto (% filas)', n; end if;
 end $$;
 reset role;
+select set_config('request.jwt.claims', '', true); -- sin identidad: lo que sigue es preparación
 -- Una obra de portfolio con trabajos terminados colgando (el historial del seed): su dueño la edita.
 select p.owner_id as duenio_obra, p.id as obra from public.projects p
 where p.type = 'portfolio' and exists (select 1 from public.jobs j where j.project_id = p.id and j.status = 'completed') limit 1 \gset
@@ -125,6 +129,7 @@ begin
   else raise notice '¡FALLÓ! 3c: el dueño no pudo editar su obra de portfolio'; end if;
 end $$;
 reset role;
+select set_config('request.jwt.claims', '', true); -- sin identidad: lo que sigue es preparación
 
 -- ── 4. Los triggers de 0009 siguen cerrando y reabriendo el pedido ──
 select 'publicado después de aceptar: ' || published from public.projects where slug = 'zzagent-tope-0026-1';

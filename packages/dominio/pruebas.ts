@@ -169,6 +169,11 @@ for (const [texto, esperado] of [
 }
 igual(contactoEnTexto(null), null, "contacto: null no rompe");
 
+// ── Los mensajes de la migración 0026 llegan traducidos, no como "no pudimos completar la acción" ──
+igual(mensajeDeError({ code: "P0001", message: "Publicaste muchos pedidos en poco tiempo" }).includes("muchos pedidos"), true, "tope de pedidos de la base");
+igual(mensajeDeError({ code: "P0001", message: "Enviaste muchas cotizaciones en poco tiempo" }).includes("muchas cotizaciones"), true, "tope de cotizaciones de la base");
+igual(mensajeDeError({ code: "P0001", message: "El monto mínimo de una cotización es $1.000" }).includes("$1.000"), true, "piso de la cotización de la base");
+
 // El resumen va AL FINAL: estuvo en el medio y las pruebas de imágenes que se agregaron
 // debajo no corrían nunca — el archivo decía "todo en verde" y salía antes de llegar.
 console.log(fallas === 0 ? "reglas de negocio: todo en verde" : `reglas de negocio: ${fallas} fallas`);
