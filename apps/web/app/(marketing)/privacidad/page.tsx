@@ -43,7 +43,9 @@ const RESPONSABLE = {
 const FALTAN_DATOS_LEGALES =
   !RESPONSABLE.razonSocial || !RESPONSABLE.cuit || !RESPONSABLE.domicilio;
 
-const ULTIMA_ACTUALIZACION = "10 de septiembre de 2026";
+// Si cambiás el TEXTO de esta página, cambiá esta fecha: estuvo en "10 de septiembre" mientras
+// el contenido se reescribía tres veces (marketplace puro, cancelaciones, qué es público).
+const ULTIMA_ACTUALIZACION = "29 de septiembre de 2026";
 
 function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (

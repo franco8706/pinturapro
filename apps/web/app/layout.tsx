@@ -13,7 +13,8 @@ const inter = localFont({
   src: "./fonts/inter-latin.woff2",
   variable: "--font-inter",
   display: "swap",
-  weight: "100 900",
+  // Acotada a los pesos que el sitio usa (400 a 700): ver app/fonts/LEEME.md.
+  weight: "400 700",
 });
 
 const spaceGrotesk = localFont({
@@ -27,7 +28,8 @@ const jetbrainsMono = localFont({
   src: "./fonts/jetbrains-mono-latin.woff2",
   variable: "--font-jetbrains-mono",
   display: "swap",
-  weight: "100 800",
+  // Un solo peso: las etiquetas monoespaciadas van siempre en 400 (tailwind.config.ts).
+  weight: "400",
   // Se usa sólo en etiquetas chicas: que no compita con Inter y Space Grotesk por la red al
   // cargar la página.
   preload: false,

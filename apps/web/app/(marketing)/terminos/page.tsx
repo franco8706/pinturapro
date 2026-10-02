@@ -26,7 +26,9 @@ export const metadata: Metadata = {
  * de la razón social y hacerlo revisar por un abogado antes de publicar.
  */
 
-const ULTIMA_ACTUALIZACION = "10 de septiembre de 2026";
+// Si cambiás el TEXTO de esta página, cambiá esta fecha: estuvo en "10 de septiembre" mientras
+// el contenido se reescribía tres veces (marketplace puro, cancelaciones, qué es público).
+const ULTIMA_ACTUALIZACION = "27 de septiembre de 2026";
 const CONTACTO = "hola@pinturapro.ar";
 
 function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
