@@ -63,6 +63,12 @@ Estos ya no se reportan. `pnpm verificar` los revisa en cada corrida.
 | El móvil tenía su propia copia de las reglas | Parser de montos, comisión (`* 0.1` a mano), topes y errores duplicados; ya se habían desincronizado una vez | `reglas-compartidas` |
 | Los formularios de pasos no decían qué faltaba | "Completá los datos de este paso" aunque faltaran dos campos distintos | `formularios-de-pasos`, `accesibilidad` |
 | Al publicar, el foco quedaba en la página | El formulario desaparece y un lector de pantalla no se entera de que funcionó | `formularios-de-pasos` |
+| Una cuenta podía publicar pedidos sin límite | 8 pedidos seguidos y 8 cotizaciones sin freno (2/10); ahora 10 y 30 por hora | `tope-por-hora` |
+| /publicar aceptaba una superficie de "Infinity" | Quedó publicado "Superficie: Infinity m²" en el tablero: el formulario comparaba `Number(x) > 0` y el servidor no miraba | `formularios-de-pasos`, `dominio/pruebas.ts` |
+| Recargar la confirmación de un pedido mostraba el formulario vacío | Nada decía que el pedido ya estaba publicado: se cargaba de nuevo | `formularios-de-pasos` |
+| Una reseña abusiva no tenía salida | 1★ con una amenaza: el pintor no veía el texto ni recibía aviso, y el dueño no tenía dónde leerla ni borrarla | `moderacion-resenas` |
+| No había "Deshacer" en el simulador | Un clic de más obligaba a "Limpiar selección" y empezar de nuevo | `simulador-deshacer` |
+| "Intensidad" quedaba a 7-14 Shift+Tab del color | El control vivía antes de la grilla de colores en el orden del teclado | `simulador-deshacer` |
 ## Corregido, sin prueba todavía
 
 Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arriba.
@@ -127,21 +133,26 @@ Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arri
   repo, y acotadas a los pesos que se usan (111 → 79,6 KB por página).
 - **La fecha de los textos legales no cambiaba** aunque el texto sí (1/10).
 
+- **El primer clic de la varita congelaba la pantalla unos 600 ms** (abierto desde el 22/9). El
+  relleno y el cierre de huecos corren ahora en un Web Worker (`varita.worker.ts`): la tarea
+  larga bajó de 577-623 a 319-339 ms y el color se ve a los 413-425 ms (antes 566-632). Lo que
+  queda es difuminar y pintar, que necesitan el lienzo. Se mide con
+  `node tools/auditoria/simulador/congelamiento.cjs` contra :3100; no está en la suite porque
+  necesita la compilación de producción. La calidad no cambió ni un punto.
+- **Cotizar $1** pasaba sin objeción (2/10): piso de $1.000. Y **el pintor dejaba su WhatsApp en
+  la nota**, que el cliente lee antes de aceptar: se rechaza diciendo qué se encontró. Las dos
+  reglas viven en `@pinturapro/dominio` y se prueban en `dominio/pruebas.ts`; por la pantalla
+  no tienen prueba.
+- **/ingresar le pedía la contraseña a quien ya tenía sesión**, y la barra no se enteraba de un
+  ingreso hecho en otra pestaña (2/10, recorrido-web navegación).
+- **La sesión se validaba dos veces por visita** (1/10): `/api/sesion` salió del middleware.
+
 ## Abierto
 
-- **El primer clic del simulador congela la pantalla 400-724 ms** (re-medido el 28/9 por `rendimiento`, 3 corridas; antes figuraba ~400) (medido en producción, celular de
-  gama media). Es la varita recorriendo la imagen. Se arreglaría de verdad moviendo el cálculo a
-  un Web Worker con OffscreenCanvas. **Severidad: menor, pero se nota.**
 - **Faltan datos legales del responsable** (razón social, CUIT, domicilio). La pantalla ahora lo
   avisa en vez de aparentar estar completa, pero el dato lo tiene que poner el dueño. Además de
   la Ley 25.326 (AAIP), es un requisito de la normativa de comercio electrónico de Defensa del
   Consumidor: la misma falta, con dos organismos que la pueden mirar.
-- **Volver a "Intensidad" después de elegir un color cuesta 8 Shift+Tab.** El control vive en
-  el DOM del simulador, ANTES de la grilla de colores, que la dibuja la página; en la tarea
-  real se usa DESPUÉS. Arreglarlo es mover contenido entre dos componentes, no un ajuste.
-  **Severidad: molesto, no bloqueante.**
-- **No hay "Deshacer" en el simulador**, ni con mouse ni con teclado: sólo "Limpiar selección",
-  que borra todo de una vez. Afecta a todos por igual. **Severidad: menor.**
 - **Derecho de arrepentimiento (Ley 24.240):** el cliente acepta una cotización online y recién
   ahí conoce al pintor. Si eso cuenta como contratación a distancia, podría haber 10 días de
   arrepentimiento que el sitio no menciona. **No es una certeza: es la pregunta para el
@@ -176,6 +187,26 @@ Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arri
 - **Cotización de prueba sin retirar**: $550.000 de Martín (cuenta `pintor`) sobre el pedido demo
   "Pintura completa de PH en Barracas". La dejó el script de un agente; el sistema de permisos
   le bloqueó retirarla. Se retira desde /dashboard con esa cuenta.
+
+- **Los topes por hora y el piso de la cotización se saltean hablándole directo a la API**
+  (abuso-marketplace, 2/10; medido: `POST /rest/v1/projects` y `/rest/v1/jobs` con la sesión
+  propia → 201). Viven en las acciones de la web, no en la base. No es un agujero de seguridad
+  —cada cuenta sólo crea lo suyo— pero un programa con una cuenta no tiene techo. Va en una
+  migración (trigger `before insert`), que tiene que autorizar el dueño como 0024 y 0025.
+- **Un pedido se puede editar después de aceptar una cotización**, por la API (no hay pantalla):
+  `projects_update_own` no mira si ya hay un trabajo adjudicado, y hasta se puede volver a
+  publicar con otros datos. El monto del trabajo no se mueve. Misma migración.
+- **Nada detecta a un pintor que se reseña con otra cuenta** (ciclo completo en menos de un
+  minuto, medido). Desde el 2/10 el dueño al menos puede leer las últimas reseñas en /admin.
+- **Aceptar una cotización, quedarse con el teléfono del pintor y cancelar** no cuesta nada ni
+  deja rastro visible (el trabajo queda `cancelled` en la base). Y **retirar y recotizar** el
+  mismo pedido no tiene límite. Con 3 pintores no es urgente; con tráfico, un contador por
+  cuenta en /admin.
+- **La moldura manchada mide 4,5 %** (referencia 2,5 %; el piso de alarma es 6 %) sin que el
+  código del simulador haya cambiado. El perfil del filo sigue en 0. Puede ser la versión de
+  Chrome; si vuelve a moverse, es regresión (simulador-color, 2/10).
+- **Un título de 5.000 caracteres pasa los tres pasos de /publicar** y lo rechaza recién el
+  servidor. Correcto, pero la persona se entera al final. **Severidad: menor.**
 
 ## Descartado (se midió y no era)
 
