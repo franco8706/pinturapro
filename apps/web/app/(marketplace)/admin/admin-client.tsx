@@ -1,17 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { LevelBadge } from "@/components/features/level-badge";
 import type { Painter } from "@/lib/data";
-import type { LeadView } from "@/lib/queries";
+import type { LeadView, ResenaParaModerar } from "@/lib/queries";
+import { borrarResena } from "./actions";
 import { cn } from "@/lib/utils";
 
-const tabs = ["Consultas", "Pintores"] as const;
+const tabs = ["Consultas", "Pintores", "Reseñas"] as const;
 type Tab = (typeof tabs)[number];
 
-export function AdminClient({ leads, painters }: { leads: LeadView[]; painters: Painter[] }) {
+export function AdminClient({
+  leads,
+  painters,
+  resenas,
+}: {
+  leads: LeadView[];
+  painters: Painter[];
+  resenas: ResenaParaModerar[];
+}) {
   const [tab, setTab] = useState<Tab>("Consultas");
   const sinLeer = leads.filter((l) => l.status === "new").length;
 
@@ -27,7 +37,7 @@ export function AdminClient({ leads, painters }: { leads: LeadView[]; painters: 
               <span className="px-2 py-0.5 bg-ink text-bone font-mono text-mono-sm">{sinLeer} sin leer</span>
             )}
           </div>
-          <h1 className="font-display text-display-xl mb-10">Consultas y pintores.</h1>
+          <h1 className="font-display text-display-xl mb-10">Consultas, pintores y reseñas.</h1>
 
           {/* Tabs */}
           <div className="flex gap-1 border-b border-concrete/15 mb-8">
@@ -104,10 +114,94 @@ export function AdminClient({ leads, painters }: { leads: LeadView[]; painters: 
             )
           )}
 
+          {tab === "Reseñas" && (
+            resenas.length === 0 ? (
+              <p className="font-body text-body-md text-concrete py-12">Todavía no hay reseñas.</p>
+            ) : (
+              <>
+                <p className="font-body text-body-sm text-concrete max-w-2xl mb-6">
+                  Las últimas {resenas.length}, de la más nueva a la más vieja. Dar de baja una reseña la
+                  borra para todos y recalcula el promedio del pintor: no se puede deshacer.
+                </p>
+                <Table headers={["Fecha", "De", "Para", "Nota", "Texto", ""]}>
+                  {resenas.map((r) => (
+                    <tr key={r.id} className="border-b border-concrete/10 align-top">
+                      <Td className="text-concrete whitespace-nowrap">{r.fecha}</Td>
+                      <Td>{r.autor}</Td>
+                      <Td>
+                        <a href={`/pintor/${r.pintorId}`} className="underline underline-offset-4">
+                          {r.pintor}
+                        </a>
+                      </Td>
+                      <Td className="whitespace-nowrap">★ {r.rating}</Td>
+                      <Td className="text-concrete max-w-md [overflow-wrap:anywhere]">{r.comment || "—"}</Td>
+                      <Td>
+                        <BorrarResena id={r.id} />
+                      </Td>
+                    </tr>
+                  ))}
+                </Table>
+              </>
+            )
+          )}
+
         </div>
       </section>
       <Footer />
     </main>
+  );
+}
+
+/** Dos clics: el primero pregunta, el segundo borra. Sin diálogo del navegador. */
+function BorrarResena({ id }: { id: string }) {
+  const router = useRouter();
+  const [confirmar, setConfirmar] = useState(false);
+  const [error, setError] = useState("");
+  const [pendiente, empezar] = useTransition();
+
+  if (!confirmar) {
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirmar(true)}
+        className="py-1 font-body text-body-sm text-concrete underline underline-offset-4 hover:text-ink whitespace-nowrap"
+      >
+        Dar de baja
+      </button>
+    );
+  }
+  return (
+    <span className="flex flex-col gap-1">
+      <span className="flex gap-3 whitespace-nowrap">
+        <button
+          type="button"
+          disabled={pendiente}
+          onClick={() =>
+            empezar(async () => {
+              const r = await borrarResena(id);
+              if (r?.error) setError(r.error);
+              else router.refresh();
+            })
+          }
+          className="py-1 font-body text-body-sm text-[#C41E3A] underline underline-offset-4 disabled:opacity-50"
+        >
+          {pendiente ? "Borrando…" : "Sí, borrarla"}
+        </button>
+        <button
+          type="button"
+          disabled={pendiente}
+          onClick={() => setConfirmar(false)}
+          className="py-1 font-body text-body-sm text-concrete underline underline-offset-4"
+        >
+          No
+        </button>
+      </span>
+      {error && (
+        <span role="alert" className="font-body text-body-sm text-[#C41E3A]">
+          {error}
+        </span>
+      )}
+    </span>
   );
 }
 

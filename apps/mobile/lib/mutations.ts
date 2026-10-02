@@ -2,6 +2,8 @@ import { supabase } from "./supabase";
 import {
   montoDesdeTexto as toInt,
   mensajeDeError,
+  motivoCotizacionInvalida,
+  contactoEnTexto,
   comisionDe,
   revisarLargos,
   puedeCotizar,
@@ -108,7 +110,12 @@ export async function cotizar(input: {
 
   const amount = toInt(input.amount);
   if (!input.projectId || !input.clientId) return { error: "Faltan datos del pedido." };
-  if (!amount) return { error: "Ingresá un monto válido." };
+  const montoMal = motivoCotizacionInvalida(input.amount);
+  if (!amount || montoMal) return { error: montoMal ?? "Ingresá un monto válido." };
+  const contacto = contactoEnTexto(input.note);
+  if (contacto) {
+    return { error: `La nota trae ${contacto}. Sacalo: tu contacto se le comparte al cliente cuando acepta tu cotización.` };
+  }
   if (input.clientId === user.id) return { error: "No podés cotizar tu propio pedido." };
 
   // Rol, antes de tocar la base. La pantalla de trabajos ya oculta el botón a un cliente,

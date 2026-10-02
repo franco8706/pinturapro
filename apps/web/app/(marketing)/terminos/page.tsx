@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 
 // Si cambiás el TEXTO de esta página, cambiá esta fecha: estuvo en "10 de septiembre" mientras
 // el contenido se reescribía tres veces (marketplace puro, cancelaciones, qué es público).
-const ULTIMA_ACTUALIZACION = "27 de septiembre de 2026";
+const ULTIMA_ACTUALIZACION = "2 de octubre de 2026";
 const CONTACTO = "hola@pinturapro.ar";
 
 function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
@@ -192,6 +192,12 @@ export default function TerminosPage() {
               <strong>escribinos a <a href="mailto:hola@pinturapro.ar" className="text-ink underline underline-offset-2">hola@pinturapro.ar</a></strong>{" "}
               con el enlace a la página y una explicación de por qué. Revisamos cada pedido y
               respondemos; si el contenido incumple estas reglas, lo damos de baja.
+            </p>
+            <p>
+              Una reseña cuenta lo que pasó con un trabajo. <strong>Amenazar con una mala reseña
+              para conseguir un descuento, una devolución o cualquier otra cosa</strong> es un uso
+              indebido: la reseña se da de baja y la cuenta puede suspenderse. Si sos pintor, ves
+              cada reseña en tu panel, con un enlace para denunciarla.
             </p>
             <p>
               Somos una plataforma de intermediación: no revisamos de antemano todo lo que se

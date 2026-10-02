@@ -19,5 +19,19 @@ export { getJobsForClient, getJobsForPainter, getOpenServiceRequests, getPedidos
 export type { ClientJobView, JobView, ServiceRequest, QuoteView, PedidoPropio, ContactoContraparte } from "./pedidos";
 export { getFaqs, getResources, getNews } from "./contenido";
 export type { Faq, ResourceKind, Resource, NewsItem } from "./contenido";
-export { getLeads, getMetricasPlataforma, getVolumenMensual, getActividadReciente, getNumerosReales } from "./metricas-admin";
-export type { LeadView, MetricasPlataforma, MesVolumen, ActividadItem, NumerosReales } from "./metricas-admin";
+export {
+  getLeads,
+  getMetricasPlataforma,
+  getVolumenMensual,
+  getActividadReciente,
+  getNumerosReales,
+  getResenasParaModerar,
+} from "./metricas-admin";
+export type {
+  LeadView,
+  MetricasPlataforma,
+  MesVolumen,
+  ActividadItem,
+  NumerosReales,
+  ResenaParaModerar,
+} from "./metricas-admin";

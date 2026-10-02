@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { CONTACTO } from "@/lib/empresa";
 import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { LevelBadge } from "@/components/features/level-badge";
@@ -230,6 +231,35 @@ export default async function PainterDashboardPage({
                   )}
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Reseñas: el panel sólo las contaba. El pintor no veía el texto ni tenía a mano cómo
+              denunciar una falsa o una usada como amenaza (abuso-marketplace, 2/10). */}
+          {reviews.length > 0 && (
+            <div className="mb-16">
+              <h2 className="font-display text-display-md mb-6">Tus reseñas</h2>
+              <ul className="space-y-4">
+                {reviews.map((r) => (
+                  <li key={r.id} className="p-5 border border-concrete/15">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="font-body text-body-md text-ink">
+                        <span aria-hidden>★</span> {r.rating} de 5 · {r.author}
+                        <span className="text-concrete"> · {r.date}</span>
+                      </p>
+                      <a
+                        href={`mailto:${CONTACTO.email}?subject=${encodeURIComponent("Denuncia de una reseña")}&body=${encodeURIComponent(
+                          `Quiero denunciar esta reseña de mi perfil (${r.id}).\n\nPor qué:\n`,
+                        )}`}
+                        className="inline-block py-1 font-body text-body-sm text-concrete underline underline-offset-4 hover:text-ink"
+                      >
+                        Denunciar esta reseña
+                      </a>
+                    </div>
+                    {r.comment && <p className="mt-2 font-body text-body-md text-concrete">{r.comment}</p>}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 

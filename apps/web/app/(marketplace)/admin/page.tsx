@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getOwnProfile, getLeads, getPainters } from "@/lib/queries";
+import { getOwnProfile, getLeads, getPainters, getResenasParaModerar } from "@/lib/queries";
 import { AdminClient } from "./admin-client";
 
 // Pantalla privada: título propio para la pestaña y fuera de los buscadores.
@@ -34,7 +34,7 @@ export default async function AdminPage() {
 
   // Datos REALES. Antes esta página renderizaba mocks: mostraba pintores inventados y
   // botones "Suspender" que no hacían nada, bajo un cartel de "Acceso restringido".
-  const [leads, painters] = await Promise.all([getLeads(), getPainters()]);
+  const [leads, painters, resenas] = await Promise.all([getLeads(), getPainters(), getResenasParaModerar()]);
 
-  return <AdminClient leads={leads} painters={painters} />;
+  return <AdminClient leads={leads} painters={painters} resenas={resenas} />;
 }

@@ -13,7 +13,8 @@ import {
   puedeCotizar,
   MOTIVO_NO_PUEDE_COTIZAR,
   esTexto,
-  motivoMontoInvalido,
+  motivoCotizacionInvalida,
+  contactoEnTexto,
   esFormulario,
   superficieDesdeTexto,
   SUPERFICIE_MAXIMA,
@@ -165,10 +166,17 @@ export async function cotizar(formData: FormData): Promise<{ error?: string; ok?
   if (!projectId || !clientId) return { error: "Faltan datos del pedido." };
   // El motivo concreto, no "monto inválido": el formulario ya lo muestra mientras se escribe,
   // pero quien llega hasta acá sin JavaScript o por la app tiene que recibir lo mismo.
-  if (!amount) return { error: motivoMontoInvalido(formData.get("amount")) ?? "Ingresá un monto válido." };
+  const montoMal = motivoCotizacionInvalida(formData.get("amount"));
+  if (!amount || montoMal) return { error: montoMal ?? "Ingresá un monto válido." };
   if (clientId === user.id) return { error: "No podés cotizar tu propio pedido." };
   const notaMal = revisarLargos({ notaCotizacion: note });
   if (notaMal) return { error: notaMal };
+  // La nota la lee el cliente ANTES de aceptar. El contacto se comparte solo, al aceptar
+  // (0011): dejarlo acá es saltearse eso. Se dice qué se encontró, para que se pueda corregir.
+  const contacto = contactoEnTexto(note);
+  if (contacto) {
+    return { error: `La nota trae ${contacto}. Sacalo: tu contacto se le comparte al cliente cuando acepta tu cotización.` };
+  }
 
   // El rol también se verifica acá, no sólo en la base: la policy devuelve un error
   // de permisos genérico y quien lo lea tiene que entender qué pasó. Medido: una
@@ -292,7 +300,23 @@ export async function dejarResena(formData: FormData): Promise<{ error?: string;
     return { error: mensajeDeError(error) };
   }
 
+  // El pintor se enteraba de una reseña sólo si miraba su propio perfil público: ni aviso ni
+  // el texto en su panel. Con una reseña de una estrella usada como amenaza, eso lo dejaba sin
+  // salida (abuso-marketplace, 2/10). No-op si Resend no está configurado.
+  await notifyUser(
+    painterId,
+    "Recibiste una reseña en Pintura Pro",
+    emailLayout(
+      "Tenés una reseña nueva",
+      html`Un cliente calificó tu trabajo con <strong>${rating} de 5</strong>.${comment
+        ? html` Escribió: “${comment}”.`
+        : html``} La ves en tu panel, y si creés que es falsa o una forma de presión, desde ahí la podés denunciar.`,
+      cta("/dashboard", "Ver mi panel"),
+    ),
+  );
+
   revalidatePath("/cliente");
+  revalidatePath("/dashboard");
   olvidar(ETIQUETAS.resenas, ETIQUETAS.pintores);
   revalidatePath(`/pintor/${painterId}`);
   return { ok: true };

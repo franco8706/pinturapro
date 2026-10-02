@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cotizar } from "../actions";
-import { montoDesdeTexto, motivoMontoInvalido, comisionDe } from "@pinturapro/dominio";
+import { montoDesdeTexto, motivoCotizacionInvalida, comisionDe } from "@pinturapro/dominio";
 
 /** Formulario inline para que un pintor cotice un pedido de trabajo. */
 export function QuoteForm({ projectId, clientId }: { projectId: string; clientId: string }) {
@@ -23,6 +23,8 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
    */
   const [monto, setMonto] = useState("");
   const montoLeido = montoDesdeTexto(monto);
+  // Además de entenderse, tiene que ser una cotización posible: $1 pasaba sin objeción.
+  const motivo = motivoCotizacionInvalida(monto);
   /**
    * Lo que se anuncia a un lector de pantalla, con espera.
    *
@@ -38,8 +40,8 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
     const t = setTimeout(() => {
       const n = montoDesdeTexto(monto);
       setAnuncio(
-        n === null
-          ? motivoMontoInvalido(monto) ?? ""
+        n === null || motivoCotizacionInvalida(monto)
+          ? motivoCotizacionInvalida(monto) ?? ""
           : `Vas a cotizar ${n.toLocaleString("es-AR")} pesos. La comisión del 10% son ${comisionDe(n).toLocaleString("es-AR")} pesos.`,
       );
     }, 700);
@@ -126,8 +128,8 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
       </p>
       {monto.trim() !== "" && (
         <p className="font-body text-body-sm">
-          {montoLeido === null ? (
-            <span className="text-[#C41E3A]">{motivoMontoInvalido(monto)}</span>
+          {montoLeido === null || motivo ? (
+            <span className="text-[#C41E3A]">{motivo}</span>
           ) : (
             <span className="text-concrete">
               Vas a cotizar{" "}
@@ -160,8 +162,14 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
           name="note"
           rows={3}
           placeholder="Qué incluye, materiales, plazos…"
+          aria-describedby="aviso-contacto"
           className="mt-1 w-full border border-concrete/30 bg-plaster px-3 py-2 font-body text-body-md text-ink focus:border-ink outline-none transition-colors resize-y"
         />
+        {/* El cliente tenía su aviso ("poné el barrio, no la dirección"); el pintor, ninguno, y
+            la nota se ve ANTES de aceptar (abuso-marketplace, 2/10). */}
+        <span id="aviso-contacto" className="block mt-1 font-body text-body-sm text-concrete">
+          Sin teléfono ni mail: tu contacto se le comparte al cliente cuando acepta tu cotización.
+        </span>
       </label>
       {error && <p role="alert" className="font-body text-body-sm text-[#C41E3A]">{error}</p>}
       <div className="flex gap-3">

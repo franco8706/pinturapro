@@ -227,3 +227,64 @@ async function leer_getNumerosReales(): Promise<NumerosReales> {
 }
 
 export const getNumerosReales = publico(leer_getNumerosReales, "getNumerosReales", [ETIQUETAS.obras, ETIQUETAS.resenas, ETIQUETAS.trabajos]);
+
+export interface ResenaParaModerar {
+  id: string;
+  rating: number;
+  comment: string;
+  fecha: string;
+  autor: string;
+  pintor: string;
+  pintorId: string;
+}
+
+/**
+ * Las últimas reseñas, con su texto, para que el dueño las pueda leer.
+ *
+ * El panel sólo mostraba el promedio de cada pintor: una reseña ofensiva, o un pintor que se
+ * califica a sí mismo con otra cuenta, no se veían en ningún lado sin entrar a la base
+ * (abuso-marketplace, 2/10). Se lee con la sesión del administrador: las reseñas son públicas
+ * y el nombre del autor lo ve cualquiera con cuenta (0013).
+ */
+export async function getResenasParaModerar(limite = 50): Promise<ResenaParaModerar[]> {
+  if (!SUPA) return [];
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("reviews")
+      .select("id, rating, comment, created_at, author_id, target_id")
+      .order("created_at", { ascending: false })
+      .limit(limite);
+    if (error || !data) {
+      if (error) dbError("getResenasParaModerar", error);
+      return [];
+    }
+    const rows = data as unknown as {
+      id: string;
+      rating: number;
+      comment: string | null;
+      created_at: string;
+      author_id: string | null;
+      target_id: string;
+    }[];
+    const ids = [...new Set(rows.flatMap((r) => [r.author_id, r.target_id]).filter(Boolean))] as string[];
+    const nombres = new Map<string, string>();
+    if (ids.length) {
+      const { data: ps } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+      for (const p of (ps ?? []) as unknown as { id: string; full_name: string | null }[])
+        if (p.full_name) nombres.set(p.id, p.full_name);
+    }
+    return rows.map((r) => ({
+      id: r.id,
+      rating: r.rating,
+      comment: r.comment ?? "",
+      fecha: monthYear(r.created_at),
+      autor: r.author_id ? nombres.get(r.author_id) ?? "Cliente" : "Cuenta dada de baja",
+      pintor: nombres.get(r.target_id) ?? "Pintor",
+      pintorId: r.target_id,
+    }));
+  } catch (e) {
+    dbError("getResenasParaModerar", e);
+    return [];
+  }
+}

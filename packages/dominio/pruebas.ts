@@ -6,7 +6,8 @@
  * importaciones llevan la extensión `.ts` porque node la exige; el `index.ts` del paquete no,
  * porque ahí resuelve el empaquetador de cada app.
  */
-import { montoDesdeTexto, motivoMontoInvalido, comisionDe } from "./src/montos.ts";
+import { montoDesdeTexto, motivoMontoInvalido, motivoCotizacionInvalida, comisionDe } from "./src/montos.ts";
+import { contactoEnTexto } from "./src/contacto.ts";
 import { dimensionesDeImagen, motivoImagenDesmedida } from "./src/imagen.ts";
 import { revisarLargos, TOPES } from "./src/topes.ts";
 import { mensajeDeError } from "./src/errores.ts";
@@ -141,6 +142,32 @@ igual(superficieDesdeTexto(undefined), null, "superficie: undefined no rompe");
 for (const [entrada, esperado] of [["5", 5], ["70", 70], ["0", null], ["71", null], ["1e2", null], ["5.5", null], ["", null]] as [string, number | null][]) {
   igual(aniosDesdeTexto(entrada), esperado, `años de experiencia ${JSON.stringify(entrada)}`);
 }
+
+// ── El piso de una cotización ──
+igual(motivoCotizacionInvalida("1")?.includes("mínimo"), true, "cotizar $1 se rechaza con el motivo");
+igual(motivoCotizacionInvalida("999")?.includes("mínimo"), true, "$999 queda abajo del piso");
+igual(motivoCotizacionInvalida("1000"), null, "$1.000 vale");
+igual(motivoCotizacionInvalida("320.000"), null, "un monto normal vale");
+igual(motivoCotizacionInvalida("1,500,000")?.includes("comas de miles"), true, "el motivo del parser sigue saliendo primero");
+
+// ── Contacto en un texto libre ──
+for (const [texto, esperado] of [
+  ["Incluye materiales y dos manos.", null],
+  ["Son $1.500.000 en dos pagos de 750.000", null],
+  ["Empiezo el 15-08-2026 y termino el 22/08/2026", null],
+  ["120 m2, 3 ambientes, 2 manos de látex", null],
+  ["Llamame al 11 4444-5555", "un teléfono"],
+  ["+54 9 11 4444 5555 cualquier cosa", "un teléfono"],
+  ["mi cel: 1144445555", "un teléfono"],
+  ["escribime a pintor@gmail.com", "un email"],
+  ["mirá mis trabajos en www.mipagina.com", "un enlace"],
+  ["https://wa.me/5491144445555", "un enlace"],
+  ["hablame por wsp y cerramos por fuera", "un contacto de WhatsApp"],
+  ["te paso mi WhatsApp", "un contacto de WhatsApp"],
+] as [string, string | null][]) {
+  igual(contactoEnTexto(texto), esperado, `contacto en ${JSON.stringify(texto)}`);
+}
+igual(contactoEnTexto(null), null, "contacto: null no rompe");
 
 // El resumen va AL FINAL: estuvo en el medio y las pruebas de imágenes que se agregaron
 // debajo no corrían nunca — el archivo decía "todo en verde" y salía antes de llegar.

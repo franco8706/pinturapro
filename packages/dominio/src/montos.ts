@@ -112,6 +112,24 @@ export function motivoMontoInvalido(v: unknown): string | null {
   return "No entendemos ese monto. Escribilo así: 320000 o 320.000.";
 }
 
+/**
+ * El piso de una cotización. Un trabajo de pintura por menos que esto no existe: es un monto
+ * puesto para ganar el pedido y arreglar otro precio por fuera. Se cotizó $1 sin que nada lo
+ * objetara, con "La comisión del 10% son $0" en pantalla (abuso-marketplace, 2/10/2026).
+ */
+export const COTIZACION_MINIMA = 1_000;
+
+/** Por qué una cotización no vale, o `null` si vale. Incluye los motivos de `motivoMontoInvalido`. */
+export function motivoCotizacionInvalida(v: unknown): string | null {
+  const motivo = motivoMontoInvalido(v);
+  if (motivo) return motivo;
+  const n = montoDesdeTexto(v);
+  if (n !== null && n < COTIZACION_MINIMA) {
+    return `El monto mínimo de una cotización es $${COTIZACION_MINIMA.toLocaleString("es-AR")}.`;
+  }
+  return null;
+}
+
 /** Comisión de la plataforma sobre el monto del trabajo. */
 export const COMISION = 0.1;
 

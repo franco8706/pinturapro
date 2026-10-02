@@ -119,7 +119,8 @@ export function ReviewForm({ jobId, painterId, painter }: { jobId: string; paint
       <p className="font-body text-body-sm text-concrete">
         Tu reseña es pública y queda en el perfil de {painter}, con tu nombre.{" "}
         <strong className="text-ink">No se borra si después cerrás tu cuenta:</strong> es parte
-        de la reputación que esa persona construyó con su trabajo.
+        de la reputación que esa persona construyó con su trabajo. Contá lo que pasó: usar la
+        reseña para presionar al pintor es motivo de baja de la reseña y de la cuenta.
       </p>
       {error && <p role="alert" className="font-body text-body-sm text-[#C41E3A]">{error}</p>}
       <div className="flex gap-3">
