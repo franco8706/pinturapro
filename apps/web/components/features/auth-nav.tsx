@@ -16,7 +16,7 @@ const READY = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
  * el SDK entero —52 KB comprimidos, medido en producción por el agente `rendimiento`— para
  * leer un sí o un no, incluso en /terminos y /privacidad, que no usan sesión para nada.
  *
- * Se vuelve a preguntar en cada cambio de página: es lo que actualiza la barra después de
+ * Se vuelve a preguntar en cada cambio de página y al volver a la pestaña: es lo que actualiza la barra después de
  * ingresar (el ingreso navega a /mi-panel). Salir es un formulario que recarga la página
  * entera, así que ahí la pregunta sale sola.
  */
@@ -27,12 +27,21 @@ export function AuthNav({ className }: { className?: string }) {
   useEffect(() => {
     if (!READY) return;
     let vigente = true;
-    fetch("/api/sesion", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : { sesion: false }))
-      .then((d: { sesion?: boolean }) => vigente && setSesion(!!d.sesion))
-      .catch(() => vigente && setSesion(false));
+    const preguntar = () =>
+      fetch("/api/sesion", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : { sesion: false }))
+        .then((d: { sesion?: boolean }) => vigente && setSesion(!!d.sesion))
+        .catch(() => vigente && setSesion(false));
+    preguntar();
+    // Y al volver a la pestaña: si se entró o se salió en OTRA, esta seguía mostrando lo de
+    // antes hasta recargar (recorrido-web navegación, 2/10).
+    const alVolver = () => {
+      if (document.visibilityState === "visible") preguntar();
+    };
+    document.addEventListener("visibilitychange", alVolver);
     return () => {
       vigente = false;
+      document.removeEventListener("visibilitychange", alVolver);
     };
   }, [pathname]);
 

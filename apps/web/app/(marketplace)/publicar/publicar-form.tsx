@@ -7,8 +7,10 @@ import { Footer } from "@/components/features/footer";
 import { MultiStepForm, type FormStep } from "@/components/features/multi-step-form";
 import { cn } from "@/lib/utils";
 import { publicarTrabajo } from "../actions";
+import { superficieDesdeTexto } from "@pinturapro/dominio";
 
 const tipos = ["interior", "exterior", "ambos"];
+const CLAVE_PUBLICADO = "pinturapro:publicado";
 
 // Mapea el chip de presupuesto a un rango numérico (ARS).
 const BUDGETS: Record<string, [number | null, number | null]> = {
@@ -38,6 +40,26 @@ export function PublicarForm({ avisaPorMail }: { avisaPorMail: boolean }) {
     if (done) listoRef.current?.focus();
   }, [done]);
 
+  // La confirmación vive en la memoria de la página: quien recargaba (o volvía un rato después)
+  // se encontraba con el formulario vacío, sin ninguna pista de que el pedido YA estaba
+  // publicado, y podía cargarlo de nuevo creyendo que no había entrado (recorrido-web
+  // navegación, 2/10). Se anota en la pestaña el último pedido publicado, por media hora.
+  const [recienPublicado, setRecienPublicado] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      const crudo = sessionStorage.getItem(CLAVE_PUBLICADO);
+      if (!crudo) return;
+      const { titulo, cuando } = JSON.parse(crudo) as { titulo?: string; cuando?: number };
+      if (typeof titulo === "string" && typeof cuando === "number" && Date.now() - cuando < 30 * 60 * 1000) {
+        setRecienPublicado(titulo);
+      } else {
+        sessionStorage.removeItem(CLAVE_PUBLICADO);
+      }
+    } catch {
+      /* sin almacenamiento (modo privado): no hay aviso, no se rompe nada */
+    }
+  }, []);
+
   // Recargar a mitad del formulario borraba todo sin avisar (medido). Ver use-borrador.ts.
   const borrador = useMemo(() => ({ title, tipo, surface, zone, budget }), [title, tipo, surface, zone, budget]);
   const limpiarBorrador = useBorrador(
@@ -58,7 +80,9 @@ export function PublicarForm({ avisaPorMail }: { avisaPorMail: boolean }) {
     const [bMin, bMax] = BUDGETS[budget] ?? [null, null];
     const fd = new FormData();
     fd.set("title", title);
-    fd.set("description", `Tipo: ${tipo}${surface ? ` · Superficie: ${surface} m²` : ""}`);
+    // La descripción la arma el servidor con estos dos datos ya validados (ver la acción).
+    fd.set("tipo", tipo);
+    fd.set("surface", surface);
     fd.set("location", zone);
     if (bMin) fd.set("budget_min", String(bMin));
     if (bMax) fd.set("budget_max", String(bMax));
@@ -68,6 +92,11 @@ export function PublicarForm({ avisaPorMail }: { avisaPorMail: boolean }) {
       else {
         setDone(true);
         limpiarBorrador();
+        try {
+          sessionStorage.setItem(CLAVE_PUBLICADO, JSON.stringify({ titulo: title, cuando: Date.now() }));
+        } catch {
+          /* ver arriba */
+        }
       }
     } catch (err) {
       console.error("[publicar] falló:", err);
@@ -113,7 +142,11 @@ export function PublicarForm({ avisaPorMail }: { avisaPorMail: boolean }) {
     {
       id: "medidas",
       title: "Superficie y ubicación",
-      faltan: [!(Number(surface) > 0) && "la superficie", zone.trim() === "" && "la zona"].filter((x): x is string => !!x),
+      // `Number(surface) > 0` dejaba pasar "Infinity" y "1e9": la regla vive en el paquete.
+      faltan: [
+        superficieDesdeTexto(surface) === null && "la superficie en m² (un número hasta 100.000)",
+        zone.trim() === "" && "la zona",
+      ].filter((x): x is string => !!x),
       content: (
         <div className="space-y-8 max-w-md">
           <label className="block">
@@ -194,6 +227,17 @@ export function PublicarForm({ avisaPorMail }: { avisaPorMail: boolean }) {
             </div>
           ) : (
             <>
+              {recienPublicado && (
+                <p role="status" className="mb-10 p-5 border border-ink font-body text-body-md">
+                  Tu pedido <strong>«{recienPublicado}»</strong> ya está publicado.{" "}
+                  <a href="/cotizaciones" className="underline underline-offset-4">
+                    Ver mis cotizaciones →
+                  </a>
+                  <span className="block mt-1 text-body-sm text-concrete">
+                    Si querés publicar otro, completá el formulario de abajo.
+                  </span>
+                </p>
+              )}
               <p className="font-mono text-mono-sm text-concrete uppercase tracking-widest mb-4">Publicar trabajo</p>
               <h1 className="font-display text-display-xl mb-6">Recibí cotizaciones de pintores independientes.</h1>
               {/* Nada le decía al cliente que el pedido es público. El tablero no filtra por zona

@@ -28,6 +28,26 @@ export default function IngresarPage() {
     );
   }, []);
 
+  // Quien ya tiene sesión no tiene que escribir la contraseña otra vez. Pasaba con dos
+  // pestañas: se entraba en una, y la otra —con la barra todavía en "Ingresar"— llevaba a
+  // este formulario como si nada (recorrido-web navegación, 2/10). Si hay un error de enlace
+  // en la dirección, se deja el formulario: la persona vino a leer ese mensaje.
+  useEffect(() => {
+    if (!READY) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("error")) return;
+    let vigente = true;
+    fetch("/api/sesion", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { sesion: false }))
+      .then((d: { sesion?: boolean }) => {
+        if (vigente && d.sesion) router.replace(rutaInternaSegura(params.get("next"), "/mi-panel"));
+      })
+      .catch(() => {});
+    return () => {
+      vigente = false;
+    };
+  }, [router]);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");

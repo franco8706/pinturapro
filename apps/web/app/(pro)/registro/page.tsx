@@ -6,6 +6,7 @@ import { Footer } from "@/components/features/footer";
 import { MultiStepForm, type FormStep } from "@/components/features/multi-step-form";
 import { cn } from "@/lib/utils";
 import { postularmeComoPintor } from "@/app/(marketing)/actions";
+import { aniosDesdeTexto } from "@pinturapro/dominio";
 
 const specialties = ["Residencial", "Comercial", "Industrial", "Esmaltes", "Texturas", "Exteriores", "Impermeabilización"];
 const zones = ["CABA", "Zona Norte", "Zona Oeste", "Zona Sur"];
@@ -63,7 +64,7 @@ export default function RegistroPage() {
       id: "datos",
       title: "Empecemos por vos",
       subtitle: "Tu nombre como aparecerá en tu perfil público.",
-      faltan: [name.trim() === "" && "tu nombre", !(Number(years) > 0) && "los años de experiencia"].filter((x): x is string => !!x),
+      faltan: [name.trim() === "" && "tu nombre", aniosDesdeTexto(years) === null && "los años de experiencia (de 1 a 70)"].filter((x): x is string => !!x),
       content: (
         <div className="space-y-8 max-w-md">
           <label className="block">

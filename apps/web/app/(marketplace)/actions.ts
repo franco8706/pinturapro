@@ -7,7 +7,18 @@ import { notifyUser, emailLayout, html } from "@/lib/email";
 import { commissionFor } from "@/lib/utils";
 import { mensajeDeError } from "@/lib/errores-db";
 import { getOwnProfile } from "@/lib/queries";
-import { montoDesdeTexto, revisarLargos, puedeCotizar, MOTIVO_NO_PUEDE_COTIZAR, esTexto, motivoMontoInvalido, esFormulario } from "@pinturapro/dominio";
+import {
+  montoDesdeTexto,
+  revisarLargos,
+  puedeCotizar,
+  MOTIVO_NO_PUEDE_COTIZAR,
+  esTexto,
+  motivoMontoInvalido,
+  esFormulario,
+  superficieDesdeTexto,
+  SUPERFICIE_MAXIMA,
+  TOPE_POR_HORA,
+} from "@pinturapro/dominio";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 const ars = (n: number) => "$" + n.toLocaleString("es-AR");
@@ -34,6 +45,34 @@ function toInt(v: FormDataEntryValue | null): number | null {
   return montoDesdeTexto(v);
 }
 
+const TIPOS_DE_TRABAJO = ["interior", "exterior", "ambos"];
+
+/**
+ * ¿Esta cuenta ya creó demasiadas filas en la última hora?
+ *
+ * Publicar y cotizar no tenían ningún tope (los formularios de contacto sí): una cuenta
+ * publicó 8 pedidos seguidos y otra cotizó los 8 (formularios-hostiles, 2/10). Se cuenta en
+ * la base y no en la memoria del servidor, para que valga igual con varias instancias. Es el
+ * freno de la WEB: quien le hable directo a la API con su sesión no pasa por acá — ese tope
+ * va en la base y está anotado en la BITÁCORA. Si la cuenta falla, no se bloquea a nadie.
+ */
+async function superaElTope(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tabla: "projects" | "jobs",
+  columna: "owner_id" | "painter_id",
+  userId: string,
+  tope: number,
+): Promise<boolean> {
+  const desde = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { count, error } = await supabase
+    .from(tabla)
+    .select("id", { count: "exact", head: true })
+    .eq(columna, userId)
+    .gte("created_at", desde);
+  if (error) return false;
+  return (count ?? 0) >= tope;
+}
+
 /**
  * El cliente publica un pedido de trabajo (projects type='service', published).
  * Queda visible para que los pintores coticen.
@@ -51,8 +90,22 @@ export async function publicarTrabajo(formData: FormData): Promise<{ error?: str
   if (!user) return { error: "Tenés que iniciar sesión para publicar un trabajo." };
 
   const title = String(formData.get("title") ?? "").trim();
-  const description = String(formData.get("description") ?? "").trim();
   const location = String(formData.get("location") ?? "").trim();
+  // La descripción la arma el SERVIDOR con el tipo y la superficie ya validados. Antes la
+  // armaba el navegador y llegaba como texto: una superficie de "Infinity" quedó publicada en
+  // el tablero, a la vista de todos (formularios-hostiles, 2/10). Si no viene `tipo` (un
+  // llamador viejo), se acepta el texto, con su tope de largo.
+  const tipo = String(formData.get("tipo") ?? "").trim();
+  const superficieCruda = String(formData.get("surface") ?? "").trim();
+  let description = String(formData.get("description") ?? "").trim();
+  if (tipo) {
+    if (!TIPOS_DE_TRABAJO.includes(tipo)) return { error: "Elegí si el trabajo es interior, exterior o ambos." };
+    const superficie = superficieDesdeTexto(superficieCruda);
+    if (superficieCruda && superficie === null) {
+      return { error: `La superficie tiene que ser un número entre 1 y ${SUPERFICIE_MAXIMA.toLocaleString("es-AR")} m².` };
+    }
+    description = `Tipo: ${tipo}${superficie ? ` · Superficie: ${superficie.toLocaleString("es-AR")} m²` : ""}`;
+  }
   const budget_min = toInt(formData.get("budget_min"));
   const budget_max = toInt(formData.get("budget_max"));
   if (title.length < 4) return { error: "El título es muy corto." };
@@ -62,6 +115,10 @@ export async function publicarTrabajo(formData: FormData): Promise<{ error?: str
   // todo el mundo y no sólo para quien lo publicó.
   const largoMal = revisarLargos({ titulo: title, descripcion: description, ubicacion: location });
   if (largoMal) return { error: largoMal };
+
+  if (await superaElTope(supabase, "projects", "owner_id", user.id, TOPE_POR_HORA.pedidos)) {
+    return { error: "Publicaste muchos pedidos en poco tiempo. Probá de nuevo en un rato." };
+  }
 
   const slug = `${slugify(title) || "trabajo"}-${Math.random().toString(36).slice(2, 7)}`;
   const payload = {
@@ -138,6 +195,10 @@ export async function cotizar(formData: FormData): Promise<{ error?: string; ok?
     commission_amount,
     note: note || null,
   };
+
+  if (await superaElTope(supabase, "jobs", "painter_id", user.id, TOPE_POR_HORA.cotizaciones)) {
+    return { error: "Enviaste muchas cotizaciones en poco tiempo. Probá de nuevo en un rato." };
+  }
 
   const { error } = await supabase.from("jobs").insert(payload as never);
   if (error) return { error: mensajeDeError(error) };

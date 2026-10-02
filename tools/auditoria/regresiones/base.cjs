@@ -58,6 +58,16 @@ function abrirBase() {
       if (!r.ok) throw new Error(`borrar ${tabla}: HTTP ${r.status}`);
       return (await r.json()).length;
     },
+    /** Inserta filas (para armar un escenario; se borran en el `finally` de la prueba). */
+    async insertar(tabla, filas) {
+      const r = await fetch(`${url.replace(/\/+$/, "")}/rest/v1/${tabla}`, {
+        method: "POST",
+        headers: { ...cabeceras, "Content-Type": "application/json", Prefer: "return=representation" },
+        body: JSON.stringify(filas),
+      });
+      if (!r.ok) throw new Error(`insertar ${tabla}: HTTP ${r.status} ${await r.text()}`);
+      return r.json();
+    },
     /** Lee las filas que cumplen el filtro. `columnas` es la lista para `select` (PostgREST). */
     async leer(tabla, filtro, columnas = "*") {
       const r = await fetch(rest(tabla, `${filtro}&select=${columnas}`), { headers: cabeceras });

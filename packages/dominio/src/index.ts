@@ -15,3 +15,4 @@ export { mensajeDeError } from "./errores";
 export { puedeCotizar, puedePublicarObra, MOTIVO_NO_PUEDE_COTIZAR, type TipoDePerfil } from "./roles";
 export { esTexto, textoRecibido, esFormulario } from "./entrada";
 export { dimensionesDeImagen, motivoImagenDesmedida, MAXIMO_MEGAPIXELES, MAXIMO_LADO } from "./imagen";
+export { superficieDesdeTexto, aniosDesdeTexto, SUPERFICIE_MAXIMA, TOPE_POR_HORA } from "./medidas";

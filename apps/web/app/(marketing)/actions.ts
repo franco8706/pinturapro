@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyUser, notifyLeadsInbox, emailLayout, html } from "@/lib/email";
 import { SITE_URL } from "@/lib/site";
-import { esFormulario } from "@pinturapro/dominio";
+import { esFormulario, aniosDesdeTexto } from "@pinturapro/dominio";
 
 /**
  * Formularios públicos: presupuesto, contacto y postulación de pintores.
@@ -232,6 +232,13 @@ export async function postularmeComoPintor(formData: FormData): Promise<LeadResu
   if (name.length < 2) return { error: "Ingresá tu nombre." };
   if (!EMAIL_RE.test(email)) return { error: "Ingresá un email válido: es por donde te vamos a contactar." };
   if (phone.length < 6) return { error: "Ingresá un teléfono de contacto." };
+
+  // Los años llegaban como texto libre y se guardaban tal cual: "Infinity" o "1e9" pasaban
+  // la validación del navegador, que comparaba `Number(x) > 0` (formularios-hostiles, 2/10).
+  const experienciaCruda = limpiar(formData.get("experience"), 120);
+  if (experienciaCruda && aniosDesdeTexto(experienciaCruda) === null) {
+    return { ok: false, error: "Los años de experiencia tienen que ser un número entre 1 y 70." };
+  }
 
   return guardarLead({
     kind: "painter_application",

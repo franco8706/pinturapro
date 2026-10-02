@@ -11,6 +11,7 @@ import { dimensionesDeImagen, motivoImagenDesmedida } from "./src/imagen.ts";
 import { revisarLargos, TOPES } from "./src/topes.ts";
 import { mensajeDeError } from "./src/errores.ts";
 import { puedeCotizar } from "./src/roles.ts";
+import { superficieDesdeTexto, aniosDesdeTexto } from "./src/medidas.ts";
 
 let fallas = 0;
 function igual(obtenido: unknown, esperado: unknown, que: string) {
@@ -125,6 +126,21 @@ igual(motivoImagenDesmedida(png(1600, 1200)), null, "una foto achicada por el na
 igual(motivoImagenDesmedida(png(40000, 40000))?.includes("demasiado grande"), true, "la bomba de 1.600 MP que subió el agente se rechaza");
 igual(motivoImagenDesmedida(png(12000, 100))?.includes("demasiado grande"), true, "un lado de más de 10.000 px se rechaza aunque el total sea chico");
 igual(motivoImagenDesmedida(new Uint8Array(40))?.includes("No pudimos leer"), true, "sin encabezado reconocible: ante la duda, no");
+
+// ── Medidas: lo que `Number()` acepta y no es una superficie ──
+// Cada uno de estos pasaba `Number(v) > 0`, y el primero quedó publicado en el tablero.
+for (const [entrada, esperado] of [
+  ["40", 40], ["40,5", 40.5], ["40.5", 40.5], ["100000", 100000], [" 85 ", 85],
+  ["Infinity", null], ["1e9", null], ["99999999999", null], ["100001", null],
+  ["0", null], ["-50", null], ["", null], ["abc", null], ["12.345", null], ["0x10", null],
+] as [string, number | null][]) {
+  igual(superficieDesdeTexto(entrada), esperado, `superficie ${JSON.stringify(entrada)}`);
+}
+igual(superficieDesdeTexto(null), null, "superficie: null no rompe");
+igual(superficieDesdeTexto(undefined), null, "superficie: undefined no rompe");
+for (const [entrada, esperado] of [["5", 5], ["70", 70], ["0", null], ["71", null], ["1e2", null], ["5.5", null], ["", null]] as [string, number | null][]) {
+  igual(aniosDesdeTexto(entrada), esperado, `años de experiencia ${JSON.stringify(entrada)}`);
+}
 
 // El resumen va AL FINAL: estuvo en el medio y las pruebas de imágenes que se agregaron
 // debajo no corrían nunca — el archivo decía "todo en verde" y salía antes de llegar.
