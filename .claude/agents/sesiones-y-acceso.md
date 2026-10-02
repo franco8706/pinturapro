@@ -87,3 +87,15 @@ mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
   la "Site URL": hoy es la del Codespace. Revisalo cada vez que cambie el dominio.
 - La cuota de mails de Supabase se agota rápido: no la gastes en lo que se puede probar con
   `generateLink`.
+- 2/10: medido — toda página pública CACHEADA paga 3 llamadas a Supabase Auth cuando hay sesión
+  (middleware×2 + `/api/sesion`×1), porque el middleware no excluye `/api/*` ni las rutas
+  públicas. Propusiste acotar el matcher; se aplicó sólo a `/api/sesion` y rutas técnicas
+  (9ec75e4: 3→2 llamadas), NO a las páginas públicas en sí — sacar el middleware de ahí renovaría
+  el token sin poder guardar la cookie en un Server Component, y Supabase puede cerrar sesiones al
+  verlo reusado. Y el costo medido es sólo de quien TIENE sesión: un anónimo no genera ninguna.
+- 2/10: confirmaste que `getSession()` no decide nada de seguridad en ningún punto del código
+  (sólo decide si vale la pena una consulta extra para el nombre del autor de una reseña) — la
+  validación real siempre pasa por la firma del JWT en Postgres.
+- 2/10: Pintura Pro no tiene tope propio contra fuerza bruta en `/ingresar` (depende 100% de la
+  config de Supabase Auth, invisible desde el código) — 6 intentos seguidos no activaron ningún
+  freno.

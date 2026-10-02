@@ -68,3 +68,19 @@ mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
   columnas que se abrieron para que una policy pudiera leerlas: es el mismo patrón.
 - `leads` aceptaba inserción directa con la clave pública, salteando el anti-spam del
   servidor (0022). Revisá toda tabla con una policy de INSERT abierta a anon.
+- 2/10: repasaste las 16 funciones que COBERTURA.md marcaba sin ninguna prueba/agente: 8 son
+  funciones-trigger (`enforce_job_rules`, `on_job_accepted`, `on_job_cancelled`, `on_review_change`,
+  `una_sola_adjudicacion`, `freeze_profile_trust_fields`, `handle_new_user`, `set_updated_at` — no
+  invocables por RPC, `404 PGRST202` siempre, con o sin sesión) y las otras 8
+  (`mi_telefono`, `contacto_del_trabajo`, `metricas_plataforma`, `volumen_mensual`,
+  `actividad_reciente`, `pintores_geolocalizados`, `pedidos_abiertos`, `recalc_profile_rating`,
+  `es_admin`, `es_pintor`, `es_service_role`) tienen revoke/grant correctos, confirmado en vivo con
+  la sesión de una cliente real (marina.acosta).
+- 2/10: único hallazgo, menor — `es_service_role()` (0006) es la única función nueva sin
+  `revoke execute ... from public, anon`; no filtra nada (sólo lee el claim JWT propio, que firma
+  Supabase), pero rompe la convención que alguien podría copiar mal el día que agregue una función
+  parecida que sí toque una tabla.
+- 2/10: quedó sin verificar EN VIVO (por la regla de sólo lectura) el PATCH de
+  `is_admin`/`verified`/`rating` sobre un perfil propio y `contacto_del_trabajo` con un job real
+  donde la sesión de prueba fuera parte — confirmados por lectura de código, con la consulta
+  armada en el reporte si hace falta repetirlo con permiso de escritura.

@@ -66,3 +66,13 @@ mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
   falla con cualquier aviso alto o crítico en lo que atiende internet. Tu trabajo pasa a ser lo
   que esa prueba no ve: atrasos sin aviso todavía (`@supabase/*`), el salto a Next 16 / React
   19, y el árbol de Expo (casi 50 avisos, todos de la herramienta de compilación).
+- 28/9: `next/font/google` descarga fuentes AL COMPILAR, no en el navegador — fue la causa real
+  de que un build fallara ese día (no un problema del navegador de nadie). Se migró a
+  `next/font/local`: confirmá que el build siga sin pedir red a `fonts.gstatic.com`.
+- 28/9: `next/og` (`ImageResponse`, usado por `/og.png`) viene VENDORIZADO dentro de `next`
+  (`satori`, `resvg.wasm`, `yoga.wasm`) y no aparece en `pnpm-lock.yaml`: ni `pnpm audit` ni
+  `dependencias-seguras` lo ven. Un CVE ahí sólo se parcha subiendo `next` entero — es un punto
+  ciego conocido, no lo reportes como hallazgo nuevo cada vez.
+- 28/9: los ~58 avisos de `pnpm audit` siguen siendo 100% de `apps/mobile > expo > @expo/cli`
+  (herramienta de build, no código que atiende producción). No repitas la lista completa; alcanza
+  con confirmar que `apps/web` sigue limpio.

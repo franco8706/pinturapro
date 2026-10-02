@@ -16,8 +16,9 @@ trabajo es dar números, no impresiones. Reportás; no corregís salvo que te lo
 
 ## Qué se mide y cómo
 
-El simulador está en `/simulador`. Código: `apps/web/components/features/photo-simulator.tsx`,
-`apps/web/lib/magic-wand.ts`, `apps/web/lib/oklab.ts`.
+El simulador está en `/simulador`. Código: `apps/web/components/features/photo-simulator.tsx`
+(UI y lienzo) y `packages/color/src/magic-wand.ts`/`oklab.ts` (varita y motor de color — se
+separaron a su propio paquete; ya no viven en `apps/web/lib`).
 
 Fotos de prueba y máscara de referencia (dónde está la pared de verdad):
 
@@ -70,3 +71,17 @@ cerrar cada ronda.
   Si el simulador "no reacciona", mirá primero la consola: puede no ser el simulador.
 - La tarea larga del primer clic (400-724 ms) sigue abierta; si se mueve la varita a un Web
   Worker, tu trabajo es confirmar que los números de calidad no cambian ni un punto.
+- 2/10: perfilaste función por función el primer clic (CPU×4): cerrar huecos (45%) + flood fill
+  (30%) son el 75% del tiempo medido. El "camino rápido" (`rapido:true`, sin cerrar huecos) YA
+  EXISTE para el arrastre de Sensibilidad pero no se usaba en el primer clic — era la ganancia más
+  barata sin tocar el algoritmo.
+- 2/10: la moldura manchada casi se duplicó (2,5%→4,5%) sin que ningún commit tocara el código del
+  simulador — el orquestador la volvió a medir antes/después del Web Worker y dio 4,5% idéntico
+  bit a bit los dos lados (el Worker no lo movió). **La causa del salto no está confirmada**: la
+  hipótesis es la versión de Chrome, pero nadie lo midió con la versión anterior. Referencia
+  desde ahora: **4,5%** con el filo en 0; si podés, confirmá o descartá la hipótesis midiendo el
+  commit del 19/9 con el Chrome de hoy.
+- 2/10: se implementó el Web Worker (no los tres atajos que propusiste: pasada rápida+completa,
+  reutilizar buffers, media resolución — los tres tocaban la calidad o dejaban el cálculo en el
+  hilo principal). Resultado: primer clic 577-623→319-339 ms, calidad sin cambios. Confirmá ese
+  número la próxima ronda.

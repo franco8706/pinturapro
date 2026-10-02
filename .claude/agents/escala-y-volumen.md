@@ -111,3 +111,19 @@ cerrar cada ronda.
   compilar.** Si pasa en Cloud Build, no sale la versión.
 - Las consultas ya tienen topes (`.limit(60)` y otros): el riesgo no es que traigan todo, es
   que dejan gente afuera sin avisar.
+- 29/9: tu propuesta de caché pública + cliente sin cookies (papel **web**) se aplicó tal cual
+  (031a145): portada 1.505→158 ms p50 (c=10), `/pintores` 132→93, `/obras` 124→95, `/pintor`
+  173→91. Seguí usando `tools/auditoria/escala/carga.mjs`, ya existe en el repo.
+- 29/9 (papel **base**): con volumen sintético, medí SIEMPRE dos veces. Tu primera lectura de
+  `getNumerosReales`/`metricas_plataforma` dio 893 ms / 1,9 s y en la segunda corrida, sin cambiar
+  nada, bajó a 62/54 ms — era el costo de leer filas recién insertadas (hint bits de Postgres), no
+  el cuello real. Y revisá `volumen.sql` contra tres trampas ya conocidas antes de entregarlo:
+  variables de psql dentro de `$$…$$` (no se reemplazan), `disable trigger all` (son también los
+  triggers de sistema, da permiso denegado) y colisiones con `uniq_jobs_quote_viva` si repetís
+  parejas pintor-pedido cada mcm(n_pintores, n_pedidos).
+- 29/9 (papel **web**): los topes sin paginación (`getPainters`/`getProjects` en 60,
+  `pedidos_abiertos` en 50) son el riesgo real a 100×, más que el peso de la página: desde el
+  pintor/obra 61, deja de existir para clientes y para Google sin aviso. Y en Cloud Run el
+  optimizador de imágenes de Next corre en la MISMA instancia que sirve HTML: una ráfaga de fotos
+  nuevas compite por el mismo vCPU que las páginas (medido con `sharp` local por `nube-google`:
+  AVIF cuesta 10-18× más CPU que WebP).

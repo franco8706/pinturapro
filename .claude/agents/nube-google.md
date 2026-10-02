@@ -78,3 +78,14 @@ mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
   cierta contra el código, no volver a proponer los archivos.
 - Los datos personales en los registros aparecieron por el asunto de un mail: buscá
   cualquier `console.*` que interpole texto que escribió una persona.
+- 1/10: el único punto de falla real para el build es Google Fonts (`next/font/google`, sólo en
+  `layout.tsx`); migrar a `next/font/local` lo saca sin tocar nada de CSS. No encontraste otro
+  `fetch` a nivel de módulo en todo `apps/web`.
+- 1/10: medido con `sharp` local — AVIF cuesta 10-18× más CPU que WebP para el mismo pixel (828px:
+  857-940 ms vs 47-52 ms). Con `--cpu=1`, una sola conversión AVIF casi congela el único vCPU que
+  también sirve HTML. Recomendación sin rediseñar nada: `images.formats: ['image/webp']`.
+- 1/10: calculaste el costo real de Cloud Run con los números de `escala-y-volumen` (papel web):
+  con `revalidate` (caché de datos), 100.000 visitas/día cuestan ~US$3/mes contra ~US$43/mes sin
+  caché — confirma que el cuello a esa escala es Supabase, no Cloud Run. Lo que el vigilante NO
+  cubre todavía: 5xx de Server Actions, algo tipo Sentry, el tope de mails de Supabase Auth, la
+  cuota de Storage.

@@ -87,3 +87,15 @@ mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
   `EMAIL_READY`. Buscá otras frases así.
 - **Tu ronda anterior verificó los textos del orquestador y encontró uno falso.** Seguí
   haciéndolo: el que escribe el arreglo no es el mejor para revisarlo.
+- 2/10: encontraste el hallazgo más grave de la ronda — el badge "Verificado" en `/pintor/[id]`
+  se muestra sobre un perfil real (`profiles.verified` puesto a mano por SQL) sin ningún proceso
+  de verificación detrás: publicidad engañosa medible, en producción, ahora mismo. Confirmá que
+  se haya sacado la próxima ronda.
+- 2/10: el pie de los mails transaccionales (`lib/email.ts`) seguía diciendo "Pintura profesional
+  de obra" — la misma frase vieja que ya se había sacado de la portada y `/nosotros`, pero
+  sobrevivía en el único lugar que nadie audita mirando pantallas: el HTML que manda Resend.
+  Revisá siempre los templates de mail, no sólo las páginas.
+- 2/10: Res. 424/2020 — el botón de baja ya existe (`/mi-cuenta`) y cumple; el de arrepentimiento
+  queda como duda para el abogado porque Pintura Pro no vende el trabajo de pintura (lo hace el
+  pintor), así que no está claro si el deber recae sobre la plataforma, el pintor, los dos o
+  ninguno.

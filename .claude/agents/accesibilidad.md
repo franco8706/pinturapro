@@ -67,3 +67,15 @@ mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
   simulador, el monto de cotizar). Buscalo en todo campo con confirmación en vivo.
 - `tactil` mide ahora enlaces sueltos además de botones: los de 17 px del pie estuvieron
   abiertos varias rondas porque ninguna prueba los podía poner en rojo.
+- 2/10: foco perdido al terminar `/publicar` y `/registro` — el swap de `<MultiStepForm>` por la
+  pantalla "listo" no mueve el foco (el fix de "Continuar" con `pasoRef` no cubre este swap,
+  que pasa por fuera del componente). Revisá el foco en cualquier swap de formulario→pantalla de
+  éxito, no sólo en la navegación entre pasos.
+- 2/10: el contraste de las iniciales de pintor sin foto en `/pintor/[id]` (2,02:1) seguía mal
+  porque el mismo arreglo ya se había aplicado en `painter-card.tsx` pero no llegó al perfil
+  individual — ninguna prueba abre esa pantalla. Un arreglo en un componente no está aplicado en
+  todos los lugares que repiten la MISMA clase visual: buscá el patrón de clases, no sólo el
+  archivo donde lo viste la primera vez.
+- 2/10: medí `concrete`/`plaster` con `getComputedStyle` y dio 4,68:1 (no 4,47:1 como el hex
+  nominal de `globals.css`) — medí siempre el color REALMENTE renderizado, nunca el hex de la
+  hoja de estilos.

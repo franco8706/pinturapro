@@ -69,3 +69,17 @@ mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
   visitante encontró que /nosotros hablaba como una empresa de pintura. Marketplace puro: ver
   la nota de `riesgo-legal`.
 - /cotizar ya no existe (redirige a /publicar): la puerta de entrada del cliente es publicar.
+- 2/10 (sub-agente cliente): las reseñas de clientes se publican SIEMPRE como "Cliente" genérico,
+  nunca con el nombre real, aunque el propio formulario promete "queda con tu nombre" — la caché
+  pública nueva de esta ronda usa el cliente siempre-anónimo también para resolver el autor,
+  pisando la excepción de 0013 ("con sesión se ve el nombre").
+- 2/10 (sub-agente pintor): un sub-agente dejó sin querer una cotización de $550.000 en un pedido
+  demo AJENO (no ZZAGENT, de otra clienta real) al cotizar un pedido propio en una página que
+  mostraba datos de /trabajos ya desactualizados; no pudo retirarla por el sistema de permisos. Si
+  un envío queda colgado en "Enviando…" o lo repetiste en varios intentos, revisá /trabajos
+  COMPLETO después, no sólo el pedido que intentabas cotizar.
+- 2/10 (sub-agente navegación): el navbar no se entera de un login hecho en otra pestaña (sigue
+  diciendo "Ingresar" con la cookie ya válida) y `/ingresar` no redirige a quien ya tiene sesión —
+  no es un agujero de seguridad (las rutas protegidas validan server-side), sólo UX. Y recargar la
+  pantalla de éxito de `/publicar` vuelve al paso 1 sin avisar que el pedido ya se creó (el estado
+  `done` es sólo de React, no sobrevive un reload).

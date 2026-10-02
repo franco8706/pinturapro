@@ -56,3 +56,14 @@ mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
   lugares que no son páginas: metadatos, pie, mails, textos de error.
 - "De tu zona" era una promesa: ningún código filtra pedidos por zona. Buscá lo que el
   código NO hace, no sólo lo que dice mal.
+- 2/10: "Pintores verificados" volvió a aparecer, esta vez en la app móvil
+  (`apps/mobile/app/(tabs)/index.tsx` y `publicar.tsx`) y en una "novedad" vieja de la tabla
+  `news` (migración 0005) — la misma frase falsa que ya se había sacado de la web vuelve por
+  canales que no son páginas de `apps/web`. Revisá también la base de contenido (`faqs`, `news`,
+  `resources`), no sólo las páginas.
+- 2/10: las FAQ de la base (migración 0005) todavía dicen "pintamos", "organizar el equipo",
+  "trabajamos con" — contradice el marketplace puro. Hoy `getFaqs()` no tiene consumidor en la
+  web, pero el texto queda listo para arrastrarse en cuanto alguien lo use.
+- 2/10: "/registro" promete una revisión y "activación de perfil" que no existen (no hay estado
+  pendiente/activo en `profiles` ni botón de aprobar en `/admin`) — es el mismo patrón de
+  "promesa sin proceso detrás" que `riesgo-legal` marcó con "Verificado".

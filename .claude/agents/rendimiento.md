@@ -65,3 +65,13 @@ cerrar cada ronda.
   se usa sólo en etiquetas chicas.
 - Medí siempre contra producción en :3100 (`bash tools/auditoria/produccion.sh`, lo levanta el
   orquestador): el servidor de desarrollo manda JavaScript de más y compila en el primer pedido.
+- 1-2/10: medí con un navegador NUEVO por página (caché HTTP fría) — medir todo en una sola
+  pestaña hace que las fuentes ya cacheadas por la portada aparezcan en "0 KB" en el resto, y un
+  visitante real que entra directo a `/pintores` desde Google las paga igual. Repetí esto.
+- 1/10: `img.naturalWidth` MIENTE bajo la emulación de celular para imágenes `next/image` con
+  `fill`+`object-cover`: devuelve el ancho PINTADO (390), no el del archivo (1200). Medí contra el
+  archivo real (`curl`+Pillow) o el `w=` de `/_next/image`, nunca `naturalWidth` del DOM ahí.
+- 1/10: la caché de 60 s ya se cobró su ganancia (portada 1.505→166 ms p50 c=10, 9×) — no hay nada
+  que arreglar ahí, sólo seguir confirmando que se sostiene. Lo que sigue abierto: las 3 fuentes
+  siguen pesando 109,5 KB por página (JetBrains Mono se baja completa aunque no se precargue) y el
+  primer clic de la varita, ANTES del Web Worker de esta ronda, seguía en 571-599 ms.

@@ -81,3 +81,8 @@ mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
   `admin-panel-empresa`, `duplicados-publicar` y `sitemap-demo`.
 - Dos corridas completas dieron idénticas: la suite no tiene pruebas inestables hoy. Si una
   aparece, la primera sospecha es una espera fija con el servidor cargado (ver REGLAS).
+- 2/10: esta ronda la corrió el orquestador directamente, no vos (sin reporte propio de este
+  agente). Suite completa: 27/27 en verde el 1/10, y se sumaron pruebas nuevas después
+  (`formularios-de-pasos`, `tope-por-hora`, `moderacion-resenas`, `simulador-deshacer`) — detalle
+  en `tools/auditoria/rondas/2026-09-28-escala/cierre.md`. Correla de nuevo la próxima ronda para
+  tener un número propio de referencia.

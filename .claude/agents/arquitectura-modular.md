@@ -74,3 +74,13 @@ cerrar cada ronda.
   `@pinturapro/dominio` (una sola fuente en la web).
 - La app móvil no se puede correr ni tipar desde el Codespace (no hay tipos de React Native
   instalados): lo que propongas para el móvil tiene que decir cómo se verificaría en un celular.
+- 1/10: tu corte de `lib/queries.ts` en `lib/queries/` (base, pintores, obras, pedidos, contenido,
+  resenas, metricas-admin) se aplicó tal cual (7ea6acf), sin romper a los 26 importadores.
+- 1/10: tu plan de importar `@pinturapro/dominio` en el móvil con `"workspace:*"` se verificó con
+  una instalación real (sub-agente `app-movil`, npm 11.9.0 en sandbox) y **rompe `npm install`**
+  (`EUNSUPPORTEDPROTOCOL`), aunque la doc de Expo diga que npm lo soporta. Usar
+  `"file:../../packages/dominio"`, que funciona igual con `npm` standalone y con `pnpm` del
+  monorepo. Verificá siempre con una instalación real antes de recomendar `workspace:*` para algo
+  que puede terminar instalándose con una herramienta que no es pnpm.
+- 1/10: `docs/arquitectura.md` sigue sin listar `packages/dominio` como ya hecho (lo describe
+  todavía como pendiente) — volvé a señalarlo si para la próxima ronda nadie lo actualizó.

@@ -57,3 +57,16 @@ mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
   reseña, "Cuenta dada de baja" y el acceso a los datos. Sigue sin haber alta de cuenta en la
   app (por diseño) y nada de esto se pudo correr: si hay forma de levantar la app, es lo
   primero que conviene hacer.
+- 1/10: te pidieron verificar con evidencia el plan de `arquitectura-modular` antes de aplicarlo.
+  Con una instalación REAL en sandbox (npm 11.9.0) confirmaste que `"@pinturapro/dominio":
+  "workspace:*"` ROMPE `npm install` (`EUNSUPPORTEDPROTOCOL`) pese a que la doc de Expo dice que
+  npm lo soporta; `"file:../../packages/dominio"` funciona igual con npm standalone y con pnpm del
+  monorepo. Medí siempre con una instalación real antes de confiar en la doc de un tercero.
+- 1/10: la nota vieja de "Metro necesita configuración extra para el monorepo" YA NO ES CIERTA:
+  desde Expo SDK ~48, `@expo/metro-config` detecta `pnpm-workspace.yaml` solo, sin
+  `metro.config.js`. Lo único que faltaba era declarar la dependencia en `package.json`.
+- 1/10: comparaste función por función la copia móvil contra `@pinturapro/dominio`: son
+  equivalentes salvo que a `mensajeDeError` del móvil le faltan 4 ramas (23514: full_name/
+  message/email/phone largo) y `puedeCotizar` usa lista negra en vez de lista blanca — sin
+  impacto hoy (la barrera real es la policy en la base), pero es el mismo patrón de copia que ya
+  se desincronizó una vez (el parser de montos).

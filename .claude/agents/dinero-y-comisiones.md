@@ -83,3 +83,15 @@ mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
   suya: es la próxima candidata a romperse.
 - El rechazo explica el motivo (`motivoMontoInvalido`) y los centavos descartados se dicen.
   Probá que el motivo siempre corresponda a la regla que falló de verdad.
+- 2/10: hallazgo central — hoy no hay forma de cobrar la comisión de forma prolija: no hay vista
+  por pintor (sólo el total agregado de la plataforma en `/panel`), el pintor no vuelve a ver su
+  comisión después de cotizar, completar un trabajo no avisa a nadie, y no existe ningún estado
+  "pagado" en `jobs`. El mínimo para empezar a cobrar: `commission_paid`/`paid_at` (o una tabla
+  aparte), una vista agregada por pintor, y un aviso al completar.
+- 2/10: confirmaste que `getNumerosReales` (sin `.limit()`) es la ÚNICA consulta de `queries.ts`
+  sin tope — hoy inofensiva (20 reseñas, lejos de las 1.000 de PostgREST) pero es una bomba de
+  tiempo ya documentada, no un bug activo: no la repitas como novedad sin volumen real.
+- 2/10: los contadores "Trabajos completados/activos" de `/dashboard` y `/cliente` se calculan
+  sobre el recorte de 50 trabajos más recientes de `getJobsForPainter`/`getJobsForClient` — a
+  partir del trabajo 51 esas cifras propias quedan por debajo de la realidad (no toca plata de
+  terceros ni el nivel del pintor, sólo el propio panel).

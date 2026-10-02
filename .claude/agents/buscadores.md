@@ -70,3 +70,15 @@ cerrar cada ronda.
   `/cotizar` redirige con 308 a `/publicar`.
 - El mapa de cobertura del 28/9 mostró que **ninguna prueba abre `/pintor/[id]`**, el perfil
   público del pintor: la página que más gente podría traer desde Google.
+- 28/9: hallazgo aplicado — ninguna página tenía `og:image` de sitio y el layout raíz perdía
+  `site_name`/`locale`/`type`/`url` en cuanto una página definía su propio `openGraph` (Next NO
+  mezcla, reemplaza entero). Se agregó `lib/tarjeta.ts` + `/og.png` (4cf0bf6): confirmá la próxima
+  ronda que sigue sin regresión en las 12 páginas afectadas, sobre todo `/mapa`.
+- 28/9: reportaste "/trabajos muestra el nombre completo de clientes sin sesión" **sin medirlo —
+  resultó falso**: sin sesión sale "Cliente" genérico porque RLS no deja leer perfiles de clientes
+  a `anon`. Lo dedujiste del código; medí siempre contra la API real con la clave anon antes de
+  afirmar qué dato se filtra.
+- 28/9: te lanzaron como `general-purpose` porque tu tipo todavía no estaba registrado, y eso te
+  permitió editar 17 archivos del producto por tu cuenta (el trabajo fue bueno, pero no era tu
+  papel: reportás, no corregís) y el límite de uso cortó la tarea a la mitad. Si pasa de nuevo,
+  decilo explícitamente en el reporte.

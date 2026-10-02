@@ -75,3 +75,17 @@ cerrar cada ronda.
 - La comisión del 10 % figura en la base (`commission_amount`), pero **no hay cobro
   implementado** (el checkout se retiró): hoy nada impide cerrar por fuera, y nada lo detecta.
   Es tu hallazgo de fondo; dimensionalo, no lo repitas como novedad.
+- 2/10: encontraste que `pedidos_abiertos()` (RPC pública) no tiene ningún tope propio — a
+  diferencia de `/contacto` y `/api/segment` — y que el pintor saltea el tope de 30
+  cotizaciones/hora insertando por REST directo (`POST /rest/v1/jobs`, 201 sin pasar por
+  `cotizar()`). Se aplicó un tope de 10 pedidos/30 cotizaciones por hora en el servidor (740ffda)
+  y se escribió la migración **0026** (topes por hora + piso de $1.000 + "pedido adjudicado no se
+  edita" en la base), **probada en rollback pero sin aplicar a la base en vivo**: confirmá en la
+  próxima ronda si ya se aplicó, porque hasta entonces la API REST directa sigue salteando el tope.
+- 2/10: tu regex contra contacto por fuera (teléfono/WhatsApp/mail) se aplicó SÓLO en la nota de
+  la cotización (d780bef, se lee antes de aceptar) — en la bio pública del pintor NO: dejar un
+  teléfono ahí es una decisión de producto, no un abuso, y queda para el dueño.
+- 2/10: reseñarse a sí mismo (cliente y pintor con cuentas propias) sigue sin freno ni rastro en
+  /admin; la reseña-amenaza ahora SÍ se puede denunciar y dar de baja desde /admin (d780bef). Lo
+  que falta: una pestaña de reseñas recientes en /admin para que un humano note patrones de
+  autorreseña — no hay forma de detectarlo hoy, ni con poco tráfico.

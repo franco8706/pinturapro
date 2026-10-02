@@ -85,6 +85,12 @@ rompían las pruebas. Reglas:
   poder abrir el formulario de reseña. Si le dejás una reseña, esa prueba se rompe.
 - **Si editás un perfil demo para probar algo, dejalo exactamente como estaba** — anotá los
   valores antes de tocar y restauralos en `finally`.
+- **Un enlace que desaparece a mitad de tu navegación puede no ser un bug de caché.** Un
+  sub-agente reportó "enlace muerto transitorio" a una obra que acababa de ver en un listado: no
+  era la caché de 60s (que invalida al instante, medido aparte), era OTRO agente borrando su
+  propio dato ZZAGENT mientras el primero tenía la página ya cargada. Si ves algo así, primero
+  preguntate si alguien más puede estar limpiando en paralelo antes de reportarlo como falla de
+  invalidación.
 - **`pnpm verificar` lo corre sólo el agente `regresiones`** (o el orquestador). Las pruebas
   crean y restauran datos; dos corridas a la vez se pisan.
 - **El servidor de producción, cuando existe, está en el puerto 3100** (lo levanta el orquestador con `bash tools/auditoria/produccion.sh`) y es sólo para medir
@@ -147,6 +153,12 @@ Y estas trampas del propio script, que ya costaron tiempo:
   `fill` + `object-cover` devuelve el ancho PINTADO (390), no el del archivo (1200): cualquier
   cuenta de "imagen más grande de lo que se muestra" da que está perfecta. Mirá el archivo real
   (`curl` y medirlo) o el `w=` de la dirección de `/_next/image`.
+- **Un porcentaje medido en píxeles puede moverse entre versiones de Chrome sin que cambie una
+  sola línea de código.** La moldura manchada del simulador pasó de 2,5% a 4,5% entre rondas sin
+  ningún commit que tocara `magic-wand.ts`/`oklab.ts`; medida dos veces, dio 4,5% idéntico bit a
+  bit. La hipótesis es la versión de Chrome del Codespace (no se confirmó). Antes de reportar un
+  cambio en una métrica de píxeles, anotá la versión (`google-chrome --version`) junto al número:
+  sin eso, la ronda siguiente no puede saber si cambió el código o el navegador.
 
 ### Trampas de las pruebas que dan verde sin medir nada
 
@@ -199,6 +211,13 @@ Todas pasaron en este proyecto. Si escribís una prueba, revisá que no caiga en
   Después de un corte: `git status` y contar filas, antes de reanudar a nadie.
 - **Tandas chicas.** Seis o siete agentes a la vez agotaron el cupo tres veces en esta ronda.
   De a dos o tres, y con el reporte guardado en el repo apenas tengan hallazgos.
+- **Los agentes lanzados en segundo plano mueren si se cierra la sesión.** Pasó tres veces en
+  esta ronda. Lanzalos en primer plano, de a dos o tres, y esperá a que terminen.
+- **La suite de regresión conviene correrla como proceso suelto, con el log fuera de `/tmp`**
+  (`/workspaces/codespaces-blank/.auditoria/verificar.log`, no `/tmp`, que se borra): si la
+  sesión se corta, la corrida termina igual y el resultado no se pierde.
+- **Commiteá apenas un cambio compile**, antes de correr `pnpm verificar`: si un corte de sesión
+  llega en el medio, el trabajo ya está guardado.
 
 ## 6. Ya conocido — está en la BITÁCORA
 

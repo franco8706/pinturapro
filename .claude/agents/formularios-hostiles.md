@@ -60,3 +60,13 @@ mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
 - Lo que dejes publicado lo ve todo el mundo mientras corre la ronda: la imagen de 1.600 MP
   estuvo en /obras hasta que el orquestador la borró. Si una prueba es pesada, borrala vos
   apenas mediste, o avisá al principio del reporte.
+- 2/10: "Superficie" en /publicar acepta `Infinity`/`1e9`/cualquier magnitud porque el chequeo del
+  cliente es sólo `Number(valor) > 0` y el servidor nunca valida que sea razonable — se publicó
+  "Superficie: Infinity m²" visible para cualquiera. El mismo patrón (chequeo de existencia, no de
+  rango) puede estar en otros campos numéricos de texto libre: buscalo.
+- 2/10: ni `publicarTrabajo` ni `cotizar` tenían tope de cantidad (8/8 pedidos y 8/8 cotizaciones
+  seguidas, sin lentitud ni error) — a diferencia de los leads (`/registro`, `/contacto`) que sí
+  tienen `rateLimited` de 5/hora. Se agregó un tope de 10 pedidos/30 cotizaciones por hora esta
+  ronda (740ffda): confirmá que sigue activo la próxima vez.
+- 2/10: la zona de /publicar es texto 100% libre y se escapa correctamente (un `<b>x</b>` sale
+  literal, no se ejecuta) — confirmado, no hace falta volver a buscar XSS ahí.

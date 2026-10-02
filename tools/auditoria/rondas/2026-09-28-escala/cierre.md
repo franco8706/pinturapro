@@ -95,7 +95,9 @@ la cotización y "un pedido adjudicado no se edita", en la base). Se suma a 0024
 
 - **simulador-color**: "la moldura manchada casi se duplicó (2,5 % → 4,5 %) sin que cambiara el
   código". Medido igual por el orquestador antes y después del Web Worker: 4,5 %, idéntico
-  bit a bit. El 2,5 % de referencia venía de otra versión de Chrome. La referencia nueva es 4,5 %.
+  bit a bit: el Web Worker no lo movió. **La causa del salto respecto del 2,5 % de referencia no
+  está confirmada** (la hipótesis es la versión de Chrome del Codespace; nadie lo midió con la
+  versión anterior). Referencia para comparar desde ahora: 4,5 %, con el filo en 0.
 - **simulador-color** propuso tres atajos para el primer clic (pasada rápida y después la
   completa, reutilizar buffers, media resolución). Se eligió el Web Worker, que no cambia el
   resultado: los tres atajos tocaban la calidad o dejaban el cálculo en el hilo de la pantalla.

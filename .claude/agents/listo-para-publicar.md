@@ -67,3 +67,7 @@ cerrar cada ronda.
   Codespace. El mail de recuperar contraseña manda a una dirección muerta hasta que se cambie.
 - 28/9: un `next build` falló una vez bajando las tipografías de Google (`next/font`) y a la
   segunda anduvo. El despliegue depende de Google Fonts en el momento de compilar.
+- 2/10: no corriste esta ronda — te cortó el límite de uso dos veces, sin reporte. Las tipografías
+  ya se migraron a `next/font/local` esta ronda (así que ese riesgo de build ya no debería estar),
+  pero el resto de tu lista (secretos, CSP, costos de `/api/segment`, robots/sitemap) sigue sin
+  revisarse contra el código actual: arrancá por ahí la próxima vez.

@@ -76,3 +76,11 @@ mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
 - Las rondas de auditoría dejan basura: 16 agentes crean datos ZZAGENT en paralelo. Tu
   lista de restos es lo que usa el orquestador para limpiar: dala con ids, y separá los de la
   ronda en curso de los viejos.
+- 28/9: la proyección a escala (3.000 pintores / 50.000 pedidos / 100.000 reseñas) da la base
+  liviana (~160-190 MB, un tercio del free tier de 500 MB) pero el **Storage no**: con una sola
+  foto de portada por pintor (sin fotos extra) ya se superan los 1 GB gratis. El cuello de escala
+  es Storage, no la base.
+- 28/9: los dos perfiles con `bio` pisada de la ronda del 27/9 (Marina "test qa", Martín "…
+  ZZAGENT-prueba-accesibilidad") seguían sin restaurar al re-escanear dos veces en esta ronda —
+  confirmá siempre con una lectura posterior que una restauración reportada como hecha se vea de
+  verdad en la base, no sólo en el reporte del agente que dijo haberla hecho.
