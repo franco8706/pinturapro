@@ -47,7 +47,7 @@ export default async function TrabajosPage() {
     } catch {
       esCliente = false;
     }
-    if (!esCliente) yaCotizados = await getPedidosYaCotizados(user.id);
+    if (!esCliente) yaCotizados = await getPedidosYaCotizados(user.id, requests.map((r) => r.id));
   }
 
   return (

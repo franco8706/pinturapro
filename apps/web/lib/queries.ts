@@ -826,14 +826,19 @@ export async function getOpenServiceRequests(): Promise<ServiceRequest[]> {
  * Devuelve un Set vacío ante cualquier error: la pantalla se comporta como antes (ofrece
  * cotizar) y la base sigue siendo la que impide el duplicado de verdad.
  */
-export async function getPedidosYaCotizados(painterId: string): Promise<Set<string>> {
-  if (!SUPA) return new Set();
+export async function getPedidosYaCotizados(painterId: string, pedidoIds: string[]): Promise<Set<string>> {
+  if (!SUPA || pedidoIds.length === 0) return new Set();
   try {
     const supabase = await createClient();
+    // Sólo los pedidos que están en pantalla. Antes traía TODOS los trabajos del pintor, sin
+    // límite: la API corta en 1.000 filas, así que un pintor con mucha historia volvía a ver
+    // "Cotizar" sobre algo que ya había cotizado (escala-y-volumen, 29/9). Acotado a los ids
+    // del tablero, la respuesta nunca pasa de la cantidad de pedidos que se muestran.
     const { data, error } = await supabase
       .from("jobs")
       .select("project_id, status")
       .eq("painter_id", painterId)
+      .in("project_id", pedidoIds)
       .in("status", ["quoted", "accepted", "in_progress", "completed"]);
     if (error) {
       dbError("getPedidosYaCotizados", error);
