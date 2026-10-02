@@ -33,6 +33,19 @@ pedidos en pantalla · 9ec75e4 `/api/sesion` fuera del middleware (3 → 2 llama
 visita con sesión) · e6845e0 el vigilante mira /og.png, og:image y el noindex de /trabajos.
 Suite completa: **27/27 en verde** (corrida por el orquestador el 1/10).
 
+### Segunda parte (2/10): navegación, formularios hostiles, los dos tramposos y el simulador
+
+| Commit | Qué | De qué reporte | Prueba |
+|---|---|---|---|
+| 7ea6acf | `lib/queries.ts` (1.577 líneas) partido en siete módulos por tema; nadie que lo importa cambió | arquitectura-modular | suite completa |
+| 740ffda | Superficie y años validados en el servidor (se publicó "Infinity m²"); tope de 10 pedidos y 30 cotizaciones por hora; /ingresar no le pide la contraseña a quien ya entró; la barra se entera de otra pestaña; aviso al recargar la confirmación | formularios-hostiles, recorrido-web navegación | `tope-por-hora`, `formularios-de-pasos`, `dominio/pruebas.ts` |
+| d780bef | Reseñas con salida: el pintor las lee y las denuncia, el dueño las da de baja desde /admin; piso de $1.000 en la cotización; sin teléfono ni mail en la nota | abuso-marketplace (los dos tramposos) | `moderacion-resenas`, `dominio/pruebas.ts` |
+| d170d05 | La varita corre en un Web Worker: tarea larga del primer clic 577-623 → 319-339 ms | simulador-color, rendimiento | `tools/auditoria/simulador/congelamiento.cjs` (fuera de la suite) + las tres pruebas de calidad |
+| 0d928d4 | Simulador: Deshacer, e Intensidad junto al color elegido (de 7-14 Shift+Tab a 2 Tab) | accesibilidad, simulador-color | `simulador-deshacer` |
+
+Escrita y probada en rollback, **sin aplicar**: migración **0026** (los topes por hora, el piso de
+la cotización y "un pedido adjudicado no se edita", en la base). Se suma a 0024 y 0025.
+
 ## Resultó falso o distinto de lo reportado
 
 - **buscadores**: "/trabajos muestra el nombre completo de clientes sin sesión" — falso. Sin sesión
@@ -80,6 +93,18 @@ Suite completa: **27/27 en verde** (corrida por el orquestador el 1/10).
   quien TIENE sesión: un visitante anónimo no genera ninguna. Confirmó, eso sí, que ninguna
   lectura cacheada usa el cliente con cookies y que `getSession()` no decide nada de seguridad.
 
+- **simulador-color**: "la moldura manchada casi se duplicó (2,5 % → 4,5 %) sin que cambiara el
+  código". Medido igual por el orquestador antes y después del Web Worker: 4,5 %, idéntico
+  bit a bit. El 2,5 % de referencia venía de otra versión de Chrome. La referencia nueva es 4,5 %.
+- **simulador-color** propuso tres atajos para el primer clic (pasada rápida y después la
+  completa, reutilizar buffers, media resolución). Se eligió el Web Worker, que no cambia el
+  resultado: los tres atajos tocaban la calidad o dejaban el cálculo en el hilo de la pantalla.
+- **abuso-marketplace (pintor-tramposo)**: "una regex simple en `cotizar` y `updateProfile`".
+  Se aplicó en la nota de la cotización (que se lee ANTES de aceptar). En la bio NO: un perfil
+  público con el teléfono del pintor es una decisión de producto, no un abuso; queda para el dueño.
+- **recorrido-web (pintor)** dejó una cotización suya en un pedido demo ajeno; el motivo se vio
+  después: su script llenó el primer formulario de la página en vez del que quería.
+
 ## Agentes que se pasaron de su papel
 
 - **buscadores** (lanzado como general-purpose porque su tipo todavía no estaba registrado)
@@ -111,11 +136,23 @@ Suite completa: **27/27 en verde** (corrida por el orquestador el 1/10).
 - Teléfono `11 4444-5555` que se cargó en el perfil de cliente3 (antes vacío).
 - La cotización NO ZZAGENT de `pintor` en "Pintura completa de PH en Barracas".
 
+## Lo que cambió en el sistema durante la ronda
+
+- **Los agentes en segundo plano mueren cuando se cierra la sesión.** Pasó tres veces. Desde el
+  2/10 se lanzan en primer plano, de a tres, y el orquestador espera.
+- **La suite se corre en un proceso suelto** que escribe en `/workspaces/codespaces-blank/.auditoria/verificar.log`
+  (fuera de /tmp, que se borra): si la sesión se corta, la corrida termina igual.
+- **Commit antes de verificar** cuando el cambio ya compila: un corte no deja trabajo sin guardar.
+- El orquestador hace solo lo que no necesita otra mirada (correr la suite, bitácora, reglas,
+  limpiar datos): cada agente lanzado es cupo que puede cortar la ronda.
+
 ## Decisiones que quedan para el dueño
 
 - Aplicar 0024 y 0025.
 - **Cobrar la comisión**: hoy no hay estado "pagada", ni deuda por pintor, ni aviso al completar
   (dinero-y-comisiones). El mínimo para empezar está en su reporte.
+- ¿Un pintor puede poner su teléfono en la bio de su perfil público? Hoy sí; en la nota de una
+  cotización, no.
 - ¿Mostrar el nombre de pila del autor de las reseñas también a quien no tiene cuenta? Hoy, por
   0013, sólo lo ven los registrados.
 - ¿/trabajos indexado en Google? Hoy no (privacidad por defecto).
