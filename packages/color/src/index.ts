@@ -6,9 +6,11 @@
  * también la app móvil. Mientras vivían dentro de la web, la única forma de reusarlas era
  * copiarlas, que es como se empiezan a desincronizar dos versiones del mismo algoritmo.
  *
- * La única entrada que pide es una `ImageData`; no toca el DOM, no hace red y no sabe nada
+ * Lo único que pide son los píxeles de la foto; no toca el DOM, no hace red y no sabe nada
  * de la interfaz.
  */
 export { prepareWandImage, magicWand } from "./magic-wand";
 export type { WandImage, WandOptions } from "./magic-wand";
 export { rgbAOklab, rgbAOkL, rgbAOklch, oklchASrgb, oklabASrgb } from "./oklab";
+export { CONTRASTE, hexARgb, pinturaDesdeHex, fotoPerceptual, ancla, curva, componer } from "./pintura";
+export type { Pintura, FotoPerceptual, Capa, Curva, Rect } from "./pintura";

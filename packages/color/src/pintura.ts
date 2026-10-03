@@ -149,8 +149,20 @@ function pintaEn(ol: number, pintura: Pintura, ancla: number): [number, number] 
   let nl: number;
   if (shade >= 0) nl = up > 1e-6 ? tl + up * tanhRapido(shade / up) : tl;
   else nl = down > 1e-6 ? tl - down * tanhRapido(-shade / down) : tl;
-  const rd = Math.abs(nl - 0.5) * 2;
-  const nc = pintura.C * (1 - rd * rd * 0.35);
+  // El croma acompaña a la luminosidad: C/L constante, igual que en la muestra.
+  //
+  // Es lo que hace la luz de verdad. Una pared con menos luz refleja la misma proporción de
+  // cada color, sólo que menos de todo; en OKLab eso escala L, a y b por el mismo factor, así
+  // que una sombra baja el croma en la misma proporción que la luminosidad, sin tocar el tono.
+  //
+  // Antes el croma bajaba según la distancia a L = 0,5 (`C·(1 − rd²·0,35)`), no según la
+  // distancia al color elegido: un color claro perdía saturación aun en el punto donde la pared
+  // tenía que quedar IGUAL a la muestra. Marfil, Durazno y Celeste salían 10-15 % más grises
+  // (ΔE 2,2 sobre una pared pareja). Y en las sombras profundas el croma se quedaba alto y el
+  // recorte de gama corría el tono (Borravino, 11°). Medido el 3/10/2026: de ΔE 2,2 a 0,5.
+  // Donde la pintura quedaría más saturada de lo que la pantalla puede mostrar —una luz fuerte
+  // sobre un color vivo—, `oklabASrgb` baja el croma sin cambiar el tono.
+  const nc = tl > 1e-6 ? (pintura.C * nl) / tl : pintura.C;
   return [nl, nc];
 }
 

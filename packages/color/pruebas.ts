@@ -108,51 +108,35 @@ console.log("OKLab");
   cierto(peor <= 1, `la ida y vuelta corre un canal ${peor.toFixed(3)} niveles (máximo 1)`);
 }
 
-// ── 2. El motor nuevo da lo mismo que el `repaint` de antes ────────────────────
-// Copia literal del bucle que vivía en photo-simulator.tsx (hasta el 3/10/2026). Mientras el
-// motor no cambie de modelo a propósito, cualquier diferencia es un error del traslado.
-function repaintViejo(src: Uint8ClampedArray, alfa: Float32Array, hex: string, strength: number) {
+// ── 2. La tabla da lo mismo que la cuenta exacta ──────────────────────────────
+// `curva` resuelve la pintura una vez por color y cada píxel interpola. Esta es la misma cuenta
+// hecha píxel por píxel, sin tabla: si se apartan, la tabla está mal. (Hasta el 3/10/2026 esta
+// sección comparaba contra el `repaint` que vivía en photo-simulator.tsx: daban igual —398 de
+// 9,2 millones de canales a 1 nivel— y así se comprobó el traslado, commit 08737d4.)
+function pintarExacto(src: Uint8ClampedArray, alfa: Float32Array, hex: string, intensidad: number) {
   const n = alfa.length;
-  const luma = new Float32Array(n);
-  const croma = new Float32Array(n * 2);
-  for (let i = 0; i < n; i++) {
-    const [L, a, b] = rgbAOklab(src[i * 4], src[i * 4 + 1], src[i * 4 + 2]);
-    luma[i] = L;
-    croma[i * 2] = a;
-    croma[i * 2 + 1] = b;
-  }
+  const foto = P.fotoPerceptual(src, n);
+  const pintura = P.pinturaDesdeHex(hex)!;
+  const anclaPared = P.ancla(foto, alfa, pintura);
   const data = new Uint8ClampedArray(src);
-  const c = hex.replace("#", "");
-  const { L: tl, C: tc, h: th } = rgbAOklch(parseInt(c.slice(0, 2), 16), parseInt(c.slice(2, 4), 16), parseInt(c.slice(4, 6), 16));
-  const cosH = Math.cos(th);
-  const senH = Math.sin(th);
-  const pct = Math.max(12, Math.min(88, 50 + (tl - 0.5) * 70));
-  const muestras: number[] = [];
-  const paso = Math.max(1, Math.floor(n / 20000));
-  for (let i = 0; i < n; i += paso) if (alfa[i] > 0.5) muestras.push(luma[i]);
-  muestras.sort((x, y) => x - y);
-  const k = (muestras.length - 1) * (pct / 100);
-  const f = Math.floor(k);
-  const cc = Math.min(f + 1, muestras.length - 1);
-  const anchor = muestras[f] + (muestras[cc] - muestras[f]) * (k - f);
+  const tl = pintura.L;
   const up = 1 - tl;
   const down = tl;
   for (let i = 0; i < n; i++) {
     const a0 = alfa[i];
     if (a0 <= 0) continue;
-    const p = i * 4;
-    const shade = (luma[i] - anchor) * 0.6;
+    const ol = foto.L[i];
+    const shade = (ol - anclaPared) * P.CONTRASTE;
     let nl: number;
     if (shade >= 0) nl = up > 1e-6 ? tl + up * Math.tanh(shade / up) : tl;
     else nl = down > 1e-6 ? tl - down * Math.tanh(-shade / down) : tl;
-    const rd = Math.abs(nl - 0.5) * 2;
-    const nc = tc * (1 - rd * rd * 0.35);
-    const a = a0 * strength;
+    const nc = tl > 1e-6 ? (pintura.C * nl) / tl : pintura.C;
+    const a = a0 * intensidad;
     const ia = 1 - a;
-    const [fr, fg, fb] = oklabASrgb(nl * a + luma[i] * ia, nc * cosH * a + croma[i * 2] * ia, nc * senH * a + croma[i * 2 + 1] * ia);
-    data[p] = fr;
-    data[p + 1] = fg;
-    data[p + 2] = fb;
+    const [fr, fg, fb] = oklabASrgb(nl * a + ol * ia, nc * pintura.cos * a + foto.ab[i * 2] * ia, nc * pintura.sen * a + foto.ab[i * 2 + 1] * ia);
+    data[i * 4] = fr;
+    data[i * 4 + 1] = fg;
+    data[i * 4 + 2] = fb;
   }
   return data;
 }
@@ -166,7 +150,7 @@ function pintarConMotor(src: Uint8ClampedArray, alfa: Float32Array, hex: string,
   return destino;
 }
 
-console.log("Motor contra el repaint de antes");
+console.log("La tabla contra la cuenta exacta");
 {
   const alfa = mascara(W, H);
   let peor = 0;
@@ -174,11 +158,11 @@ console.log("Motor contra el repaint de antes");
   let total = 0;
   for (const src of Object.values(PAREDES)) {
     for (const hex of COLORES) {
-      for (const intensidad of [0.9, 1, 0.4]) {
-        const viejo = repaintViejo(src, alfa, hex, intensidad);
-        const nuevo = pintarConMotor(src, alfa, hex, intensidad);
-        for (let i = 0; i < viejo.length; i++) {
-          const d = Math.abs(viejo[i] - nuevo[i]);
+      for (const intensidad of [1, 0.9, 0.4]) {
+        const exacto = pintarExacto(src, alfa, hex, intensidad);
+        const motor = pintarConMotor(src, alfa, hex, intensidad);
+        for (let i = 0; i < exacto.length; i++) {
+          const d = Math.abs(exacto[i] - motor[i]);
           if (d > 0) distintos++;
           peor = Math.max(peor, d);
           total++;
@@ -187,8 +171,137 @@ console.log("Motor contra el repaint de antes");
     }
   }
   nota(`${total} canales comparados: ${distintos} distintos, el peor por ${peor} nivel(es)`);
-  cierto(peor <= 1, `el motor se aparta ${peor} niveles del repaint de antes (máximo 1)`);
-  cierto(distintos / total < 0.02, `el motor difiere en ${((distintos / total) * 100).toFixed(2)}% de los canales (máximo 2%)`);
+  cierto(peor <= 1, `la tabla se aparta ${peor} niveles de la cuenta exacta (máximo 1)`);
+  cierto(distintos / total < 0.02, `la tabla difiere en ${((distintos / total) * 100).toFixed(2)}% de los canales (máximo 2%)`);
+}
+
+// ── 2 bis. El color de la pared es el de la muestra ───────────────────────────
+// La promesa del simulador. Hasta el 3/10/2026 no se cumplía: la Intensidad arrancaba en 90 %
+// (el 10 % restante lo ponía la pared vieja) y el croma bajaba según la distancia a L = 0,5,
+// así que los claros salían más grises que su muestra aun en una pared perfecta (ΔE hasta 2,2
+// al 100 %). Se mide la mediana de la pared pintada, sin borde, en ΔE2000.
+function lab([r, g, b]: number[]) {
+  const f = (v: number) => ((v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const R = f(r), G = f(g), B = f(b);
+  const X = (0.4124 * R + 0.3576 * G + 0.1805 * B) / 0.95047;
+  const Y = 0.2126 * R + 0.7152 * G + 0.0722 * B;
+  const Z = (0.0193 * R + 0.1192 * G + 0.9505 * B) / 1.08883;
+  const t = (v: number) => (v > 216 / 24389 ? Math.cbrt(v) : ((24389 / 27) * v + 16) / 116);
+  return [116 * t(Y) - 16, 500 * (t(X) - t(Y)), 200 * (t(Y) - t(Z))];
+}
+function deltaE2000(c1: number[], c2: number[]) {
+  const [L1, a1, b1] = lab(c1), [L2, a2, b2] = lab(c2);
+  const rad = Math.PI / 180;
+  const Cm = (Math.hypot(a1, b1) + Math.hypot(a2, b2)) / 2;
+  const G = 0.5 * (1 - Math.sqrt(Cm ** 7 / (Cm ** 7 + 25 ** 7)));
+  const a1p = (1 + G) * a1, a2p = (1 + G) * a2;
+  const C1p = Math.hypot(a1p, b1), C2p = Math.hypot(a2p, b2);
+  const h = (b: number, a: number) => { const x = Math.atan2(b, a) / rad; return x < 0 ? x + 360 : x; };
+  const h1p = h(b1, a1p), h2p = h(b2, a2p);
+  let dhp = 0;
+  if (C1p * C2p) { dhp = h2p - h1p; if (dhp > 180) dhp -= 360; else if (dhp < -180) dhp += 360; }
+  const dLp = L2 - L1, dCp = C2p - C1p, dHp = 2 * Math.sqrt(C1p * C2p) * Math.sin((dhp / 2) * rad);
+  const Lpm = (L1 + L2) / 2, Cpm = (C1p + C2p) / 2;
+  let hpm = h1p + h2p;
+  if (C1p * C2p) { if (Math.abs(h1p - h2p) > 180) hpm += h1p + h2p < 360 ? 360 : -360; hpm /= 2; }
+  const T = 1 - 0.17 * Math.cos((hpm - 30) * rad) + 0.24 * Math.cos(2 * hpm * rad) + 0.32 * Math.cos((3 * hpm + 6) * rad) - 0.2 * Math.cos((4 * hpm - 63) * rad);
+  const Rc = 2 * Math.sqrt(Cpm ** 7 / (Cpm ** 7 + 25 ** 7));
+  const Rt = -Math.sin(2 * 30 * Math.exp(-(((hpm - 275) / 25) ** 2)) * rad) * Rc;
+  const Sl = 1 + (0.015 * (Lpm - 50) ** 2) / Math.sqrt(20 + (Lpm - 50) ** 2), Sc = 1 + 0.045 * Cpm, Sh = 1 + 0.015 * Cpm * T;
+  return Math.sqrt((dLp / Sl) ** 2 + (dCp / Sc) ** 2 + (dHp / Sh) ** 2 + Rt * (dCp / Sc) * (dHp / Sh));
+}
+const hexARgbPrueba = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+/** Mediana por canal de lo pintado, sin el marco ni el borde difuminado. */
+function medianaPintada(out: Uint8ClampedArray, alfa: Float32Array) {
+  const canales: number[][] = [[], [], []];
+  for (let i = 0; i < alfa.length; i++) {
+    if (alfa[i] < 1) continue;
+    for (let c = 0; c < 3; c++) canales[c].push(out[i * 4 + c]);
+  }
+  return canales.map((v) => { v.sort((p, q) => p - q); return v[v.length >> 1]; });
+}
+
+// Las 48 de la paleta, leídas de la web (si el archivo está); si no, la muestra de arriba.
+let PALETA = COLORES;
+try {
+  const fs = await import("node:fs");
+  const texto = fs.readFileSync(new URL("../../apps/web/lib/brands.ts", import.meta.url), "utf8");
+  const hallados = texto.match(/hex: "#[0-9A-Fa-f]{6}"/g)?.map((m) => m.slice(6, 13)) ?? [];
+  if (hallados.length >= 12) PALETA = hallados;
+} catch {}
+
+console.log(`El color de la pared es el de la muestra (${PALETA.length} colores)`);
+{
+  const alfa = mascara(W, H);
+  // Paredes PAREJAS (grano, sin degradé de luz): ahí la mediana tiene que caer en la muestra.
+  const parejas: Record<string, Uint8ClampedArray> = {
+    blanca: pared([228, 225, 218], W, H, 3, 1, 1),
+    roja: pared([168, 52, 44], W, H, 3, 1, 1),
+    "azul oscura": pared([70, 80, 98], W, H, 3, 1, 1),
+  };
+  let peorMuestra = 0;
+  let peorEntreParedes = 0;
+  let peorCaso = "";
+  for (const hex of PALETA) {
+    const vistos: number[][] = [];
+    for (const [nombre, src] of Object.entries(parejas)) {
+      const visto = medianaPintada(pintarConMotor(src, alfa, hex, 1), alfa);
+      const de = deltaE2000(hexARgbPrueba(hex), visto);
+      if (de > peorMuestra) { peorMuestra = de; peorCaso = `${hex} sobre pared ${nombre} → ${visto}`; }
+      vistos.push(visto);
+    }
+    for (let a = 0; a < vistos.length; a++) for (let b = a + 1; b < vistos.length; b++) peorEntreParedes = Math.max(peorEntreParedes, deltaE2000(vistos[a], vistos[b]));
+  }
+  nota(`contra la muestra, el peor: ΔE ${peorMuestra.toFixed(2)} (${peorCaso})`);
+  nota(`el mismo color sobre tres paredes distintas, la peor diferencia: ΔE ${peorEntreParedes.toFixed(2)}`);
+  cierto(peorMuestra <= 1, `una pared pareja pintada al 100 % se aparta de la muestra ΔE ${peorMuestra.toFixed(2)} (máximo 1): ${peorCaso}`);
+  cierto(peorEntreParedes <= 1, `el mismo color se ve distinto según la pared de antes: ΔE ${peorEntreParedes.toFixed(2)} (máximo 1)`);
+}
+
+// ── 2 ter. La luz cambia la luminosidad, no el tono ───────────────────────────
+console.log("Luces y sombras");
+{
+  let peorTono = 0;
+  let peorCaso = "";
+  let inversiones = 0;
+  for (const hex of PALETA) {
+    const pintura = P.pinturaDesdeHex(hex)!;
+    const cv = P.curva(pintura, 0.6);
+    let anterior = -1;
+    for (let k = 0; k <= 1024; k += 8) {
+      if (cv.L[k] < anterior - 1e-6) inversiones++;
+      anterior = cv.L[k];
+      if (pintura.C < 0.03) continue; // casi gris: el tono no se percibe
+      const [r, g, b] = [cv.rgb[k * 3], cv.rgb[k * 3 + 1], cv.rgb[k * 3 + 2]];
+      const { C, h } = rgbAOklch(r, g, b);
+      if (C < 0.02) continue; // sombra tan profunda que ya no tiene color que medir
+      const tono = Math.atan2(pintura.sen, pintura.cos);
+      let d = Math.abs(h - tono) * (180 / Math.PI);
+      if (d > 180) d = 360 - d;
+      if (d > peorTono) { peorTono = d; peorCaso = `${hex} con la foto en L=${(k / 1024).toFixed(2)}`; }
+    }
+  }
+  nota(`el tono se corre como máximo ${peorTono.toFixed(2)}° (${peorCaso})`);
+  cierto(peorTono <= 3, `en luces o sombras el tono se corre ${peorTono.toFixed(2)}° (máximo 3°): ${peorCaso}`);
+  cierto(inversiones === 0, `${inversiones} veces un píxel más claro en la foto quedó más oscuro pintado`);
+}
+
+// ── 2 quáter. La textura sobrevive igual con cualquier color ──────────────────
+console.log("Textura");
+{
+  const alfa = mascara(W, H);
+  const src = pared([200, 196, 188], W, H, 6, 1, 1);
+  const okL = (d: Uint8ClampedArray, i: number) => rgbAOklab(d[i * 4], d[i * 4 + 1], d[i * 4 + 2])[0];
+  const desvio = (d: Uint8ClampedArray) => {
+    let s = 0, s2 = 0, n = 0;
+    for (let i = 0; i < alfa.length; i++) if (alfa[i] >= 1) { const v = okL(d, i); s += v; s2 += v * v; n++; }
+    return Math.sqrt(s2 / n - (s / n) ** 2);
+  };
+  const base = desvio(src);
+  const medidas = PALETA.map((hex) => desvio(pintarConMotor(src, alfa, hex, 1)) / base);
+  const min = Math.min(...medidas), max = Math.max(...medidas);
+  nota(`textura conservada: entre ${min.toFixed(3)} y ${max.toFixed(3)} (objetivo ~${P.CONTRASTE})`);
+  cierto(min >= 0.45 && max <= 0.7, `la textura conservada va de ${min.toFixed(3)} a ${max.toFixed(3)} (tiene que quedar entre 0,45 y 0,7 con cualquier color)`);
 }
 
 // ── 3. Lo que no se pinta queda igual ─────────────────────────────────────────

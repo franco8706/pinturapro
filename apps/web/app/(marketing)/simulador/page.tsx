@@ -18,7 +18,12 @@ export default function SimuladorPage() {
   const [colorName, setColorName] = useState<string>("");
   // Intensidad del color sobre la foto (0,4 a 1). Vive acá para dibujar su control junto al
   // color elegido; el simulador la recibe como prop.
-  const [intensidad, setIntensidad] = useState(0.9);
+  //
+  // Arranca en 100 %. Arrancaba en 90 %, y ese 10 % que faltaba lo ponía la pared VIEJA:
+  // Blanco Puro sobre una pared roja se veía rosado (ΔE 7,4 contra la muestra), Negro Mate
+  // sobre una blanca, gris carbón (ΔE 4,7). La textura y la luz de la foto no dependen de esto:
+  // salen de la luminosidad, con cualquier Intensidad. Prueba: `simulador-color-fiel`.
+  const [intensidad, setIntensidad] = useState(1);
 
   const brand = useMemo(() => brands.find((b) => b.id === brandId)!, [brandId]);
   const colors = useMemo(() => colorsByUsage(brand, target), [brand, target]);

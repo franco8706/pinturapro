@@ -5,11 +5,16 @@ import { cn } from "@/lib/utils";
 import {
   prepareWandImage,
   magicWand,
-  rgbAOklab,
-  rgbAOklch,
-  oklabASrgb,
+  fotoPerceptual,
+  pinturaDesdeHex,
+  ancla,
+  curva,
+  componer,
   type WandImage,
   type WandOptions,
+  type FotoPerceptual,
+  type Curva,
+  type Rect,
 } from "@pinturapro/color";
 import type { PedidoVarita, RespuestaVarita } from "./varita.worker";
 
@@ -40,53 +45,35 @@ const MAX_DIM = 1024;
 const MAX_MEGAPIXELES = 24;
 
 /**
- * `Math.tanh` por tabla.
+ * Simulador de color sobre foto.
  *
- * El hombro que comprime las luces y las sombras se calcula UNA VEZ POR PÍXEL: en una foto de
- * 1024×683 son 700.000 llamadas cada vez que se cambia de color. Medido en la compilación de
- * producción con el procesador frenado cuatro veces: el repintado congelaba la pantalla.
+ * Flujo: subir foto → tocar la pared → la varita mágica marca la superficie (en un Web Worker,
+ * sin red: `varita.worker.ts`) → la pintura se aplica con el motor de `@pinturapro/color`
+ * (`componer`): el tono y la saturación del color elegido, con la luz, la sombra y el grano de
+ * la foto. El pincel suma o borra a mano; "🤖 IA" usa la segmentación remota de `/api/segment`
+ * (manda la foto a un servicio externo) y es opcional.
  *
- * `tanh` vale prácticamente 1 a partir de 4, así que la tabla cubre 0..4 con 2.048 puntos e
- * interpola. El error es de una diezmilésima: invisible en un valor que después se multiplica
- * por 255.
- */
-const TANH_MAX = 4;
-const TANH_PASOS = 2048;
-const TABLA_TANH = new Float32Array(TANH_PASOS + 1);
-for (let i = 0; i <= TANH_PASOS; i++) TABLA_TANH[i] = Math.tanh((i / TANH_PASOS) * TANH_MAX);
-
-function tanhRapido(x: number): number {
-  if (x >= TANH_MAX) return 1;
-  const p = (x / TANH_MAX) * TANH_PASOS;
-  const i = p | 0;
-  return TABLA_TANH[i] + (TABLA_TANH[i + 1] - TABLA_TANH[i]) * (p - i);
-}
-
-/**
- * Simulador de color sobre foto — arquitectura cliente-servidor.
- *
- * La segmentación pesada (SAM) corre en el SERVIDOR (vía `/api/segment`), no en
- * el navegador: el cliente queda fluido y la precisión la da un modelo grande.
- *
- * Flujo: subir foto → clic en la pared → se envía la foto al backend (SAM) → vuelven
- * TODAS las regiones de la imagen → el cliente elige la que contiene el punto del clic
- * (la pared exacta que tocaste) → se aplica con feathering + color transfer en HSL
- * (preserva textura, luces y sombras del revoque).
- *
- * El pincel manual queda como herramienta de ajuste / fallback si no hay backend.
+ * Toda la cuenta de color vive en el paquete y se prueba sin navegador:
+ * `node packages/color/pruebas.ts`. Acá queda la interfaz y el estado.
  */
 export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimulatorProps) {
   const viewRef = useRef<HTMLCanvasElement>(null);
   const baseImageData = useRef<ImageData | null>(null);
   const compositeRef = useRef<ImageData | null>(null);
-  const lumaRef = useRef<Float32Array | null>(null); // luminosidad perceptual (OKLab L) por píxel
-  /** Croma de la foto original en OKLab (a, b intercalados). Hace falta para mezclar la
-   *  pintura con la foto EN ESPACIO PERCEPTUAL: mezclar en sRGB, cerca del negro, hacía
-   *  que el 10% de foto original que deja la intensidad exagerara el grano del revoque. */
-  const cromaRef = useRef<Float32Array | null>(null);
+  /** La foto en OKLab (luminosidad y croma por píxel): de ahí sale la luz que se le pone a la
+   *  pintura. Se calcula una vez por foto. */
+  const fotoRef = useRef<FotoPerceptual | null>(null);
+  /**
+   * La tabla de la pintura para la selección actual (ver `curva` en @pinturapro/color).
+   *
+   * Depende del color y de la selección (el ancla sale de la pared elegida), no de la
+   * Intensidad: mover la Intensidad no la recalcula. `version` es la de la selección: cambia
+   * cada vez que cambia el alfa, salvo en medio de una pincelada (ver `pintarEn`).
+   */
+  const curvaRef = useRef<{ color: string; version: number; curva: Curva } | null>(null);
+  const versionAlfaRef = useRef(0);
   const maskRef = useRef<Uint8Array | null>(null); // máscara binaria
   const alphaRef = useRef<Float32Array | null>(null); // máscara con bordes difuminados (0..1)
-  const avgLumaRef = useRef(0.5); // luminosidad perceptual promedio de la pared seleccionada
   const imageUrlRef = useRef<string>(""); // dataURL de la foto (para enviar al server)
   const dims = useRef({ w: 0, h: 0 });
   const segmentingRef = useRef(false); // guard anti clics múltiples
@@ -131,7 +118,9 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
   const [errorMsg, setErrorMsg] = useState("");
   const [brush, setBrush] = useState<"off" | "add" | "erase">("off");
   const [brushSize, setBrushSize] = useState(36);
-  const [strengthPropia, setStrength] = useState(0.9); // intensidad del color (0..1)
+  // Intensidad del color (0..1). Arranca en 1: con 0,9 el 10 % restante lo ponía la pared
+  // vieja, y Blanco Puro sobre una pared roja salía rosado (ver `simulador-color-fiel`).
+  const [strengthPropia, setStrength] = useState(1);
   const strength = strengthDeAfuera ?? strengthPropia;
   const [hasSelection, setHasSelection] = useState(false);
   const [zoom, setZoom] = useState(1);
@@ -220,25 +209,13 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
       compositeRef.current = octx.createImageData(w, h);
       maskRef.current = new Uint8Array(w * h);
       alphaRef.current = new Float32Array(w * h);
-      avgLumaRef.current = 0.5;
       imageUrlRef.current = off.toDataURL("image/jpeg", 0.85); // para enviar al backend
       dims.current = { w, h };
 
-      // Cache de luminosidad PERCEPTUAL (OKLab L) por píxel, una sola vez.
-      // Antes era la L de HSL —(max+min)/2—, que no mide lo que ve el ojo: la textura que
-      // sobrevivía al pintar dependía del color elegido (0,51 con Marfil, 1,04 con Negro
-      // Mate, cuando debería ser 0,6 siempre). Ver lib/oklab.ts.
-      const luma = new Float32Array(w * h);
-      const croma = new Float32Array(w * h * 2);
-      for (let i = 0; i < w * h; i++) {
-        const p = i * 4;
-        const [L, a, b] = rgbAOklab(base.data[p], base.data[p + 1], base.data[p + 2]);
-        luma[i] = L;
-        croma[i * 2] = a;
-        croma[i * 2 + 1] = b;
-      }
-      lumaRef.current = luma;
-      cromaRef.current = croma;
+      // La foto en OKLab, una sola vez: la luz de cada píxel para la pintura.
+      fotoRef.current = fotoPerceptual(base.data, w * h);
+      curvaRef.current = null;
+      versionAlfaRef.current++;
 
       // Preproceso de la varita: YCbCr + gradiente + percentiles (~25 ms). Se hace acá, una
       // sola vez, para que después cada clic sea instantáneo.
@@ -270,133 +247,55 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
     }
   }, []);
 
-  // ---- Datos derivados de la máscara: luminancia promedio (regla 1) + feather (regla 3) ----
+  // ---- Lo que se deriva de la máscara: el borde difuminado ----
+  // Sin difuminar (`feather` false) el alfa es la máscara tal cual: así queda en medio de una
+  // pincelada, que se difumina una vez al soltar.
   const recomputeMaskDerived = useCallback((feather: boolean) => {
     const mask = maskRef.current;
-    const luma = lumaRef.current;
     const alpha = alphaRef.current;
     const { w, h } = dims.current;
-    if (!mask || !luma || !alpha) return;
-
-    let sum = 0;
-    let count = 0;
-    for (let i = 0; i < mask.length; i++) {
-      if (mask[i]) {
-        sum += luma[i];
-        count++;
-      }
-    }
-    avgLumaRef.current = count > 0 ? sum / count : 0.5;
-
-    if (feather && count > 0) {
-      featherMask(mask, alpha, w, h, 2);
-    } else {
-      for (let i = 0; i < mask.length; i++) alpha[i] = mask[i] ? 1 : 0;
-    }
+    if (!mask || !alpha) return;
+    if (feather && mask.some((v) => v === 1)) featherMask(mask, alpha, w, h, 2);
+    else for (let i = 0; i < mask.length; i++) alpha[i] = mask[i] ? 1 : 0;
+    versionAlfaRef.current++;
   }, []);
 
-  // ---- Recompositar (color transfer fotorrealista) ----
-  const repaint = useCallback(() => {
-    const base = baseImageData.current;
-    const canvas = viewRef.current;
-    const composite = compositeRef.current;
-    const luma = lumaRef.current;
-    const croma = cromaRef.current;
-    const alpha = alphaRef.current;
-    if (!base || !canvas || !composite || !luma || !croma || !alpha) return;
-    const src = base.data;
-    const data = composite.data;
-    data.set(src);
+  // ---- Recompositar ----
+  /**
+   * Dibuja la foto con la pintura encima. Con `rect`, sólo ese rectángulo: lo usa el pincel,
+   * que repintaba la foto ENTERA en cada movimiento del dedo (cientos de milisegundos por
+   * movimiento en un celular de gama media: el trazo llegaba tarde) cuando lo único que
+   * cambió es el círculo del pincel.
+   */
+  const repaint = useCallback(
+    (rect?: Rect) => {
+      const base = baseImageData.current;
+      const canvas = viewRef.current;
+      const composite = compositeRef.current;
+      const foto = fotoRef.current;
+      const alpha = alphaRef.current;
+      if (!base || !canvas || !composite || !foto || !alpha) return;
+      const { w } = dims.current;
 
-    if (color) {
-      const [tr, tg, tb] = hexToRgb(color);
-      // Tono y croma del color elegido se mantienen; lo único que varía píxel a píxel es la
-      // luminosidad, que es lo que hacen la luz y la sombra sobre una pared pintada.
-      const { L: tl, C: tc, h: th } = rgbAOklch(tr, tg, tb);
-      const cosH = Math.cos(th);
-      const senH = Math.sin(th);
-      // CONTRAST: cuánta textura/sombra del muro se conserva (1 = copia 1:1, irreal).
-      const CONTRAST = 0.6;
-
-      /**
-       * Ancla adaptativa, en vez del promedio de la pared.
-       *
-       * El promedio deja la mitad de los píxeles por encima del color elegido y la mitad por
-       * debajo. Con un color extremo eso no entra: "Blanco Puro" tiene L = 0.974 y casi no
-       * queda lugar hacia arriba, así que TODA la mitad clara del muro terminaba en el mismo
-       * valor. Anclando en un percentil alto para los claros (y bajo para los oscuros), la
-       * pared cae hacia el lado donde sí hay recorrido.
-       */
-      const pct = Math.max(12, Math.min(88, 50 + (tl - 0.5) * 70));
-      let anchor = avgLumaRef.current;
-      {
-        const muestras: number[] = [];
-        // Muestreo: alcanza para estimar un percentil y evita ordenar un millón de valores.
-        const paso = Math.max(1, Math.floor(alpha.length / 20000));
-        for (let i = 0; i < alpha.length; i += paso) if (alpha[i] > 0.5) muestras.push(luma[i]);
-        if (muestras.length > 1) {
-          muestras.sort((x, y) => x - y);
-          const k = (muestras.length - 1) * (pct / 100);
-          const f = Math.floor(k);
-          const c = Math.min(f + 1, muestras.length - 1);
-          anchor = muestras[f] + (muestras[c] - muestras[f]) * (k - f);
+      const pintura = color ? pinturaDesdeHex(color) : null;
+      if (color && pintura) {
+        let cache = curvaRef.current;
+        // En medio de una pincelada (`rect`) se sigue con la tabla del principio del trazo: el
+        // ancla de la pared se recalcula una vez, al soltar.
+        if (!cache || cache.color !== color || (!rect && cache.version !== versionAlfaRef.current)) {
+          cache = { color, version: versionAlfaRef.current, curva: curva(pintura, ancla(foto, alpha, pintura)) };
+          curvaRef.current = cache;
         }
+        componer(composite.data, base.data, foto, [{ alfa: alpha, curva: cache.curva }], strength, w, rect);
+      } else {
+        seleccionVisible(composite.data, base.data, alpha, w, rect);
       }
-
-      /**
-       * Hombro suave en lugar de recorte duro.
-       *
-       * El clamp a [0.04, 0.97] no comprimía: cortaba. Todo lo que se pasaba quedaba en el
-       * mismo número, y con eso se perdía la sombra del mueble y el grano del revoque justo
-       * en los colores más vendidos —blancos y negros—. Medido sobre una pared con degradado:
-       * 4 de cada 11 píxeles distintos salían idénticos.
-       *
-       * `tanh` comprime de forma asintótica: la pendiente es 1 en el origen (los tonos medios
-       * se comportan igual que antes) y se va cerrando cerca de los extremos sin llegar nunca
-       * a aplastar. Ningún par de píxeles distintos termina en el mismo valor.
-       */
-      const up = 1 - tl;
-      const down = tl;
-      for (let i = 0; i < alpha.length; i++) {
-        const a0 = alpha[i];
-        if (a0 <= 0) continue;
-        const p = i * 4;
-        const ol = luma[i];
-        const shade = (ol - anchor) * CONTRAST;
-        let nl: number;
-        if (shade >= 0) nl = up > 1e-6 ? tl + up * tanhRapido(shade / up) : tl;
-        else nl = down > 1e-6 ? tl - down * tanhRapido(-shade / down) : tl;
-        // El croma baja un poco en los extremos, donde el ojo distingue menos color y donde
-        // la pantalla tampoco lo puede mostrar. oklchASrgb además baja el croma lo justo para
-        // que el color entre en la gama en vez de recortar canales, que corre el tono.
-        const rd = Math.abs(nl - 0.5) * 2;
-        const nc = tc * (1 - rd * rd * 0.35);
-        const a = a0 * strength; // intensidad regulable
-        const ia = 1 - a;
-        // La mezcla entre la pintura y la foto original va en OKLab, no en sRGB: es la misma
-        // razón por la que las cuentas de arriba dejaron HSL. Mezclando en sRGB, el resto de
-        // foto que deja la intensidad se percibía mucho más fuerte sobre un color oscuro.
-        const nr = nl * a + luma[i] * ia;
-        const na = nc * cosH * a + croma[i * 2] * ia;
-        const nb2 = nc * senH * a + croma[i * 2 + 1] * ia;
-        const [fr, fg, fb] = oklabASrgb(nr, na, nb2);
-        data[p] = fr;
-        data[p + 1] = fg;
-        data[p + 2] = fb;
-      }
-    } else {
-      for (let i = 0; i < alpha.length; i++) {
-        const a = alpha[i] * 0.5;
-        if (a <= 0) continue;
-        const p = i * 4;
-        const ia = 1 - a;
-        data[p] = 20 * a + src[p] * ia;
-        data[p + 1] = 120 * a + src[p + 1] * ia;
-        data[p + 2] = 230 * a + src[p + 2] * ia;
-      }
-    }
-    canvas.getContext("2d")!.putImageData(composite, 0, 0);
-  }, [color, strength]);
+      const ctx = canvas.getContext("2d")!;
+      if (rect) ctx.putImageData(composite, 0, 0, rect.x0, rect.y0, rect.x1 - rect.x0, rect.y1 - rect.y0);
+      else ctx.putImageData(composite, 0, 0);
+    },
+    [color, strength],
+  );
 
   // El worker de la varita nace con el componente y muere con él. Si el navegador no tiene
   // workers, o el archivo no carga, todo sigue andando en este hilo, como antes.
@@ -623,9 +522,23 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
     return Promise.resolve(wandRef.current ? magicWand(wandRef.current, x, y, opciones) : null);
   }, []);
 
+  /** Guarda cómo estaba la selección antes de un cambio, para "Deshacer" (un solo nivel). */
+  const recordarParaDeshacer = useCallback((antes: Uint8Array | null) => {
+    deshacerRef.current = antes ? new Uint8Array(antes) : null;
+    setPuedeDeshacer(!!antes);
+  }, []);
+
   /**
    * Aplica la varita en un punto. Devuelve "ok", "chica" (no había una superficie clara) o
    * "viejo" (mientras se calculaba, la persona hizo otra cosa: no se toca nada).
+   *
+   * Lo que acompaña a una selección nueva —que se pueda deshacer, que aparezca "Limpiar
+   * selección", que se vaya el aviso de error— se hace ACÁ y no en quien la llama. Antes lo
+   * hacía sólo el clic, y había otro camino que también selecciona: mover la Sensibilidad
+   * después de un toque que no agarró nada. El aviso de ese toque pide justamente eso ("subí
+   * la Sensibilidad"); la zona aparecía pintada, pero seguía el aviso de error, no estaba
+   * "Limpiar selección", y "Deshacer" volvía a lo de ANTES del toque anterior: se llevaba
+   * también la pared que ya estaba pintada (medido por `simulador-uso-real`, 3/10/2026).
    */
   const applyWand = useCallback(
     async (nx: number, ny: number, tol: number, opts?: { rapido?: boolean }): Promise<"ok" | "chica" | "viejo"> => {
@@ -655,9 +568,13 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
 
       recomputeMaskDerived(true);
       repaint();
+      // "Deshacer" vuelve a como estaba antes del toque, con la Sensibilidad que sea.
+      recordarParaDeshacer(prev);
+      setHasSelection(true);
+      setErrorMsg("");
       return "ok";
     },
-    [recomputeMaskDerived, repaint, regionDe],
+    [recomputeMaskDerived, repaint, regionDe, recordarParaDeshacer],
   );
 
   // ---- Clic en el canvas → selecciona la superficie tocada ----
@@ -668,11 +585,6 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
    * la mira: un clic y un Enter tienen que hacer exactamente lo mismo, y la única forma de
    * garantizarlo es que sea el mismo código.
    */
-  const recordarParaDeshacer = (antes: Uint8Array | null) => {
-    deshacerRef.current = antes ? new Uint8Array(antes) : null;
-    setPuedeDeshacer(!!antes);
-  };
-
   /** Vuelve la selección a como estaba antes del último clic, pincelada o "Limpiar". */
   const deshacer = () => {
     const antes = deshacerRef.current;
@@ -722,7 +634,7 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
       if (await pickAt(nx, ny)) {
         recordarParaDeshacer(maskBeforeClickRef.current);
         setHasSelection(true);
-        setAviso("Superficie seleccionada. Elegí un color de la lista para aplicarlo.");
+        setAviso(color ? "Superficie pintada." : "Superficie seleccionada. Elegí un color de la lista para aplicarlo.");
       } else setErrorMsg("No detectamos una superficie ahí. Probá el modo Varita o el 🖌 Pincel.");
       return;
     }
@@ -730,9 +642,7 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
     lastClickRef.current = { x: nx, y: ny };
     const resultado = await applyWand(nx, ny, tolerance);
     if (resultado === "ok") {
-      recordarParaDeshacer(maskBeforeClickRef.current);
-      setHasSelection(true);
-      setAviso("Superficie seleccionada. Elegí un color de la lista para aplicarlo.");
+      setAviso(color ? "Superficie pintada." : "Superficie seleccionada. Elegí un color de la lista para aplicarlo.");
     } else if (resultado === "chica")
       setErrorMsg(
         "Ahí no hay una superficie clara (puede ser un mueble, un cuadro o una junta). Tocá una zona más lisa de la pared, o subí la Sensibilidad.",
@@ -803,6 +713,7 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
       const y = Math.round(ny * h);
       const radius = Math.round((brushSize / rect.width) * w);
       const val = brush === "add" ? 1 : 0;
+      const alpha = alphaRef.current;
       for (let dy = -radius; dy <= radius; dy++) {
         for (let dx = -radius; dx <= radius; dx++) {
           if (dx * dx + dy * dy > radius * radius) continue;
@@ -810,6 +721,8 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
           const py = y + dy;
           if (px < 0 || py < 0 || px >= w || py >= h) continue;
           mask[py * w + px] = val;
+          // El alfa, sin difuminar, sólo donde pasó el pincel: el resto de la foto no cambió.
+          if (alpha) alpha[py * w + px] = val;
         }
       }
       // Una pincelada es una edición manual: deja de haber un "último clic" que recalcular,
@@ -818,11 +731,19 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
       maskBeforeClickRef.current = null;
       generacionRef.current++;
 
-      recomputeMaskDerived(false);
-      repaint();
-      setHasSelection(true);
+      // Sólo se repinta el círculo del pincel. Antes cada movimiento del dedo recalculaba y
+      // repintaba la foto entera —dos pasadas por la máscara y la composición completa—, y en
+      // un celular el trazo llegaba tarde. El difuminado y el ancla de la pared se recalculan
+      // una vez, al soltar (`terminarTrazo`).
+      repaint({
+        x0: Math.max(0, x - radius),
+        y0: Math.max(0, y - radius),
+        x1: Math.min(w, x + radius + 1),
+        y1: Math.min(h, y + radius + 1),
+      });
+      if (val === 1) setHasSelection(true);
     },
-    [brush, brushSize, repaint, recomputeMaskDerived],
+    [brush, brushSize, repaint],
   );
 
   const paintAt = useCallback(
@@ -859,6 +780,7 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
       if (brush !== "off") {
         recordarParaDeshacer(maskRef.current);
         pintarEn(actual.x, actual.y);
+        cerrarTrazo();
         setAviso(brush === "add" ? "Sumaste pintura en la mira." : "Borraste pintura en la mira.");
       } else {
         setAviso("Buscando la superficie…");
@@ -896,12 +818,18 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
    * El feathering y el repintado se hacen UNA vez al soltar, no en cada movimiento del dedo:
    * por eso hace falta un final de trazo confiable, y por eso los tres eventos terminan acá.
    */
+  const cerrarTrazo = useCallback(() => {
+    recomputeMaskDerived(true);
+    repaint();
+    // Con "⌫ Borrar" se puede vaciar la selección entera a pinceladas.
+    setHasSelection(!!maskRef.current?.some((v) => v === 1));
+  }, [recomputeMaskDerived, repaint]);
+
   const terminarTrazo = useCallback(() => {
     if (!drawing.current) return;
     drawing.current = false;
-    recomputeMaskDerived(true);
-    repaint();
-  }, [recomputeMaskDerived, repaint]);
+    cerrarTrazo();
+  }, [cerrarTrazo]);
 
   const clearSelection = () => {
     recordarParaDeshacer(maskRef.current);
@@ -918,8 +846,8 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
     baseImageData.current = null;
     maskRef.current = null;
     compositeRef.current = null;
-    lumaRef.current = null;
-    cromaRef.current = null;
+    fotoRef.current = null;
+    curvaRef.current = null;
     alphaRef.current = null;
     imageUrlRef.current = "";
     maskBankRef.current = [];
@@ -1044,6 +972,9 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
             <div className="flex items-center border border-concrete/30">
               <button
                 onClick={() => setBrush((b) => (b === "add" ? "off" : "add"))}
+                // Sin esto, quien usa lector de pantalla no tenía forma de saber qué herramienta
+                // estaba prendida: la única señal era el fondo oscuro del botón.
+                aria-pressed={brush === "add"}
                 disabled={segmenting}
                 className={cn("px-3 py-2 font-body text-body-sm transition-colors disabled:opacity-40", brush === "add" ? "bg-ink text-bone" : "hover:bg-mist")}
               >
@@ -1051,6 +982,7 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
               </button>
               <button
                 onClick={() => setBrush((b) => (b === "erase" ? "off" : "erase"))}
+                aria-pressed={brush === "erase"}
                 disabled={segmenting}
                 className={cn("px-3 py-2 font-body text-body-sm border-l border-concrete/30 transition-colors disabled:opacity-40", brush === "erase" ? "bg-ink text-bone" : "hover:bg-mist")}
               >
@@ -1069,6 +1001,7 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
             <div className="flex items-center border border-concrete/30">
               <button
                 onClick={() => setUseAI(false)}
+                aria-pressed={!useAI}
                 disabled={segmenting}
                 className={cn(
                   "px-3 py-2 font-body text-body-sm transition-colors disabled:opacity-40",
@@ -1080,6 +1013,7 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
               </button>
               <button
                 onClick={() => setUseAI(true)}
+                aria-pressed={useAI}
                 disabled={segmenting}
                 className={cn(
                   "px-3 py-2 font-body text-body-sm border-l border-concrete/30 transition-colors disabled:opacity-40",
@@ -1249,50 +1183,25 @@ function featherMask(mask: Uint8Array, alpha: Float32Array, w: number, h: number
   }
 }
 
-// ---------- helpers de color ----------
-function hexToRgb(hex: string): [number, number, number] {
-  const c = hex.replace("#", "");
-  return [parseInt(c.slice(0, 2), 16), parseInt(c.slice(2, 4), 16), parseInt(c.slice(4, 6), 16)];
-}
-function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
-  r /= 255;
-  g /= 255;
-  b /= 255;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  let h = 0;
-  let s = 0;
-  if (max !== min) {
-    const dd = max - min;
-    s = l > 0.5 ? dd / (2 - max - min) : dd / (max + min);
-    if (max === r) h = (g - b) / dd + (g < b ? 6 : 0);
-    else if (max === g) h = (b - r) / dd + 2;
-    else h = (r - g) / dd + 4;
-    h /= 6;
+/**
+ * Sin color elegido, la selección se ve azul a medias: que se note qué está marcado antes de
+ * elegir con qué pintarlo.
+ */
+function seleccionVisible(destino: Uint8ClampedArray, origen: Uint8ClampedArray, alpha: Float32Array, ancho: number, rect?: Rect) {
+  const alto = alpha.length / ancho;
+  const x0 = rect ? Math.max(0, rect.x0) : 0;
+  const y0 = rect ? Math.max(0, rect.y0) : 0;
+  const x1 = rect ? Math.min(ancho, rect.x1) : ancho;
+  const y1 = rect ? Math.min(alto, rect.y1) : alto;
+  for (let y = y0; y < y1; y++) {
+    for (let i = y * ancho + x0, fin = y * ancho + x1; i < fin; i++) {
+      const p = i * 4;
+      const a = alpha[i] * 0.5;
+      const ia = 1 - a;
+      destino[p] = a > 0 ? 20 * a + origen[p] * ia : origen[p];
+      destino[p + 1] = a > 0 ? 120 * a + origen[p + 1] * ia : origen[p + 1];
+      destino[p + 2] = a > 0 ? 230 * a + origen[p + 2] * ia : origen[p + 2];
+      destino[p + 3] = origen[p + 3];
+    }
   }
-  return [h, s, l];
-}
-function hslToRgb(h: number, s: number, l: number): [number, number, number] {
-  let r: number;
-  let g: number;
-  let b: number;
-  if (s === 0) {
-    r = g = b = l;
-  } else {
-    const hue2rgb = (p: number, q: number, t: number) => {
-      if (t < 0) t += 1;
-      if (t > 1) t -= 1;
-      if (t < 1 / 6) return p + (q - p) * 6 * t;
-      if (t < 1 / 2) return q;
-      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-      return p;
-    };
-    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-    const p = 2 * l - q;
-    r = hue2rgb(p, q, h + 1 / 3);
-    g = hue2rgb(p, q, h);
-    b = hue2rgb(p, q, h - 1 / 3);
-  }
-  return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
 }
