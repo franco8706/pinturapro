@@ -12,10 +12,14 @@
  */
 const fs = require("fs");
 const FOTOS = __dirname + "/../../../.fotos-prueba";
-const PISO_RECALL = 0.72;      // hoy da 0,82; se avisa si baja de acá
+// 0,72 hasta el 3/10/2026, cuando daba 0,82: el tope de radio cortaba la pared en un arco de
+// círculo. Sin el tope da 0,94; con 0,9 de piso, el arco vuelve a poner esto en rojo.
+const PISO_RECALL = 0.9;
 const PISO_PRECISION = 0.95;   // hoy da 0,99
-const TEXTURA_OBJETIVO = 0.63; // el factor con el que se conserva el revoque
-const TEXTURA_TOLERANCIA = 0.06;
+// 0,63 hasta el 3/10/2026: con la Intensidad en 90 %, el 10 % de foto original sumaba textura.
+// Al 100 % es el factor del motor (CONTRASTE = 0,6) con el hombro de los extremos: 0,59-0,60.
+const TEXTURA_OBJETIVO = 0.6; // el factor con el que se conserva el revoque
+const TEXTURA_TOLERANCIA = 0.05;
 
 module.exports = {
   nombre: "simulador · agarra la pared y conserva la textura con cualquier color",
