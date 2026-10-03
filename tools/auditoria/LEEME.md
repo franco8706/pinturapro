@@ -5,25 +5,27 @@ sesión y sin que haya que explicarles el contexto cada vez.
 
 | Archivo | Para qué |
 |---|---|
-| `REGLAS.md` | Lo que cada agente lee primero: qué no tocar, cuentas demo, cómo reportar. |
-| `navegador.cjs` | Chrome propio por agente (Playwright como librería) + `auditar()` estándar. |
-| `generar.py` | Fotos de prueba: pared con luz de ventana, pared plana, pared oscura, y una de 30 MP. |
-| `mascara.py` | Dónde está la pared en cada foto, para medir aciertos y errores del simulador. |
-| `BITACORA.md` | La memoria: qué se encontró, qué se arregló, qué se descartó midiendo. |
+| `REGLAS.md` | Lo que cada agente lee primero: qué no tocar, cuentas demo, cómo reportar, trampas. |
+| `BITACORA.md` | La memoria: qué se encontró, qué se arregló, qué se descartó midiendo, qué depende del dueño. |
 | `regresiones/` | Las pruebas que vigilan cada arreglo. Se corren con `pnpm verificar`. |
+| `navegador.cjs` | Chrome propio por agente (Playwright como librería) + `auditar()` estándar. |
+| `produccion.sh` | Compila una copia aparte en modo producción y la sirve en :3100, para medir. |
+| `vigilancia/` | El vigilante 24/7 que corre en Google Cloud (`docs/vigilancia-google-cloud.md`). |
+| `rondas/` | Un reporte por agente en cada ronda grande, el cierre del orquestador y la retroalimentación. |
+| `cobertura.mjs` → `COBERTURA.md` | Qué pantalla, acción, tabla o función no mira ninguna prueba ni agente. |
+| `escala/` | Carga contra producción (`carga.mjs`) y pruebas de la base con volumen, siempre en rollback. |
+| `simulador/` | Cuánto congela la pantalla el primer clic de la varita (`congelamiento.cjs`). |
+| `generar.py`, `mascara.py` | Fotos de prueba del simulador y dónde está la pared en cada una (`pnpm fotos-prueba`). |
+| `instalar-agentes.sh` | Hace que los agentes se vean desde las sesiones abiertas en la raíz del Codespace. |
+| `historico/` | Las sondas de la primera auditoría (septiembre). Historia, no herramientas. |
+| `.salida/` | Lo que escriben las corridas largas (`verificar.log`). No va a git. |
 
 ## Agentes disponibles
 
-Están definidos en `.claude/agents/` y se llaman por nombre desde cualquier sesión, sin repetirles
-las instrucciones:
-
-- **recorrido-web** — recorre pantallas por rol en celular y escritorio.
-- **formularios-hostiles** — datos inválidos, textos enormes, clics repetidos.
-- **simulador-color** — mide el simulador con números contra máscaras de referencia.
-- **seguridad-rls** — revisa que las reglas de la base frenen lo que prometen.
-- **regresiones** — corre `pnpm verificar`, decide si falló el producto o la prueba, y escribe
-  las pruebas que faltan.
-- **accesibilidad** — teclado, contraste, lectores de pantalla, reducir movimiento.
+Están definidos en `.claude/agents/` (21 al 3/10/2026) y se llaman por nombre desde cualquier
+sesión, sin repetirles las instrucciones. La lista con qué hace cada uno está en `CLAUDE.md`,
+sección "Sistema de auditoría". Cada definición termina con "Lo que aprendieron las rondas
+anteriores", que actualiza el agente `retroalimentacion` al cerrar cada ronda.
 
 ## Cómo crece esto
 

@@ -142,7 +142,7 @@ la cotización y "un pedido adjudicado no se edita", en la base). Se suma a 0024
 
 - **Los agentes en segundo plano mueren cuando se cierra la sesión.** Pasó tres veces. Desde el
   2/10 se lanzan en primer plano, de a tres, y el orquestador espera.
-- **La suite se corre en un proceso suelto** que escribe en `/workspaces/codespaces-blank/.auditoria/verificar.log`
+- **La suite se corre en un proceso suelto** que escribe en `tools/auditoria/.salida/verificar.log` (hasta el 3/10, en `/workspaces/codespaces-blank/.auditoria/`)
   (fuera de /tmp, que se borra): si la sesión se corta, la corrida termina igual.
 - **Commit antes de verificar** cuando el cambio ya compila: un corte no deja trabajo sin guardar.
 - El orquestador hace solo lo que no necesita otra mirada (correr la suite, bitácora, reglas,

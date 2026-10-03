@@ -30,7 +30,7 @@ cómo usar el kit de navegador y las cuentas demo.
 Un recorrido entero por una sola persona se queda corto: quien lo hace termina mirando lo que
 conoce. Para una ronda profunda se lanzan **cuatro sub-agentes con esta misma definición**, cada
 uno con UN papel. Es el mismo corte que usó la primera auditoría del proyecto — sus sondas
-siguen en `/workspaces/codespaces-blank/.auditoria/kit/<papel>/`, y lo primero que hace cada
+siguen en `tools/auditoria/historico/primera-auditoria/<papel>/`, y lo primero que hace cada
 sub-agente es mirar qué se probó entonces, para no repetirlo y para ver si algo de eso volvió a
 romperse.
 

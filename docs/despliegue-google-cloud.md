@@ -1,14 +1,45 @@
 # Publicar Pintura Pro en Google Cloud
 
 Escrito para el dueño. Es el camino para pasar de "anda en el Codespace" a "anda en internet"
-**en Google Cloud**, que es la decisión tomada. Reemplaza las partes de plataforma de
-`docs/deploy.md` (escrito para Vercel) y de `docs/infraestructura.md` (que recomendaba AWS).
-Lo de la sección 0 de `docs/deploy.md` —datos de demostración, textos legales, plan de
-Supabase— sigue valiendo igual: leelo antes.
+**en Google Cloud**, que es la decisión tomada. Reemplaza a `docs/historico/deploy.md` (escrito
+para Vercel) y a `docs/historico/infraestructura.md` (que recomendaba AWS). Empezá por la
+sección 0: es lo que no se arregla desde el código.
 
 Todo lo de acá está probado hasta donde se puede sin una cuenta de Google Cloud: la imagen se
 construyó, arrancó con los secretos inyectados al correr, respondió bien y el vigilante 24/7
 dio verde contra ella (28/9/2026). Lo que sólo se puede hacer en la consola está marcado.
+
+---
+
+## 0. Antes de publicar: lo que no puede salir así
+
+Nada de esto se arregla desde el código. La lista completa y al día está en
+`tools/auditoria/BITACORA.md`, sección "Tareas del dueño"; acá va lo que frena la publicación.
+
+- **Los datos son de demostración.** Los 3 pintores, las 20 reseñas y las 3 obras pertenecen a
+  cuentas `*@pinturapro.demo`, y las fotos son de stock. Publicar eso es mostrar pintores que
+  no existen y reseñas que nadie escribió (Ley 24.240). Hay que elegir: arrancar vacío, o con
+  pintores reales que hayan dado su consentimiento y sin reseñas hasta que haya trabajos. Para
+  borrar los de demostración (se lleva sus obras, trabajos y reseñas):
+  ```sql
+  select count(*) from auth.users where email like '%@pinturapro.demo';  -- mirar primero
+  delete from auth.users where email like '%@pinturapro.demo';
+  ```
+  Y al compilar con datos reales, `NEXT_PUBLIC_DATOS_DEMO=false`: es lo que deja que Google
+  indexe los perfiles y las obras y los suma al sitemap.
+- **"Verificado" no tiene proceso.** `profiles.verified` sólo se escribe a mano por SQL. La
+  palabra se sacó del perfil público (28/9), pero el nivel "Master" todavía la exige. Antes de
+  marcar a alguien, definir qué se chequea y escribirlo.
+- **Supabase:** sacarlo del plan gratuito (se pausa solo a los 7 días sin uso; ya pasó),
+  revisar los backups, aplicar las migraciones 0024, 0025 y 0026 en ese orden, configurar un
+  servidor de mail propio (el de fábrica manda pocos por hora), captcha en el alta y en
+  recuperar, y un tope de intentos de ingreso.
+- **Datos legales del responsable:** razón social, CUIT y domicilio en `/privacidad` y
+  `/terminos`, inscribir la base de datos ante la AAIP, y la consulta al abogado por el derecho
+  de arrepentimiento.
+- **Una base nueva desde cero** se arma corriendo `supabase/migrations/` en orden, de la 0001
+  a la última. El archivo "todo en uno" que había (`setup-completo.sql`) se retiró el 3/10:
+  llegaba hasta la 0015 y recrear la base con él volvía a abrir agujeros ya cerrados.
 
 ---
 

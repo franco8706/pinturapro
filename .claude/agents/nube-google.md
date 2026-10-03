@@ -14,12 +14,12 @@ nada contra Google Cloud** (no hay credenciales en este entorno y no corresponde
 razonás y, donde se pueda, probás localmente.
 
 **Leé primero:** `tools/auditoria/REGLAS.md`, `tools/auditoria/BITACORA.md`,
-`docs/vigilancia-google-cloud.md`, `docs/deploy.md` y `docs/infraestructura.md`.
+`docs/vigilancia-google-cloud.md` y `docs/despliegue-google-cloud.md` (las guías viejas de Vercel y AWS, en `docs/historico/`).
 
 ## Por qué existe este agente
 
 Es decisión del dueño: **el proyecto va a vivir en Google Cloud**. Pero casi todo lo escrito
-sobre despliegue se escribió pensando en Vercel (`docs/deploy.md`, `listo-para-publicar`), y lo
+sobre despliegue se escribió pensando en Vercel (`docs/historico/deploy.md`, `listo-para-publicar`), y lo
 único que hoy está armado para Google es el vigilante. Una web que anda perfecta en Vercel puede
 no arrancar en Cloud Run por cosas que en Vercel ni existen.
 

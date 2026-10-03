@@ -1,0 +1,1042 @@
+{
+  "movil": false,
+  "paginas": [
+    {
+      "ruta": "/",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/",
+        "titulo": "Pintura Pro | Transformamos espacios con color",
+        "h1": [
+          "Transformamos espacios con color."
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [
+          "DIV.flex w-max animate-marquee gro",
+          "DIV.flex shrink-0",
+          "SPAN.flex items-center",
+          "SPAN.font-display text-display-md p",
+          "SPAN.flex items-center",
+          "SPAN.font-display text-display-md p",
+          "SPAN.text-bone/40"
+        ],
+        "objetivosTactilesChicos": [
+          "Diego Sosa [86x20]",
+          "Lucía Fernández [125x20]",
+          "Martín Rojas [94x20]",
+          "Diego Sosa [86x20]",
+          "Lucía Fernández [125x20]",
+          "Martín Rojas [94x20]",
+          "Diego Sosa [86x20]",
+          "Lucía Fernández [125x20]",
+          "Testimonio 1 [24x6]",
+          "Testimonio 2 [8x6]",
+          "Testimonio 3 [8x6]",
+          "Testimonio 4 [8x6]",
+          "Testimonio 5 [8x6]",
+          "Testimonio 6 [8x6]",
+          "Testimonio 7 [8x6]",
+          "Testimonio 8 [8x6]",
+          "Ver todas → [81x21]",
+          "Ir a la noticia 1 [24x6]",
+          "Ir a la noticia 2 [8x6]",
+          "Ir a la noticia 3 [8x6]",
+          "Ir a la noticia 4 [8x6]",
+          "Obras [40x17]",
+          "Simulador [66x17]",
+          "Aprender [62x17]",
+          "Asesoramiento [99x17]",
+          "Novedades [75x17]",
+          "Nosotros [60x17]",
+          "Contacto [60x17]",
+          "Directorio [65x17]",
+          "Mapa por zona [99x17]",
+          "Sumate como pro [117x17]",
+          "Mi panel [56x17]",
+          "Publicar trabajo [104x17]",
+          "Trabajos disponibles [137x17]",
+          "Cotizaciones [86x17]",
+          "Privacidad [78x17]",
+          "Términos [62x17]",
+          "hola@pinturapro.ar [140x17]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/obras",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/obras",
+        "titulo": "Obras | Pintura Pro",
+        "h1": [
+          "Obras que resisten el tiempo."
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Obras [40x17]",
+          "Simulador [66x17]",
+          "Aprender [62x17]",
+          "Asesoramiento [99x17]",
+          "Novedades [75x17]",
+          "Nosotros [60x17]",
+          "Contacto [60x17]",
+          "Directorio [65x17]",
+          "Mapa por zona [99x17]",
+          "Sumate como pro [117x17]",
+          "Mi panel [56x17]",
+          "Publicar trabajo [104x17]",
+          "Trabajos disponibles [137x17]",
+          "Cotizaciones [86x17]",
+          "Privacidad [78x17]",
+          "Términos [62x17]",
+          "hola@pinturapro.ar [140x17]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/obras/casa-barracas",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/obras/casa-barracas",
+        "titulo": "Casa Barracas | Pintura Pro",
+        "h1": [
+          "Casa Barracas"
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Obras [40x17]",
+          "Simulador [66x17]",
+          "Aprender [62x17]",
+          "Asesoramiento [99x17]",
+          "Novedades [75x17]",
+          "Nosotros [60x17]",
+          "Contacto [60x17]",
+          "Directorio [65x17]",
+          "Mapa por zona [99x17]",
+          "Sumate como pro [117x17]",
+          "Mi panel [56x17]",
+          "Publicar trabajo [104x17]",
+          "Trabajos disponibles [137x17]",
+          "Cotizaciones [86x17]",
+          "Privacidad [78x17]",
+          "Términos [62x17]",
+          "hola@pinturapro.ar [140x17]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/obras/loft-palermo",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/obras/loft-palermo",
+        "titulo": "Loft Palermo | Pintura Pro",
+        "h1": [
+          "Loft Palermo"
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Obras [40x17]",
+          "Simulador [66x17]",
+          "Aprender [62x17]",
+          "Asesoramiento [99x17]",
+          "Novedades [75x17]",
+          "Nosotros [60x17]",
+          "Contacto [60x17]",
+          "Directorio [65x17]",
+          "Mapa por zona [99x17]",
+          "Sumate como pro [117x17]",
+          "Mi panel [56x17]",
+          "Publicar trabajo [104x17]",
+          "Trabajos disponibles [137x17]",
+          "Cotizaciones [86x17]",
+          "Privacidad [78x17]",
+          "Términos [62x17]",
+          "hola@pinturapro.ar [140x17]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/obras/estudio-nordelta",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/obras/estudio-nordelta",
+        "titulo": "Estudio Nordelta | Pintura Pro",
+        "h1": [
+          "Estudio Nordelta"
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Obras [40x17]",
+          "Simulador [66x17]",
+          "Aprender [62x17]",
+          "Asesoramiento [99x17]",
+          "Novedades [75x17]",
+          "Nosotros [60x17]",
+          "Contacto [60x17]",
+          "Directorio [65x17]",
+          "Mapa por zona [99x17]",
+          "Sumate como pro [117x17]",
+          "Mi panel [56x17]",
+          "Publicar trabajo [104x17]",
+          "Trabajos disponibles [137x17]",
+          "Cotizaciones [86x17]",
+          "Privacidad [78x17]",
+          "Términos [62x17]",
+          "hola@pinturapro.ar [140x17]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/pintores",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/pintores",
+        "titulo": "Directorio de pintores | Pintura Pro",
+        "h1": [
+          "Pintores profesionales, cerca tuyo."
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Obras [40x17]",
+          "Simulador [66x17]",
+          "Aprender [62x17]",
+          "Asesoramiento [99x17]",
+          "Novedades [75x17]",
+          "Nosotros [60x17]",
+          "Contacto [60x17]",
+          "Directorio [65x17]",
+          "Mapa por zona [99x17]",
+          "Sumate como pro [117x17]",
+          "Mi panel [56x17]",
+          "Publicar trabajo [104x17]",
+          "Trabajos disponibles [137x17]",
+          "Cotizaciones [86x17]",
+          "Privacidad [78x17]",
+          "Términos [62x17]",
+          "hola@pinturapro.ar [140x17]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/pintor/225f594d-00e1-420e-b392-af2a15bd1f9d",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/pintor/225f594d-00e1-420e-b392-af2a15bd1f9d",
+        "titulo": "Diego Sosa — Pintor Gold | Pintura Pro",
+        "h1": [
+          "Diego Sosa"
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Obras [40x17]",
+          "Simulador [66x17]",
+          "Aprender [62x17]",
+          "Asesoramiento [99x17]",
+          "Novedades [75x17]",
+          "Nosotros [60x17]",
+          "Contacto [60x17]",
+          "Directorio [65x17]",
+          "Mapa por zona [99x17]",
+          "Sumate como pro [117x17]",
+          "Mi panel [56x17]",
+          "Publicar trabajo [104x17]",
+          "Trabajos disponibles [137x17]",
+          "Cotizaciones [86x17]",
+          "Privacidad [78x17]",
+          "Términos [62x17]",
+          "hola@pinturapro.ar [140x17]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/pintor/5e1a6016-3712-446c-b4d9-f0c8a75133ed",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/pintor/5e1a6016-3712-446c-b4d9-f0c8a75133ed",
+        "titulo": "Lucía Fernández — Pintor Gold | Pintura Pro",
+        "h1": [
+          "Lucía Fernández"
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Obras [40x17]",
+          "Simulador [66x17]",
+          "Aprender [62x17]",
+          "Asesoramiento [99x17]",
+          "Novedades [75x17]",
+          "Nosotros [60x17]",
+          "Contacto [60x17]",
+          "Directorio [65x17]",
+          "Mapa por zona [99x17]",
+          "Sumate como pro [117x17]",
+          "Mi panel [56x17]",
+          "Publicar trabajo [104x17]",
+          "Trabajos disponibles [137x17]",
+          "Cotizaciones [86x17]",
+          "Privacidad [78x17]",
+          "Términos [62x17]",
+          "hola@pinturapro.ar [140x17]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/mapa",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/mapa",
+        "titulo": "Mapa de pintores | Pintura Pro",
+        "h1": [
+          "Encontrá pintores por zona."
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Obras [40x17]",
+          "Simulador [66x17]",
+          "Aprender [62x17]",
+          "Asesoramiento [99x17]",
+          "Novedades [75x17]",
+          "Nosotros [60x17]",
+          "Contacto [60x17]",
+          "Directorio [65x17]",
+          "Mapa por zona [99x17]",
+          "Sumate como pro [117x17]",
+          "Mi panel [56x17]",
+          "Publicar trabajo [104x17]",
+          "Trabajos disponibles [137x17]",
+          "Cotizaciones [86x17]",
+          "Privacidad [78x17]",
+          "Términos [62x17]",
+          "hola@pinturapro.ar [140x17]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/simulador",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/simulador",
+        "titulo": "Simulador de color | Pintura Pro",
+        "h1": [
+          "Probá el color en tu propia pared."
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Obras [40x17]",
+          "Simulador [66x17]",
+          "Aprender [62x17]",
+          "Asesoramiento [99x17]",
+          "Novedades [75x17]",
+          "Nosotros [60x17]",
+          "Contacto [60x17]",
+          "Directorio [65x17]",
+          "Mapa por zona [99x17]",
+          "Sumate como pro [117x17]",
+          "Mi panel [56x17]",
+          "Publicar trabajo [104x17]",
+          "Trabajos disponibles [137x17]",
+          "Cotizaciones [86x17]",
+          "Privacidad [78x17]",
+          "Términos [62x17]",
+          "hola@pinturapro.ar [140x17]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/colores",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/colores",
+        "titulo": "Colores y marcas | Pintura Pro",
+        "h1": [
+          "Probá colores antes de pintar."
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Obras [40x17]",
+          "Simulador [66x17]",
+          "Aprender [62x17]",
+          "Asesoramiento [99x17]",
+          "Novedades [75x17]",
+          "Nosotros [60x17]",
+          "Contacto [60x17]",
+          "Directorio [65x17]",
+          "Mapa por zona [99x17]",
+          "Sumate como pro [117x17]",
+          "Mi panel [56x17]",
+          "Publicar trabajo [104x17]",
+          "Trabajos disponibles [137x17]",
+          "Cotizaciones [86x17]",
+          "Privacidad [78x17]",
+          "Términos [62x17]",
+          "hola@pinturapro.ar [140x17]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/cotizar",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/cotizar",
+        "titulo": "Pedir presupuesto | Pintura Pro",
+        "h1": [
+          "Tu presupuesto en 4 pasos."
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [
+          "DIV.absolute -left-[9999px] w-px h",
+          "LABEL.",
+          "INPUT."
+        ],
+        "objetivosTactilesChicos": [
+          "← Atrás [52x21]",
+          "Obras [40x17]",
+          "Simulador [66x17]",
+          "Aprender [62x17]",
+          "Asesoramiento [99x17]",
+          "Novedades [75x17]",
+          "Nosotros [60x17]",
+          "Contacto [60x17]",
+          "Directorio [65x17]",
+          "Mapa por zona [99x17]",
+          "Sumate como pro [117x17]",
+          "Mi panel [56x17]",
+          "Publicar trabajo [104x17]",
+          "Trabajos disponibles [137x17]",
+          "Cotizaciones [86x17]",
+          "Privacidad [78x17]",
+          "Términos [62x17]",
+          "hola@pinturapro.ar [140x17]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/aprender",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/aprender",
+        "titulo": "Aprender | Pintura Pro",
+        "h1": [
+          "Guías, videos y cursos para crecer como profesional."
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Obras [40x17]",
+          "Simulador [66x17]",
+          "Aprender [62x17]",
+          "Asesoramiento [99x17]",
+          "Novedades [75x17]",
+          "Nosotros [60x17]",
+          "Contacto [60x17]",
+          "Directorio [65x17]",
+          "Mapa por zona [99x17]",
+          "Sumate como pro [117x17]",
+          "Mi panel [56x17]",
+          "Publicar trabajo [104x17]",
+          "Trabajos disponibles [137x17]",
+          "Cotizaciones [86x17]",
+          "Privacidad [78x17]",
+          "Términos [62x17]",
+          "hola@pinturapro.ar [140x17]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/novedades",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/novedades",
+        "titulo": "Novedades | Pintura Pro",
+        "h1": [
+          "Noticias, tendencias y novedades del mundo de la pintura."
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Obras [40x17]",
+          "Simulador [66x17]",
+          "Aprender [62x17]",
+          "Asesoramiento [99x17]",
+          "Novedades [75x17]",
+          "Nosotros [60x17]",
+          "Contacto [60x17]",
+          "Directorio [65x17]",
+          "Mapa por zona [99x17]",
+          "Sumate como pro [117x17]",
+          "Mi panel [56x17]",
+          "Publicar trabajo [104x17]",
+          "Trabajos disponibles [137x17]",
+          "Cotizaciones [86x17]",
+          "Privacidad [78x17]",
+          "Términos [62x17]",
+          "hola@pinturapro.ar [140x17]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/asesoramiento",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/asesoramiento",
+        "titulo": "Asesoramiento | Pintura Pro",
+        "h1": [
+          "Asesoramiento para tu proyecto."
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Obras [40x17]",
+          "Simulador [66x17]",
+          "Aprender [62x17]",
+          "Asesoramiento [99x17]",
+          "Novedades [75x17]",
+          "Nosotros [60x17]",
+          "Contacto [60x17]",
+          "Directorio [65x17]",
+          "Mapa por zona [99x17]",
+          "Sumate como pro [117x17]",
+          "Mi panel [56x17]",
+          "Publicar trabajo [104x17]",
+          "Trabajos disponibles [137x17]",
+          "Cotizaciones [86x17]",
+          "Privacidad [78x17]",
+          "Términos [62x17]",
+          "hola@pinturapro.ar [140x17]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/nosotros",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/nosotros",
+        "titulo": "Nosotros | Pintura Pro",
+        "h1": [
+          "Pintamos como nos gustaría que pintaran nuestra propia casa."
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Obras [40x17]",
+          "Simulador [66x17]",
+          "Aprender [62x17]",
+          "Asesoramiento [99x17]",
+          "Novedades [75x17]",
+          "Nosotros [60x17]",
+          "Contacto [60x17]",
+          "Directorio [65x17]",
+          "Mapa por zona [99x17]",
+          "Sumate como pro [117x17]",
+          "Mi panel [56x17]",
+          "Publicar trabajo [104x17]",
+          "Trabajos disponibles [137x17]",
+          "Cotizaciones [86x17]",
+          "Privacidad [78x17]",
+          "Términos [62x17]",
+          "hola@pinturapro.ar [140x17]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/contacto",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/contacto",
+        "titulo": "Contacto | Pintura Pro",
+        "h1": [
+          "Hablemos de tu obra."
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [
+          "DIV.absolute -left-[9999px] w-px h",
+          "LABEL.",
+          "INPUT."
+        ],
+        "objetivosTactilesChicos": [
+          "Obras [40x17]",
+          "Simulador [66x17]",
+          "Aprender [62x17]",
+          "Asesoramiento [99x17]",
+          "Novedades [75x17]",
+          "Nosotros [60x17]",
+          "Contacto [60x17]",
+          "Directorio [65x17]",
+          "Mapa por zona [99x17]",
+          "Sumate como pro [117x17]",
+          "Mi panel [56x17]",
+          "Publicar trabajo [104x17]",
+          "Trabajos disponibles [137x17]",
+          "Cotizaciones [86x17]",
+          "Privacidad [78x17]",
+          "Términos [62x17]",
+          "hola@pinturapro.ar [140x17]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/registro",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/registro",
+        "titulo": "Sumate como Pro | Pintura Pro",
+        "h1": [
+          "Tu perfil profesional en 4 pasos."
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [
+          "DIV.absolute -left-[9999px] w-px h",
+          "LABEL.",
+          "INPUT."
+        ],
+        "objetivosTactilesChicos": [
+          "← Atrás [52x21]",
+          "Obras [40x17]",
+          "Simulador [66x17]",
+          "Aprender [62x17]",
+          "Asesoramiento [99x17]",
+          "Novedades [75x17]",
+          "Nosotros [60x17]",
+          "Contacto [60x17]",
+          "Directorio [65x17]",
+          "Mapa por zona [99x17]",
+          "Sumate como pro [117x17]",
+          "Mi panel [56x17]",
+          "Publicar trabajo [104x17]",
+          "Trabajos disponibles [137x17]",
+          "Cotizaciones [86x17]",
+          "Privacidad [78x17]",
+          "Términos [62x17]",
+          "hola@pinturapro.ar [140x17]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/trabajos",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/trabajos",
+        "titulo": "Trabajos disponibles | Pintura Pro",
+        "h1": [
+          "Trabajos disponibles para cotizar."
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Ingresá como pintor para cot [233x21]",
+          "Obras [40x17]",
+          "Simulador [66x17]",
+          "Aprender [62x17]",
+          "Asesoramiento [99x17]",
+          "Novedades [75x17]",
+          "Nosotros [60x17]",
+          "Contacto [60x17]",
+          "Directorio [65x17]",
+          "Mapa por zona [99x17]",
+          "Sumate como pro [117x17]",
+          "Mi panel [56x17]",
+          "Publicar trabajo [104x17]",
+          "Trabajos disponibles [137x17]",
+          "Cotizaciones [86x17]",
+          "Privacidad [78x17]",
+          "Términos [62x17]",
+          "hola@pinturapro.ar [140x17]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/privacidad",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/privacidad",
+        "titulo": "Política de privacidad | Pintura Pro",
+        "h1": [
+          "Política de privacidad."
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "hola@pinturapro.ar [144x20]",
+          "hola@pinturapro.ar [145x20]",
+          "Obras [40x17]",
+          "Simulador [66x17]",
+          "Aprender [62x17]",
+          "Asesoramiento [99x17]",
+          "Novedades [75x17]",
+          "Nosotros [60x17]",
+          "Contacto [60x17]",
+          "Directorio [65x17]",
+          "Mapa por zona [99x17]",
+          "Sumate como pro [117x17]",
+          "Mi panel [56x17]",
+          "Publicar trabajo [104x17]",
+          "Trabajos disponibles [137x17]",
+          "Cotizaciones [86x17]",
+          "Privacidad [78x17]",
+          "Términos [62x17]",
+          "hola@pinturapro.ar [140x17]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/terminos",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/terminos",
+        "titulo": "Términos y condiciones | Pintura Pro",
+        "h1": [
+          "Términos y condiciones."
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "hola@pinturapro.ar [144x20]",
+          "Obras [40x17]",
+          "Simulador [66x17]",
+          "Aprender [62x17]",
+          "Asesoramiento [99x17]",
+          "Novedades [75x17]",
+          "Nosotros [60x17]",
+          "Contacto [60x17]",
+          "Directorio [65x17]",
+          "Mapa por zona [99x17]",
+          "Sumate como pro [117x17]",
+          "Mi panel [56x17]",
+          "Publicar trabajo [104x17]",
+          "Trabajos disponibles [137x17]",
+          "Cotizaciones [86x17]",
+          "Privacidad [78x17]",
+          "Términos [62x17]",
+          "hola@pinturapro.ar [140x17]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/ingresar",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/ingresar",
+        "titulo": "Ingresar | Pintura Pro",
+        "h1": [
+          "Ingresar"
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Olvidé mi contraseña [140x17]",
+          "Creá una [60x17]",
+          "← Volver al inicio [114x21]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/crear-cuenta",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/crear-cuenta",
+        "titulo": "Crear cuenta | Pintura Pro",
+        "h1": [
+          "Crear cuenta"
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Ingresá [49x17]",
+          "← Volver al inicio [114x21]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/recuperar",
+      "status": 200,
+      "auditoria": {
+        "url": "http://localhost:3000/recuperar",
+        "titulo": "Pintura Pro | Transformamos espacios con color",
+        "h1": [
+          "Recuperar contraseña"
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Volver a ingresar [112x17]",
+          "← Volver al inicio [114x21]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    }
+  ],
+  "protegidas": [
+    {
+      "ruta": "/dashboard",
+      "status": 200,
+      "urlFinal": "http://localhost:3000/ingresar?next=/dashboard",
+      "auditoria": {
+        "url": "http://localhost:3000/ingresar?next=/dashboard",
+        "titulo": "Ingresar | Pintura Pro",
+        "h1": [
+          "Ingresar"
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Olvidé mi contraseña [140x17]",
+          "Creá una [60x17]",
+          "← Volver al inicio [114x21]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/cliente",
+      "status": 200,
+      "urlFinal": "http://localhost:3000/ingresar?next=/cliente",
+      "auditoria": {
+        "url": "http://localhost:3000/ingresar?next=/cliente",
+        "titulo": "Ingresar | Pintura Pro",
+        "h1": [
+          "Ingresar"
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Olvidé mi contraseña [140x17]",
+          "Creá una [60x17]",
+          "← Volver al inicio [114x21]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/admin",
+      "status": 200,
+      "urlFinal": "http://localhost:3000/ingresar?next=/admin",
+      "auditoria": {
+        "url": "http://localhost:3000/ingresar?next=/admin",
+        "titulo": "Ingresar | Pintura Pro",
+        "h1": [
+          "Ingresar"
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Olvidé mi contraseña [140x17]",
+          "Creá una [60x17]",
+          "← Volver al inicio [114x21]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/panel",
+      "status": 200,
+      "urlFinal": "http://localhost:3000/ingresar?next=/panel",
+      "auditoria": {
+        "url": "http://localhost:3000/ingresar?next=/panel",
+        "titulo": "Ingresar | Pintura Pro",
+        "h1": [
+          "Ingresar"
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Olvidé mi contraseña [140x17]",
+          "Creá una [60x17]",
+          "← Volver al inicio [114x21]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/publicar",
+      "status": 200,
+      "urlFinal": "http://localhost:3000/ingresar?next=/publicar",
+      "auditoria": {
+        "url": "http://localhost:3000/ingresar?next=/publicar",
+        "titulo": "Ingresar | Pintura Pro",
+        "h1": [
+          "Ingresar"
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Olvidé mi contraseña [140x17]",
+          "Creá una [60x17]",
+          "← Volver al inicio [114x21]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    },
+    {
+      "ruta": "/cotizaciones",
+      "status": 200,
+      "urlFinal": "http://localhost:3000/ingresar?next=/cotizaciones",
+      "auditoria": {
+        "url": "http://localhost:3000/ingresar?next=/cotizaciones",
+        "titulo": "Ingresar | Pintura Pro",
+        "h1": [
+          "Ingresar"
+        ],
+        "scrollHorizontal": false,
+        "elementosFueraDePantalla": [],
+        "objetivosTactilesChicos": [
+          "Olvidé mi contraseña [140x17]",
+          "Creá una [60x17]",
+          "← Volver al inicio [114x21]"
+        ],
+        "imagenesRotas": [],
+        "textosProhibidos": [],
+        "erroresConsola": [],
+        "erroresJs": [],
+        "requestsFallidos": []
+      }
+    }
+  ]
+}

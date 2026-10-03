@@ -33,7 +33,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Con datos de demostración, sólo las páginas fijas. Se destraba poniendo
   // NEXT_PUBLIC_DATOS_DEMO=false, que es lo que hay que hacer el día que haya pintores y
-  // obras reales (ver docs/deploy.md).
+  // obras reales (ver docs/despliegue-google-cloud.md, sección 0).
   if (DATOS_DEMO) return estaticas;
 
   try {

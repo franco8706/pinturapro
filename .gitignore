@@ -45,3 +45,6 @@ next-env.d.ts
 # Cache de versión del CLI de Supabase (lo escribe `npx supabase`)
 supabase/.temp/
 .fotos-prueba/
+
+# Lo que escriben las corridas largas de la auditoría (pnpm verificar en segundo plano)
+tools/auditoria/.salida/

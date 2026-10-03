@@ -1,0 +1,24 @@
+const k = require("/workspaces/codespaces-blank/.auditoria/kit/navegador.cjs");
+
+async function ingresarConReintento(page, rol, intentos = 3) {
+  for (let i = 1; i <= intentos; i++) {
+    await k.ingresar(page, rol);
+    if (!page.url().includes("/ingresar")) return page.url();
+    await page.waitForTimeout(1000);
+  }
+  throw new Error("No se pudo loguear tras varios intentos");
+}
+
+(async () => {
+  const { browser, page, eventos } = await k.abrir({ movil: false });
+  try {
+    await ingresarConReintento(page, "pintor2");
+    await k.ir(page, "/dashboard/perfil");
+    await page.waitForTimeout(500);
+    const bio = await page.$eval('textarea[name="bio"]', (el) => el.value);
+    console.log("BIO ACTUAL EN DB (vista tras carga fresca):", JSON.stringify(bio));
+    console.log("LARGO:", bio.length);
+  } finally {
+    await browser.close();
+  }
+})();

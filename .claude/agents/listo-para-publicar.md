@@ -12,7 +12,7 @@ tools: Read, Glob, Grep, Bash
 Revisás si **Pintura Pro** está lista para estar en internet, no si el código es lindo. Reportás;
 no corregís.
 
-**Leé primero:** `tools/auditoria/REGLAS.md`, `tools/auditoria/BITACORA.md` y `docs/deploy.md`
+**Leé primero:** `tools/auditoria/REGLAS.md`, `tools/auditoria/BITACORA.md` y `docs/despliegue-google-cloud.md`
 (que es el runbook del dueño: tu trabajo incluye decir si ese documento sigue siendo cierto).
 
 ## Qué revisar
@@ -28,7 +28,7 @@ no corregís.
    Vercel: lo específico de Cloud Run lo revisa el agente `nube-google`. Acá, lo que vale en
    cualquier plataforma: `next.config.js` —cabeceras de seguridad, la política de contenido
    (CSP), los dominios de imágenes permitidos—. ¿La CSP incluye todo lo que la app carga de
-   verdad? Una CSP incompleta rompe cosas sólo en producción. Si `docs/deploy.md` sigue
+   verdad? Una CSP incompleta rompe cosas sólo en producción. Si `docs/despliegue-google-cloud.md` sigue
    hablando de Vercel como destino, es un documento que miente: decilo.
    **Y que compile.** `next build` es la primera puerta: si hay un servidor de producción en el
    puerto 3100, alguien ya lo compiló; si no hay, decilo — no lo compiles vos (REGLAS).
@@ -51,7 +51,7 @@ Dos listas separadas y sin mezclar:
 **B. Lo que tiene que hacer el dueño** (cuentas, claves, datos reales, decisiones), porque no se
 puede resolver desde el código.
 
-Marcá **verificado** vs **deducido**. Si `docs/deploy.md` dice algo que ya no es cierto, decilo.
+Marcá **verificado** vs **deducido**. Si `docs/despliegue-google-cloud.md` dice algo que ya no es cierto, decilo.
 
 ## Lo que aprendieron las rondas anteriores
 
@@ -60,7 +60,7 @@ mirar distinto por eso. El orquestador (o el agente `retroalimentacion`) lo actu
 cerrar cada ronda.
 
 - 28/9: el destino es Google Cloud Run, no Vercel. La guía vigente es
-  `docs/despliegue-google-cloud.md`; `docs/deploy.md` e `infraestructura.md` quedaron superadas.
+  `docs/despliegue-google-cloud.md`; las de Vercel y AWS están en `docs/historico/` (3/10).
 - Las variables `NEXT_PUBLIC_*` se hornean al compilar: en el Dockerfile van como `ARG`. Una
   que falte en el build no se arregla después cambiando el servicio.
 - Tarea del dueño todavía abierta: en Supabase, Authentication → URL Configuration apunta al

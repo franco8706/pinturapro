@@ -214,7 +214,7 @@ Todas pasaron en este proyecto. Si escribís una prueba, revisá que no caiga en
 - **Los agentes lanzados en segundo plano mueren si se cierra la sesión.** Pasó tres veces en
   esta ronda. Lanzalos en primer plano, de a dos o tres, y esperá a que terminen.
 - **La suite de regresión conviene correrla como proceso suelto, con el log fuera de `/tmp`**
-  (`/workspaces/codespaces-blank/.auditoria/verificar.log`, no `/tmp`, que se borra): si la
+  (`tools/auditoria/.salida/verificar.log`, dentro del repo pero fuera de git; no `/tmp`, que se borra): si la
   sesión se corta, la corrida termina igual y el resultado no se pierde.
 - **Commiteá apenas un cambio compile**, antes de correr `pnpm verificar`: si un corte de sesión
   llega en el medio, el trabajo ya está guardado.

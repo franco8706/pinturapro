@@ -22,7 +22,7 @@ Las tres fases de abajo describen el orden en que se CONSTRUYÓ, no el negocio: 
 
 - **Repo:** https://github.com/franco8706/pinturapro (privado) · rama `main`, **sincronizada**. Para pushear hace falta un PAT del usuario; los que se pegan en el chat los revoca el secret scanning de GitHub, así que suelen fallar al segundo uso (ver [[pinturapro-git-push]]).
 - **Build:** `tsc --noEmit` y `next build` pasan limpio (45 rutas). **Next.js 15.5.25** (se subió desde 15.5.22 para parchar dos RCE críticos, uno en el optimizador de imágenes).
-- **⚠️ ANTES DE PUBLICAR — leer `docs/despliegue-google-cloud.md`** (`docs/deploy.md` quedó superada). Lo que no se arregla desde el código: **el 100% de los datos visibles son demo** (3 pintores inventados, 20 reseñas fabricadas, fotos de stock de Unsplash como obra propia), (el equipo ficticio de `/nosotros` se sacó el 27/9 al confirmarse el marketplace puro), y `profiles.verified` no lo escribe ninguna parte del código (sólo por SQL). Además: sacar Supabase del plan free (se pausa a los 7 días sin uso y ya pasó una vez), poner spend limit en Replicate, y montar un uptime check sobre `/api/health` — hoy no hay monitoreo de ningún tipo.
+- **⚠️ ANTES DE PUBLICAR — leer `docs/despliegue-google-cloud.md`**, empezando por su sección 0 (las guías viejas de Vercel y AWS están en `docs/historico/`). Lo que no se arregla desde el código: **el 100% de los datos visibles son demo** (3 pintores inventados, 20 reseñas fabricadas, fotos de stock de Unsplash como obra propia), (el equipo ficticio de `/nosotros` se sacó el 27/9 al confirmarse el marketplace puro), y `profiles.verified` no lo escribe ninguna parte del código (sólo por SQL). Además: sacar Supabase del plan free (se pausa a los 7 días sin uso y ya pasó una vez), poner spend limit en Replicate, y montar un uptime check sobre `/api/health` — hoy no hay monitoreo de ningún tipo.
 - **Auditoría (19 sept 2026, agentes con navegador propio):** se corrigieron tres cosas medidas en Chrome, no deducidas:
   · **Seguridad — cualquier cuenta podía hacerse pasar por pintor.** Una cuenta `client` entraba a /trabajos, veía "Cotizar este trabajo" en el pedido de otra clienta y la cotización se creaba. Ni la página, ni la acción `cotizar`, ni la policy `jobs_insert_painter_quote` miraban el rol (el nombre de la policy dice "painter" y por eso pasó inadvertido). Migración **0016** agrega `es_pintor()` y lo exige en la policy; las obras de portfolio también quedan para pintores (`projects_insert_own`/`update_own`/`delete_own` reemplazan a `projects_modify_own`). Verificado por RLS con `set request.jwt.claims`: cliente cotiza ✗, cliente publica pedido ✓, pintor cotiza ✓, pintor publica obra ✓.
   · **Simulador — la varita agarraba media pared.** Con luz de ventana tomaba el 54% de la pared (medido contra máscara de referencia); ahora 83%, con la precisión intacta (98%). Comparaba cada píxel contra el color del CLIC; ahora avanza vecino a vecino sobre la luma suavizada (`Ys`) con correa global. Pared oscura 77%→85%; pared plana igual pero sin fuga al techo.
@@ -69,7 +69,7 @@ Las tres fases de abajo describen el orden en que se CONSTRUYÓ, no el negocio: 
 - **Supabase (backbone, EN INTEGRACIÓN):** SDK (`@supabase/ssr`), clientes browser/server en `lib/supabase/` (+ tipos), middleware de sesión (protegido si no hay env), esquema en `supabase/migrations/0001_init.sql` (profiles/projects/jobs/reviews + RLS + alta auto de profile). **Auth listo:** `/ingresar`, `/crear-cuenta` (rol cliente/pintor/empresa), `app/auth/callback` y `app/auth/signout`, estado en el navbar (`AuthNav`). Todo protegido: sin keys la app anda igual. **LIVE:** proyecto creado (`ojdtixmysrfywgvowqie`), keys en `.env.local`, migración corrida y BD **sembrada** con datos demo (`scripts/seed_supabase.py`: 1 empresa, 3 pintores, 2 clientes, 3 obras, 1 job, 1 reseña; login demo `*@pinturapro.demo` / `Demo1234!`). RLS verificada (anon ve pintores/obras, no ve jobs). **Páginas en datos reales:** `/pintores`, `/obras`, `/obras/[slug]` y `/pintor/[id]` leen de Supabase vía `lib/queries/` (`getPainters`, `getProjects`, `getProjectBySlug`, `getPainterById`, `getProjectsByOwner`, `getReviewsForPainter`), con **fallback a mocks** si falla. Cards renderizan imagen real (o iniciales). `/pintores` es Server Component + `pintores-client` (filtros). **Normalización (migración 0002 aplicada):** `profiles.rating`/`rating_count` ahora son **caché mantenido por trigger desde `reviews`** (fuente de verdad); `profiles.specialties text[]`; `projects.category`(enum)+`accent_color` persistidos. Seed v2 (`scripts/seed_supabase.py`) genera 20 reseñas → ratings calculados (Martín 4.9/9, Lucía 4.7/7, Diego 4.5/4). **Dashboard del pintor (`/dashboard`) wireado:** Server Component con gate de auth (sin sesión → redirect `/ingresar?next=/dashboard`); muestra métricas reales (trabajos completados/activos, obras, reseñas), rating, lista de trabajos (cliente+obra+monto via `getJobsForPainter`) y su portfolio. Login respeta `?next=`. **Crear obras (write) listo:** `/dashboard/nueva-obra` (form) + Server Action `createObra` en `app/(pro)/dashboard/actions.ts` que inserta con `owner_id=auth.uid()` (RLS verificada: 201 propia, 403 ajena), revalida `/obras` y `/dashboard`. **Storage (fotos) listo:** bucket público `projects`; la foto se redimensiona en el cliente (`resizeImage`, ~1600px) y el Server Action la sube con **service-role** (`lib/supabase/admin.ts`, bypassa RLS tras validar sesión) → guarda la URL pública como `cover_url`. Sin políticas de Storage por SQL. `next.config` con `serverActions.bodySizeLimit: 6mb`. **Editar/borrar obras listo:** `/dashboard/editar/[slug]` (reusa `NuevaObraForm` con prop `initial`, query `getOwnedProjectBySlug`) + actions `updateObra`/`deleteObra` (filtran por `owner_id`; `deleteObra` limpia la foto del Storage best-effort). Cards del panel con acciones Editar/Borrar (`portfolio-actions.tsx`, confirmación inline). RLS UPDATE/DELETE verificada (propio 1 fila, ajeno 0 filas). **Login social + paneles por rol listos:** botones Google/Microsoft(azure)/Facebook (`components/features/social-auth.tsx`) en `/ingresar` y `/crear-cuenta`; OAuth vuelve a `/auth/callback?next=/mi-panel`. **Dispatcher `/mi-panel`** rutea por rol: sin rol → `/bienvenida` (elige cliente/pintor/empresa, `app/bienvenida/role-picker.tsx`), cliente → **`/cliente`** (panel de cliente: solicitudes, pintores contratados), pintor/empresa → **`/dashboard`** (panel profesional, ahora generalizado: empresa muestra "Panel de empresa"). Migración **0003** agrega `profiles.onboarded` (true si el alta trajo rol, false si OAuth) y recrea `handle_new_user`; `isOnboarded()` falla seguro (si la columna no existe devuelve true → no bloquea). Navbar con sesión muestra "Mi panel"+"Salir". Queries nuevas: `getOwnProfile`, `isOnboarded`, `getJobsForClient`. **Vos:** correr `0003_onboarding.sql` + habilitar proveedores en Supabase (ver `docs/auth-oauth.md`). **Perfil real del pintor listo:** `/dashboard/perfil` (form `perfil-form.tsx`) + acción `updateProfile` (nombre/bio/zona/especialidades/avatar); avatar al bucket público **`avatars`** (mismo patrón service-role, recorte cuadrado 512px en cliente). Helper `uploadImage(bucket,...)` generaliza la subida. **Marketplace listo (datos reales):** cliente publica pedido (`/publicar` → `publicarTrabajo`, project type=`service`); pintor ve pedidos y cotiza (`/trabajos` server + `quote-form.tsx` → `cotizar`, job status=`quoted` con `note`); cliente compara y acepta (`/cotizaciones` server + `accept-button.tsx` → `aceptarCotizacion`, job→`accepted`). Acciones en `app/(marketplace)/actions.ts`; queries `getOpenServiceRequests`/`getQuotesForClient`. Migración **0004** agrega `jobs.note` + RLS `jobs_insert_painter_quote` (painter_id=auth.uid(), status='quoted', sobre un service del client_id). **Migraciones 0003 + 0004 APLICADAS** (vía Management API) y **OAuth Google+Microsoft+Facebook LIVE** (los tres habilitados; Azure tenant `common`; MS/FB en dev = solo admin/testers). **Reseñas post-trabajo listas:** el pintor marca su trabajo aceptado como completado (`complete-button.tsx` → `marcarCompletado`, accepted→completed) y el cliente deja reseña (estrellas+comentario, `cliente/review-form.tsx` → `dejarResena`, insert en `reviews`); el trigger recalcula el rating del pintor (verificado: 9→10 reviews, duplicado bloqueado 409, RLS sin DELETE en reviews/jobs a propósito). `getJobsForClient` ahora trae `painterId`+`reviewed`. **Onboarding→perfil:** al elegir pintor/empresa en `/bienvenida` se va a `/dashboard/perfil` a completar; cliente va directo a su panel. **Emails (Resend) gated:** `lib/email.ts` (`notifyUser`/`emailLayout`) avisa al cliente cuando recibe cotización y al pintor cuando se la aceptan; **inactivo sin `RESEND_API_KEY`** (no rompe). Vars en `.env.example` (`RESEND_API_KEY`/`RESEND_FROM`/`NEXT_PUBLIC_SITE_URL`). **Pendiente:** pagos (Stripe Connect), publicar app FB a producción, verificación de editor MS. Ver `docs/supabase-setup.md`/`docs/auth-oauth.md`. Terceros en `docs/terceros.md`.
 - **Pendiente real:** backend SAM (Replicate puente → Wizart, ver `docs/wizart-outreach.md`), reemplazar mocks de `lib/data.ts` y colores curados por datos reales (`// INTEGRACIÓN:`), assets en `public/images`, integraciones (ver Roadmap).
 - `hero-fluid` está implementado con **canvas 2D** (no React Three Fiber) por performance y reduced-motion; la versión WebGL queda como opción futura.
-- **App móvil (`apps/mobile/`, Expo + React Native + TypeScript):** mismo Supabase que la web (anon key, RLS). Stack: expo-router, supabase-js + AsyncStorage (sesión persistente), theme de constantes que replica los tokens (sin NativeWind, StyleSheet). Hecho: tabs **Pintores/Trabajos/Aprender/Cuenta**; lista+detalle de pintores; **marketplace completo** (cliente publica trabajo `app/publicar.tsx`, pintor cotiza `app/cotizar/[id].tsx`, cliente acepta/deja reseña `app/resena/[jobId].tsx`, pintor marca completado); **Cuenta = panel por rol** (cliente: cotizaciones recibidas+aceptar; pintor: sus trabajos+completar+editar perfil `app/perfil.tsx`); **Aprender** = contenido dinámico (guías/videos/cursos/asesoramiento/FAQs/novedades) `app/(tabs)/aprender.tsx`; login email/contraseña. Lecturas en `lib/queries.ts`, escrituras en `lib/mutations.ts` (RLS, espejo de la web; sin emails porque requieren service-role). Componentes de formulario (Field/Note/StarPicker) en `components/ui.tsx`. **EAS** configurado en `apps/mobile/eas.json` (la anon key va como `eas secret`, no se commitea). Correr: `cd apps/mobile && npm install && npx expo install --fix && npx expo start` (Expo Go). No se puede previsualizar ni tipar (no hay tipos RN instalados) desde el Codespace. Pendiente: OAuth con deep links, push, subir fotos al portfolio (expo-image-picker), fuentes de marca. Decisión de infra/contenedores en `docs/infraestructura.md`; plan móvil en `docs/mobile-plan.md`.
+- **App móvil (`apps/mobile/`, Expo + React Native + TypeScript):** mismo Supabase que la web (anon key, RLS). Stack: expo-router, supabase-js + AsyncStorage (sesión persistente), theme de constantes que replica los tokens (sin NativeWind, StyleSheet). Hecho: tabs **Pintores/Trabajos/Aprender/Cuenta**; lista+detalle de pintores; **marketplace completo** (cliente publica trabajo `app/publicar.tsx`, pintor cotiza `app/cotizar/[id].tsx`, cliente acepta/deja reseña `app/resena/[jobId].tsx`, pintor marca completado); **Cuenta = panel por rol** (cliente: cotizaciones recibidas+aceptar; pintor: sus trabajos+completar+editar perfil `app/perfil.tsx`); **Aprender** = contenido dinámico (guías/videos/cursos/asesoramiento/FAQs/novedades) `app/(tabs)/aprender.tsx`; login email/contraseña. Lecturas en `lib/queries.ts`, escrituras en `lib/mutations.ts` (RLS, espejo de la web; sin emails porque requieren service-role). Componentes de formulario (Field/Note/StarPicker) en `components/ui.tsx`. **EAS** configurado en `apps/mobile/eas.json` (la anon key va como `eas secret`, no se commitea). Correr: `cd apps/mobile && npm install && npx expo install --fix && npx expo start` (Expo Go). No se puede previsualizar ni tipar (no hay tipos RN instalados) desde el Codespace. Pendiente: OAuth con deep links, push, subir fotos al portfolio (expo-image-picker), fuentes de marca. Decisión de infraestructura: Google Cloud (`docs/despliegue-google-cloud.md`); plan móvil en `docs/mobile-plan.md`.
 
 ## Roadmap e Integraciones (visión confirmada por el usuario)
 
@@ -79,103 +79,37 @@ Stack objetivo (marketplace puro; ver la nota del principio). Lo que **falta** n
 - **Fase 2 (Pro Partners):** pintores verificados, perfiles, reseñas, **Mapbox** (mapa real, hoy es esquemático), **FastAPI ai-service** (SAM + matching) en Docker (Railway/Render).
 - **Fase 3 (Marketplace):** **Stripe Connect** (sub-cuentas por pintor, comisión 8–12%), dashboard analítico.
 - **Modelo de datos (Supabase, diseñar multi-tenant desde día 1):** `profiles(type: company|painter|client, verified, rating)`, `projects(owner_id, type: portfolio|service, location, budget)`, `jobs(client_id, painter_id, status, amount, commission)`, `reviews(job_id, rating, photos[])`.
-- **Deploy:** **Google Cloud** (decisión del dueño): la web en Cloud Run y el vigilante 24/7 como Cloud Run Job. `docs/deploy.md` todavía está escrito para Vercel — ver lo que reporte el agente `nube-google`.
+- **Deploy:** **Google Cloud** (decisión del dueño): la web en Cloud Run y el vigilante 24/7 como Cloud Run Job. La guía es `docs/despliegue-google-cloud.md`.
 - Nota: `three`/`@react-three/fiber`/`gsap` **ya no están instalados** (verificado por el agente `dependencias` el 27/9: ni en `package.json` ni en el lockfile). WebGL/ScrollTrigger quedan como mejoras posibles de Fase 1/2: si se retoman, hay que instalarlos. `packages/ui` existe pero **nadie lo consume** (ningún `package.json` lo declara). `shadcn/ui` figura en la visión pero el proyecto usa su **propio design system** con tokens.
 
 ## Stack Tecnológico
 
-- Next.js 15 (App Router) + TypeScript
-- Tailwind CSS + shadcn/ui
-- React Three Fiber + drei (WebGL/3D)
-- GSAP + ScrollTrigger (scroll cinematográfico)
-- Lenis (smooth scroll)
-- Turborepo (monorepo)
+- Next.js 15 (App Router) + TypeScript, Tailwind CSS con un design system propio (tokens abajo;
+  no se usa shadcn/ui).
+- Supabase: base Postgres con RLS, autenticación y almacenamiento de fotos.
+- Expo / React Native para la app móvil.
+- Lenis (scroll suave). El hero es canvas 2D: React Three Fiber y GSAP **no están instalados**.
+- pnpm workspaces + Turborepo. Publicación en Google Cloud Run (`apps/web/Dockerfile`).
 
 ## Estructura del Monorepo
 
+El mapa de carpetas está en `README.md` (la raíz del proyecto). Lo que más se toca:
+
 ```
-.
-├── apps/web/                    # Aplicación principal Next.js
-│   ├── app/                     # App Router (páginas)
-│   │   ├── page.tsx             # Home (Fase 1)
-│   │   ├── (marketing)/         # Grupo de rutas marketing
-│   │   │   ├── obras/
-│   │   │   │   ├── page.tsx     # Portfolio
-│   │   │   │   └── [slug]/
-│   │   │   │       └── page.tsx # Proyecto individual
-│   │   │   ├── simulador/
-│   │   │   │   └── page.tsx     # Simulador de color
-│   │   │   ├── nosotros/
-│   │   │   │   └── page.tsx     # Nosotros
-│   │   │   └── contacto/
-│   │   │       └── page.tsx     # Contacto
-│   │   ├── (pro)/               # Grupo de rutas Pro Partners
-│   │   │   ├── pintores/
-│   │   │   │   └── page.tsx     # Directorio
-│   │   │   ├── pintor/[id]/
-│   │   │   │   └── page.tsx     # Perfil público
-│   │   │   ├── registro/
-│   │   │   │   └── page.tsx     # Onboarding
-│   │   │   ├── mapa/
-│   │   │   │   └── page.tsx     # Mapa por zona
-│   │   │   └── dashboard/
-│   │   │       └── page.tsx     # Dashboard pintor
-│   │   └── (marketplace)/       # Grupo de rutas Marketplace
-│   │       ├── publicar/
-│   │       │   └── page.tsx     # Publicar trabajo
-│   │       ├── trabajos/
-│   │       │   └── page.tsx     # Trabajos disponibles
-│   │       ├── cotizaciones/
-│   │       │   └── page.tsx     # Cotizaciones/ofertas
-│   │       ├── checkout/
-│   │       │   └── page.tsx     # Checkout/pago
-│   │       ├── panel/          # ⚠️ era "dashboard": renombrado a /panel
-│   │       │   └── page.tsx     # Dashboard analítico
-│   │       └── admin/
-│   │           └── page.tsx     # Panel admin
-│   ├── components/
-│   │   ├── features/            # Componentes de feature
-│   │   │   ├── hero-fluid.tsx
-│   │   │   ├── color-wipe.tsx
-│   │   │   ├── magnetic-button.tsx
-│   │   │   ├── navbar.tsx
-│   │   │   ├── footer.tsx
-│   │   │   ├── project-card.tsx
-│   │   │   ├── painter-card.tsx
-│   │   │   ├── before-after-slider.tsx
-│   │   │   ├── color-swatch.tsx
-│   │   │   ├── level-badge.tsx
-│   │   │   ├── process-step.tsx
-│   │   │   ├── multi-step-form.tsx
-│   │   │   ├── review-system.tsx
-│   │   │   └── states.tsx
-│   │   └── providers/
-│   │       └── lenis-provider.tsx
-│   ├── hooks/
-│   │   ├── use-lenis.ts
-│   │   ├── use-mouse-position.ts
-│   │   └── use-media-query.ts
-│   ├── lib/
-│   │   ├── utils.ts             # cn() (clsx + tailwind-merge)
-│   │   ├── animations.ts        # tokens de easing/duración + helpers (stagger, reveal)
-│   │   └── data.ts              # mocks + tipos: Project, Painter, Job, Review, QuoteRequest
-│   ├── types/
-│   │   └── index.ts
-│   ├── public/
-│   │   └── images/
-│   ├── tailwind.config.ts
-│   ├── postcss.config.js        # tailwind + autoprefixer (necesario para que Tailwind procese)
-│   ├── next.config.js
-│   ├── tsconfig.json
-│   └── package.json
-├── packages/ui/                 # Package compartido de UI (futuro)
-│   ├── src/
-│   │   └── index.ts
-│   ├── package.json
-│   └── tsconfig.json
-├── turbo.json
-├── package.json
-└── pnpm-workspace.yaml
+apps/web/
+  app/                      páginas (App Router). Los grupos (marketing), (pro), (marketplace)
+                            y (auth) NO agregan segmento de URL: ver Convenciones, punto 6
+  components/features/      componentes (navbar, simulador, formularios de pasos, reseñas…)
+  lib/queries/              lecturas de la base, un archivo por tema, re-exportadas por index.ts
+  lib/supabase/             clientes: con cookies (server.ts), sin cookies para lo público
+                            (publico.ts), con la clave de servicio (admin.ts), del navegador
+  lib/cache-publico.ts      la caché de 60 s de los datos públicos y sus etiquetas
+apps/mobile/                app Expo; las reglas las importa de packages/dominio
+packages/dominio/           reglas del negocio compartidas (con sus pruebas: pruebas.ts)
+packages/color/             varita mágica y mezcla de color del simulador
+supabase/migrations/        el esquema y la seguridad, en orden
+tools/auditoria/            pruebas de regresión, vigilante 24/7, BITÁCORA, REGLAS, rondas
+docs/                       guías vigentes; lo superado, en docs/historico/
 ```
 
 ## Design Tokens (Tailwind)
@@ -209,18 +143,16 @@ Stack objetivo (marketplace puro; ver la nota del principio). Lo que **falta** n
 ## Comandos Disponibles
 
 ```bash
-# Desarrollo
-pnpm dev              # Inicia el dev server
-pnpm build            # Build de producción
-pnpm lint             # ESLint
-
-# Turborepo
-pnpm turbo run build  # Build de todo el monorepo
-pnpm turbo run lint   # Lint de todo el monorepo
-
-# Typecheck rápido (desde apps/web)
-npx tsc --noEmit
+pnpm dev                              # servidor de desarrollo en :3000
+pnpm verificar                        # las pruebas de regresión, contra :3000
+node packages/dominio/pruebas.ts      # las reglas del negocio, sin levantar nada
+bash tools/auditoria/produccion.sh    # compilación de producción en una copia aparte, en :3100
+node tools/auditoria/cobertura.mjs    # qué no mira ninguna prueba ni agente → COBERTURA.md
+npx tsc --noEmit                      # chequeo de tipos (desde apps/web)
 ```
+
+**No correr `pnpm build` ni `next build` en la carpeta del proyecto** mientras corre `pnpm dev`:
+pisa el `.next` del servidor y deja todo dando error 500 (REGLAS §1). Para compilar, `produccion.sh`.
 
 ## Git / Push a GitHub
 
