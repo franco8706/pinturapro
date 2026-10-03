@@ -15,3 +15,4 @@ export { rgbAOklab, rgbAOkL, rgbAOklch, oklchASrgb, oklabASrgb } from "./oklab";
 export { CONTRASTE, hexARgb, pinturaDesdeHex, fotoPerceptual, ancla, curva, componer } from "./pintura";
 export type { Pintura, FotoPerceptual, Capa, Curva, Rect } from "./pintura";
 export { rellenarPoligono } from "./poligono";
+export { alfaDeLaSeleccion, difuminarHaciaAdentro } from "./borde";

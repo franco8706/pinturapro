@@ -25,6 +25,7 @@ const P = await import("./src/pintura.ts");
 // fallar contra la de antes de un arreglo): VARITA_DE=/ruta/magic-wand.ts node packages/color/pruebas.ts
 const V = await import(process.env.VARITA_DE ?? "./src/magic-wand.ts");
 const { rellenarPoligono } = await import("./src/poligono.ts");
+const { alfaDeLaSeleccion } = await import("./src/borde.ts");
 
 let fallas = 0;
 let pruebas = 0;
@@ -411,6 +412,44 @@ console.log("Contorno");
   cierto(contar(f) === w * h, "un contorno más grande que la foto no la pintó entera");
   rellenarPoligono(f, w, h, [[1, 1], [2, 2]], 0);
   cierto(contar(f) === w * h, "dos puntos solos (no es una zona) tocaron la máscara");
+}
+
+// ── 2 septies. El borde: la transición se pinta en la proporción en que es pared ──
+console.log("Borde");
+{
+  const w = 60, h = 20;
+  /** Pared a la izquierda (gris `pared`), lo otro a la derecha (gris `otro`), y en x = 30 un
+   *  píxel de transición que es 70 % pared. La selección llega hasta x = 29. */
+  const caso = (pared: number, otro: number) => {
+    const rgba = new Uint8ClampedArray(w * h * 4);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const v = x < 30 ? pared : x === 30 ? pared * 0.7 + otro * 0.3 : otro;
+      const p = (y * w + x) * 4;
+      rgba[p] = rgba[p + 1] = rgba[p + 2] = v;
+      rgba[p + 3] = 255;
+    }
+    // La mezcla 70/30 se hace en luz lineal, como en una foto: así es una transición de verdad.
+    const lin = (v: number) => ((v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    const srgb = (v: number) => 255 * (v <= 0.0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055);
+    for (let y = 0; y < h; y++) {
+      const p = (y * w + 30) * 4;
+      rgba[p] = rgba[p + 1] = rgba[p + 2] = srgb(0.7 * lin(pared) + 0.3 * lin(otro));
+    }
+    const mascara = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < 30; x++) mascara[y * w + x] = 1;
+    const alfa = new Float32Array(w * h);
+    alfaDeLaSeleccion(mascara, alfa, P.fotoPerceptual(rgba, w * h), w, h);
+    return (x: number) => alfa[10 * w + x];
+  };
+  // Pared oscura, lo otro claro (una pared verde oscura junto a un marco blanco).
+  const a = caso(50, 225);
+  nota(`borde oscuro/claro: transición ${a(30).toFixed(2)}, lo otro ${a(31).toFixed(2)} y ${a(32).toFixed(2)}, último de la pared ${a(29).toFixed(2)}`);
+  cierto(a(30) > 0.55 && a(30) < 0.9, `el píxel que es 70 % pared se pinta al ${(a(30) * 100).toFixed(0)} % (tiene que rondar el 70 %): queda un contorno del color viejo`);
+  cierto(a(31) === 0 && a(32) === 0, "la pintura invade lo que no es pared (el marco)");
+  cierto(a(10) === 1 && a(29) > 0.5, "el interior de la pared no quedó pintado del todo");
+  // Pared y techo casi iguales: no hay forma de saber la proporción; no se agrega nada.
+  const b = caso(200, 206);
+  cierto(b(30) === 0 && b(31) === 0, "con dos lados casi iguales, la pintura se extendió fuera de la selección");
 }
 
 // ── 3. Lo que no se pinta queda igual ─────────────────────────────────────────

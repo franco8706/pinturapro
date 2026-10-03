@@ -11,6 +11,7 @@ import {
   curva,
   componer,
   rellenarPoligono,
+  alfaDeLaSeleccion,
   type WandImage,
   type WandOptions,
   type FotoPerceptual,
@@ -348,13 +349,14 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
     const alpha = alphaRef.current;
     const { w, h } = dims.current;
     if (!mask || !alpha) return;
-    // Radio 1, no 2: el difuminado es hacia adentro, así que los píxeles del borde muestran una
-    // mezcla de pintura y pared VIEJA. Con radio 2 eran dos píxeles de aro con el color anterior
-    // (ΔE 14-33 en el primero y 7-17 en el segundo contra la pintura): sobre una pared verde
-    // oscura pintada de claro, un contorno oscuro alrededor de cada mueble y cada cuadro —el 9 %
-    // de lo pintado en r08—. Con radio 1 el segundo píxel ya es pintura (medido por
-    // `simulador-fidelidad`, 3/10/2026), y el borde sigue sin escalones.
-    if (feather && mask.some((v) => v === 1)) featherMask(mask, alpha, w, h, 1);
+    // El borde (ver `alfaDeLaSeleccion` en @pinturapro/color): 1 px difuminado hacia adentro, y
+    // hacia afuera los píxeles de transición —mitad pared, mitad marco o zócalo— pintados en la
+    // proporción en que son pared. La varita los dejaba afuera y quedaban como un contorno del
+    // color VIEJO: sobre una pared verde oscura pintada de blanco, la mitad de los píxeles
+    // pegados a la selección (53,6 %; con este borde, 0,9 %). Antes el difuminado era de 2 px
+    // hacia adentro, que agregaba otro aro de pared vieja (ΔE 7-17, `simulador-fidelidad`).
+    const foto = fotoRef.current;
+    if (feather && foto && mask.some((v) => v === 1)) alfaDeLaSeleccion(mask, alpha, foto, w, h);
     else for (let i = 0; i < mask.length; i++) alpha[i] = mask[i] ? 1 : 0;
     versionAlfaRef.current++;
   }, []);
@@ -1629,53 +1631,6 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     img.onerror = () => reject(new Error("img load failed"));
     img.src = src;
   });
-}
-
-// ---------- feathering ----------
-// Box blur separable (H + V) de la máscara binaria → alfa 0..1. Suaviza los bordes
-// para que la pintura se funda contra aberturas/objetos sin efecto "serrucho".
-function featherMask(mask: Uint8Array, alpha: Float32Array, w: number, h: number, radius: number) {
-  const tmp = new Float32Array(w * h);
-  const win = radius * 2 + 1;
-  for (let y = 0; y < h; y++) {
-    const row = y * w;
-    let sum = 0;
-    for (let k = -radius; k <= radius; k++) {
-      const x = k < 0 ? 0 : k >= w ? w - 1 : k;
-      sum += mask[row + x];
-    }
-    for (let x = 0; x < w; x++) {
-      tmp[row + x] = sum / win;
-      const xin = x + radius + 1;
-      const xout = x - radius;
-      sum += mask[row + (xin >= w ? w - 1 : xin)] - mask[row + (xout < 0 ? 0 : xout)];
-    }
-  }
-  for (let x = 0; x < w; x++) {
-    let sum = 0;
-    for (let k = -radius; k <= radius; k++) {
-      const y = k < 0 ? 0 : k >= h ? h - 1 : k;
-      sum += tmp[y * w + x];
-    }
-    for (let y = 0; y < h; y++) {
-      const i = y * w + x;
-      // Difuminado SÓLO hacia adentro.
-      //
-      // El desenfoque de la máscara es simétrico: ablanda el borde hacia los dos lados, así
-      // que la pintura se pasaba ~2 px sobre lo que no es pared. Medido sobre una moldura
-      // clara de 22 px: el 16,8% de la moldura terminaba con color encima, y eso es
-      // exactamente lo que se ve mal en una foto de un ambiente, donde las molduras, los
-      // marcos de puerta y los zócalos son finitos.
-      //
-      // Anulando el alfa fuera de la máscara, la rampa suave queda del lado de la pared:
-      // el borde sigue sin escalonarse, pero la pintura no invade al vecino. Es lo que hace
-      // la cinta de enmascarar: el corte va justo en el filo.
-      alpha[i] = mask[i] ? sum / win : 0;
-      const yin = y + radius + 1;
-      const yout = y - radius;
-      sum += tmp[(yin >= h ? h - 1 : yin) * w + x] - tmp[(yout < 0 ? 0 : yout) * w + x];
-    }
-  }
 }
 
 /**
