@@ -203,6 +203,24 @@ async function leer_getNumerosReales(): Promise<NumerosReales> {
   if (!SUPA) return vacio;
   try {
     const supabase = createPublicClient();
+
+    // Con la migración 0024 aplicada, la base hace las cuentas (`resumen_publico`). Antes, el
+    // promedio se calculaba bajando TODAS las reseñas, y la API corta en 1.000 filas: pasadas
+    // las 1.000, el número de la portada salía de un pedazo cualquiera. Y "trabajos
+    // completados" daba 0 para todo visitante, porque RLS no le deja contar trabajos ajenos.
+    // Mientras 0024 no esté aplicada la función no existe: se sigue con el método viejo, así
+    // la web se puede publicar antes o después de la migración sin coordinar nada.
+    const resumen = await supabase.rpc("resumen_publico" as never);
+    const fila = (resumen.data as unknown as { obras: number; trabajos_completados: number; resenias: number; promedio: number | null }[] | null)?.[0];
+    if (!resumen.error && fila) {
+      return {
+        obras: Number(fila.obras) || 0,
+        trabajosCompletados: Number(fila.trabajos_completados) || 0,
+        promedio: fila.promedio === null ? null : Number(fila.promedio),
+        resenias: Number(fila.resenias) || 0,
+      };
+    }
+
     const [obras, trabajos, resenias] = await Promise.all([
       supabase.from("projects").select("id", { count: "exact", head: true }).eq("type", "portfolio").eq("published", true),
       supabase.from("jobs").select("id", { count: "exact", head: true }).eq("status", "completed"),
