@@ -31,7 +31,7 @@ def grilla(img, gx=120, gy=80):
 
 
 if __name__ == "__main__":
-    for nombre, mueble in [("01-living-luz", True), ("02-pared-plana", False), ("03-pared-oscura", True)]:
+    for nombre, mueble in [("01-living-luz", True), ("02-pared-plana", False), ("03-pared-oscura", True), ("04-pared-roja", False)]:
         m = mascara_pared(mueble)
         m.save(f"{DEST}/{nombre}-pared.png")
         g = grilla(m)

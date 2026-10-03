@@ -64,6 +64,10 @@ if __name__ == "__main__":
     habitacion("01-living-luz", base=(178, 170, 158), luz=1.0)
     habitacion("02-pared-plana", base=(196, 190, 180), luz=0.15, mueble=False, textura=4)
     habitacion("03-pared-oscura", base=(96, 104, 118), luz=0.8)
+    # Pared de un color saturado: lo que se pinte encima no puede quedar teñido de la pintura
+    # vieja (con la Intensidad al 90 %, Blanco Puro salía rosado: ΔE 7,8). Va última para no
+    # cambiar el azar de las tres de arriba.
+    habitacion("04-pared-roja", base=(168, 52, 44), luz=0.3, mueble=False, textura=4)
     if "--grande" in sys.argv:
         # 30 megapíxeles: para probar el rechazo por tamaño.
         Image.new("RGB", (6000, 5000), (200, 195, 185)).save(f"{DEST}/99-gigante.jpg", quality=70)
