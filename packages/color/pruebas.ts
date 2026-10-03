@@ -24,6 +24,7 @@ const P = await import("./src/pintura.ts");
 // VARITA_DE permite correr las pruebas de la varita contra otra versión del archivo (para verlas
 // fallar contra la de antes de un arreglo): VARITA_DE=/ruta/magic-wand.ts node packages/color/pruebas.ts
 const V = await import(process.env.VARITA_DE ?? "./src/magic-wand.ts");
+const { rellenarPoligono } = await import("./src/poligono.ts");
 
 let fallas = 0;
 let pruebas = 0;
@@ -384,6 +385,32 @@ console.log("Varita");
     cierto(pared >= 0.95, `la pared quedó pintada al ${(pared * 100).toFixed(1)}% (mínimo 95%)`);
     cierto(techo <= 0.02, `el toque en la pared pintó el ${(techo * 100).toFixed(1)}% del techo, pasando una esquina`);
   }
+}
+
+// ── 2 sexies. Contorno ─────────────────────────────────────────────────────────
+console.log("Contorno");
+{
+  const w = 100, h = 80;
+  const contar = (m: Uint8Array) => m.reduce((a, b) => a + b, 0);
+  // Un rectángulo de 30×20 desde (10, 10): exactamente 600 píxeles, ni uno de más en el borde.
+  const m = new Uint8Array(w * h);
+  rellenarPoligono(m, w, h, [[10, 10], [40, 10], [40, 30], [10, 30]], 1);
+  cierto(contar(m) === 600, `un rectángulo de 30×20 pintó ${contar(m)} píxeles (tienen que ser 600)`);
+  cierto(m[10 * w + 10] === 1 && m[29 * w + 39] === 1 && m[30 * w + 40] === 0 && m[9 * w + 10] === 0, "el borde del rectángulo cae corrido");
+  // Una "L" (cóncava): el hueco de la L no se pinta.
+  const l = new Uint8Array(w * h);
+  rellenarPoligono(l, w, h, [[0, 0], [20, 0], [20, 40], [60, 40], [60, 60], [0, 60]], 1);
+  cierto(contar(l) === 20 * 60 + 40 * 20, `una L pintó ${contar(l)} píxeles (tienen que ser 2000)`);
+  cierto(l[10 * w + 40] === 0, "el hueco de una zona en L quedó pintado");
+  // Quitar: el mismo rectángulo con valor 0 deja la máscara vacía. Y un polígono que se sale de
+  // la foto se recorta sin romper nada.
+  rellenarPoligono(m, w, h, [[10, 10], [40, 10], [40, 30], [10, 30]], 0);
+  cierto(contar(m) === 0, "quitar con el mismo contorno no dejó la máscara vacía");
+  const f = new Uint8Array(w * h);
+  rellenarPoligono(f, w, h, [[-50, -50], [500, -50], [500, 500], [-50, 500]], 1);
+  cierto(contar(f) === w * h, "un contorno más grande que la foto no la pintó entera");
+  rellenarPoligono(f, w, h, [[1, 1], [2, 2]], 0);
+  cierto(contar(f) === w * h, "dos puntos solos (no es una zona) tocaron la máscara");
 }
 
 // ── 3. Lo que no se pinta queda igual ─────────────────────────────────────────

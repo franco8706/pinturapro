@@ -10,6 +10,7 @@ import {
   ancla,
   curva,
   componer,
+  rellenarPoligono,
   type WandImage,
   type WandOptions,
   type FotoPerceptual,
@@ -117,13 +118,38 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
   const [status, setStatus] = useState<Status>("empty");
   const [errorMsg, setErrorMsg] = useState("");
   const [brush, setBrush] = useState<"off" | "add" | "erase">("off");
+  /**
+   * "Contorno": se tocan las esquinas de una zona y se pinta (o se saca) ese polígono. Para lo
+   * que la varita no puede separar por color: una fachada de ladrillo o piedra, o la esquina
+   * entre una pared blanca y un techo blanco (ver `rellenarPoligono` en @pinturapro/color).
+   */
+  const [contorno, setContorno] = useState<"off" | "sumar" | "quitar">("off");
+  /** Las esquinas marcadas hasta ahora, en fracciones 0..1 de la foto. */
+  const [vertices, setVertices] = useState<{ x: number; y: number }[]>([]);
   const [brushSize, setBrushSize] = useState(36);
   // Intensidad del color (0..1). Arranca en 1: con 0,9 el 10 % restante lo ponía la pared
   // vieja, y Blanco Puro sobre una pared roja salía rosado (ver `simulador-color-fiel`).
   const [strengthPropia, setStrength] = useState(1);
   const strength = strengthDeAfuera ?? strengthPropia;
+  /**
+   * El color y la Intensidad elegidos AHORA, para `repaint`.
+   *
+   * `repaint` se llamaba con lo que valían en la render del clic: la varita contesta un
+   * instante después (desde el Web Worker), y si en ese instante la persona elegía otro color,
+   * la pared se pintaba con el VIEJO y la muestra marcada decía otro. Con varios toques en cola
+   * la ventana llegaba a 2 segundos (medido por `simulador-uso-real`, 3/10/2026). Leyendo de
+   * acá, cualquier repintado —el de la varita, el del pincel, el de la IA— usa lo último.
+   */
+  const colorRef = useRef(color);
+  const strengthRef = useRef(strength);
+  useEffect(() => {
+    colorRef.current = color;
+    strengthRef.current = strength;
+  }, [color, strength]);
   const [hasSelection, setHasSelection] = useState(false);
   const [zoom, setZoom] = useState(1);
+  /** Ancho / alto de la foto: para que entre entera en el recuadro (ver el lienzo). */
+  const [aspecto, setAspecto] = useState(4 / 3);
   const [tolerance, setTolerance] = useState(26); // sensibilidad de la varita (0..100)
   // Modo de selección. `wand` (default) resuelve en ~40 ms sin red; `ai` usa el backend
   // remoto de segmentación, más lento pero a veces mejor en superficies muy texturadas.
@@ -211,6 +237,7 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
       alphaRef.current = new Float32Array(w * h);
       imageUrlRef.current = off.toDataURL("image/jpeg", 0.85); // para enviar al backend
       dims.current = { w, h };
+      setAspecto(w / h);
 
       // La foto en OKLab, una sola vez: la luz de cada píxel para la pintura.
       fotoRef.current = fotoPerceptual(base.data, w * h);
@@ -234,6 +261,7 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
       }
       lastClickRef.current = null;
       maskBeforeClickRef.current = null;
+      setVertices([]);
 
       // foto nueva → invalidar segmentación remota previa (queda como opción, no como default)
       maskBankRef.current = [];
@@ -255,7 +283,13 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
     const alpha = alphaRef.current;
     const { w, h } = dims.current;
     if (!mask || !alpha) return;
-    if (feather && mask.some((v) => v === 1)) featherMask(mask, alpha, w, h, 2);
+    // Radio 1, no 2: el difuminado es hacia adentro, así que los píxeles del borde muestran una
+    // mezcla de pintura y pared VIEJA. Con radio 2 eran dos píxeles de aro con el color anterior
+    // (ΔE 14-33 en el primero y 7-17 en el segundo contra la pintura): sobre una pared verde
+    // oscura pintada de claro, un contorno oscuro alrededor de cada mueble y cada cuadro —el 9 %
+    // de lo pintado en r08—. Con radio 1 el segundo píxel ya es pintura (medido por
+    // `simulador-fidelidad`, 3/10/2026), y el borde sigue sin escalones.
+    if (feather && mask.some((v) => v === 1)) featherMask(mask, alpha, w, h, 1);
     else for (let i = 0; i < mask.length; i++) alpha[i] = mask[i] ? 1 : 0;
     versionAlfaRef.current++;
   }, []);
@@ -276,6 +310,8 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
       const alpha = alphaRef.current;
       if (!base || !canvas || !composite || !foto || !alpha) return;
       const { w } = dims.current;
+      const color = colorRef.current;
+      const strength = strengthRef.current;
 
       const pintura = color ? pinturaDesdeHex(color) : null;
       if (color && pintura) {
@@ -294,7 +330,7 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
       if (rect) ctx.putImageData(composite, 0, 0, rect.x0, rect.y0, rect.x1 - rect.x0, rect.y1 - rect.y0);
       else ctx.putImageData(composite, 0, 0);
     },
-    [color, strength],
+    [],
   );
 
   // El worker de la varita nace con el componente y muere con él. Si el navegador no tiene
@@ -344,7 +380,9 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
       canvas.height = dims.current.h;
     }
     repaint();
-  }, [color, status, repaint]);
+    // `color` y `strength` están a propósito: `repaint` los lee de sus refs (que se actualizan en
+    // el efecto de arriba, que corre antes que este), pero cambiarlos tiene que repintar.
+  }, [color, strength, status, repaint]);
 
   // ---- Análisis SAM: UNA sola llamada al servidor por foto; cacheamos todas las regiones. ----
   const analyzeImage = useCallback(async (): Promise<boolean> => {
@@ -645,7 +683,7 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
       setAviso(color ? "Superficie pintada." : "Superficie seleccionada. Elegí un color de la lista para aplicarlo.");
     } else if (resultado === "chica")
       setErrorMsg(
-        "Ahí no hay una superficie clara (puede ser un mueble, un cuadro o una junta). Tocá una zona más lisa de la pared, o subí la Sensibilidad.",
+        "Ahí la varita no encontró una superficie pareja (puede ser un cuadro, un enchufe o una junta). Tocá una zona más lisa. Si la pared tiene mucha textura —ladrillo, piedra, madera—, marcala con ⬠ Contorno.",
       );
   };
 
@@ -653,7 +691,74 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
     const canvas = viewRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    void aplicarEn((e.clientX - rect.left) / rect.width, (e.clientY - rect.top) / rect.height);
+    const nx = (e.clientX - rect.left) / rect.width;
+    const ny = (e.clientY - rect.top) / rect.height;
+    if (contorno !== "off") {
+      marcarEsquina(nx, ny, rect);
+      return;
+    }
+    void aplicarEn(nx, ny);
+  };
+
+  // ---- Contorno ----
+  /**
+   * Una esquina más. Tocar cerca de la primera (con tres o más marcadas) cierra la zona.
+   * Cerca del borde de la foto la esquina se pega al borde: una fachada o un techo suelen
+   * llegar hasta ahí, y acertarle al último píxel con el dedo es imposible.
+   */
+  const marcarEsquina = (nx: number, ny: number, rect?: DOMRect) => {
+    if (status !== "ready") return;
+    const anchoCss = rect?.width ?? 1000;
+    const altoCss = rect?.height ?? 1000;
+    const pegar = (v: number, largo: number) => (v * largo < 12 ? 0 : (1 - v) * largo < 12 ? 1 : Math.min(1, Math.max(0, v)));
+    const p = { x: pegar(nx, anchoCss), y: pegar(ny, altoCss) };
+    const primera = vertices[0];
+    if (rect && primera && vertices.length >= 3 && Math.hypot((p.x - primera.x) * anchoCss, (p.y - primera.y) * altoCss) < 18) {
+      cerrarContorno();
+      return;
+    }
+    const siguientes = [...vertices, p];
+    setVertices(siguientes);
+    setErrorMsg("");
+    setAviso(
+      siguientes.length < 3
+        ? `Esquina ${siguientes.length} marcada. Seguí con la próxima.`
+        : `Esquina ${siguientes.length} marcada. Para terminar, tocá la primera esquina o «Cerrar contorno».`,
+    );
+  };
+
+  const cerrarContorno = () => {
+    const mask = maskRef.current;
+    const { w, h } = dims.current;
+    if (!mask) return;
+    if (vertices.length < 3) {
+      setErrorMsg("Marcá al menos tres esquinas de la zona.");
+      return;
+    }
+    const antes = new Uint8Array(mask);
+    rellenarPoligono(
+      mask,
+      w,
+      h,
+      vertices.map((v) => [v.x * w, v.y * h] as const),
+      contorno === "quitar" ? 0 : 1,
+    );
+    lastClickRef.current = null;
+    maskBeforeClickRef.current = null;
+    generacionRef.current++;
+    recomputeMaskDerived(true);
+    repaint();
+    recordarParaDeshacer(antes);
+    setHasSelection(mask.some((v) => v === 1));
+    setVertices([]);
+    setErrorMsg("");
+    setAviso(contorno === "quitar" ? "Zona quitada." : color ? "Zona pintada." : "Zona marcada. Elegí un color para pintarla.");
+  };
+
+  const alternarContorno = () => {
+    setContorno((c) => (c === "off" ? "sumar" : "off"));
+    setVertices([]);
+    setBrush("off");
   };
 
   /**
@@ -777,6 +882,10 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
       if (avisoPendiente.current) clearTimeout(avisoPendiente.current);
       setMira(actual);
       setErrorMsg("");
+      if (contorno !== "off") {
+        marcarEsquina(actual.x, actual.y);
+        return;
+      }
       if (brush !== "off") {
         recordarParaDeshacer(maskRef.current);
         pintarEn(actual.x, actual.y);
@@ -865,6 +974,8 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
     setStatus("empty");
     setErrorMsg("");
     setBrush("off");
+    setContorno("off");
+    setVertices([]);
   };
 
   const segmenting = status === "segmenting";
@@ -895,7 +1006,15 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
         <div className="space-y-4">
           {/* Lienzo (con zoom) */}
           <div className="relative overflow-auto bg-mist border border-concrete/15" style={{ maxHeight: "70vh" }}>
-            <div className="relative" style={{ width: `${zoom * 100}%` }}>
+            {/* El ancho es el que deja entrar la foto ENTERA en el recuadro (70 % del alto de la
+                pantalla), por el zoom. Era siempre el 100 % del ancho: una foto vertical medía
+                1.316 px de alto en un recuadro de 628 y había que desplazarse adentro para ver o
+                tocar la parte de abajo (medido por `simulador-color`, 3/10/2026). */}
+            <div
+              className="relative mx-auto"
+              // 2 px menos por el borde del recuadro: si no, aparece una barra de desplazamiento.
+              style={{ width: `calc(min(100%, (70vh - 2px) * ${aspecto.toFixed(4)}) * ${zoom})` }}
+            >
               <canvas
                 ref={viewRef}
                 onClick={onCanvasClick}
@@ -917,7 +1036,7 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
                   // encima, ni desplazar la foto con el zoom puesto (que la dejaba más grande
                   // que la pantalla y sin forma de moverla).
                   brush !== "off" ? "touch-none" : "touch-auto",
-                  segmenting ? "cursor-wait" : brush !== "off" ? "cursor-crosshair" : "cursor-pointer",
+                  segmenting ? "cursor-wait" : brush !== "off" || contorno !== "off" ? "cursor-crosshair" : "cursor-pointer",
                 )}
                 onPointerDown={(e) => {
                   if (brush === "off") return;
@@ -933,6 +1052,53 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
                 onPointerCancel={terminarTrazo}
                 onPointerLeave={terminarTrazo}
               />
+
+              {/* El contorno que se está marcando: líneas entre las esquinas (claras con borde
+                  oscuro, para que se vean sobre cualquier foto) y un punto en cada esquina. La
+                  primera es más grande: tocarla cierra la zona. */}
+              {contorno !== "off" && vertices.length > 0 && (
+                <>
+                  <svg
+                    aria-hidden="true"
+                    className="absolute inset-0 w-full h-full pointer-events-none"
+                    viewBox="0 0 1 1"
+                    preserveAspectRatio="none"
+                  >
+                    {vertices.length >= 3 && (
+                      <polygon
+                        points={vertices.map((v) => `${v.x},${v.y}`).join(" ")}
+                        fill={contorno === "quitar" ? "rgba(196,30,58,0.22)" : "rgba(20,120,230,0.22)"}
+                        stroke="none"
+                      />
+                    )}
+                    <polyline
+                      points={vertices.map((v) => `${v.x},${v.y}`).join(" ")}
+                      fill="none"
+                      stroke="#FFFFFF"
+                      strokeWidth={4}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                    <polyline
+                      points={vertices.map((v) => `${v.x},${v.y}`).join(" ")}
+                      fill="none"
+                      stroke="#141414"
+                      strokeWidth={2}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  </svg>
+                  {vertices.map((v, i) => (
+                    <div
+                      key={i}
+                      aria-hidden="true"
+                      className={cn(
+                        "absolute pointer-events-none -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-ink bg-bone",
+                        i === 0 && vertices.length >= 3 ? "w-5 h-5" : "w-3 h-3",
+                      )}
+                      style={{ left: `${v.x * 100}%`, top: `${v.y * 100}%` }}
+                    />
+                  ))}
+                </>
+              )}
 
               {/* La mira del teclado. Dos líneas cruzadas con contorno claro para que se vea
                   sobre cualquier foto, y `pointer-events-none` para que no le robe el clic al
@@ -971,7 +1137,11 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center border border-concrete/30">
               <button
-                onClick={() => setBrush((b) => (b === "add" ? "off" : "add"))}
+                onClick={() => {
+                  setBrush((b) => (b === "add" ? "off" : "add"));
+                  setContorno("off");
+                  setVertices([]);
+                }}
                 // Sin esto, quien usa lector de pantalla no tenía forma de saber qué herramienta
                 // estaba prendida: la única señal era el fondo oscuro del botón.
                 aria-pressed={brush === "add"}
@@ -981,7 +1151,11 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
                 🖌 Pincel
               </button>
               <button
-                onClick={() => setBrush((b) => (b === "erase" ? "off" : "erase"))}
+                onClick={() => {
+                  setBrush((b) => (b === "erase" ? "off" : "erase"));
+                  setContorno("off");
+                  setVertices([]);
+                }}
                 aria-pressed={brush === "erase"}
                 disabled={segmenting}
                 className={cn("px-3 py-2 font-body text-body-sm border-l border-concrete/30 transition-colors disabled:opacity-40", brush === "erase" ? "bg-ink text-bone" : "hover:bg-mist")}
@@ -989,6 +1163,63 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
                 ⌫ Borrar
               </button>
             </div>
+
+            <div className="flex items-center border border-concrete/30">
+              <button
+                onClick={alternarContorno}
+                disabled={segmenting}
+                aria-pressed={contorno !== "off"}
+                className={cn(
+                  "px-3 py-2 font-body text-body-sm transition-colors disabled:opacity-40",
+                  contorno !== "off" ? "bg-ink text-bone" : "hover:bg-mist",
+                )}
+                title="Marcá las esquinas de una zona: para ladrillo, piedra, o separar la pared del techo"
+              >
+                ⬠ Contorno
+              </button>
+            </div>
+
+            {contorno !== "off" && (
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center border border-concrete/30">
+                  <button
+                    onClick={() => setContorno("sumar")}
+                    aria-pressed={contorno === "sumar"}
+                    className={cn("px-3 py-2 font-body text-body-sm transition-colors", contorno === "sumar" ? "bg-ink text-bone" : "hover:bg-mist")}
+                  >
+                    Pintar la zona
+                  </button>
+                  <button
+                    onClick={() => setContorno("quitar")}
+                    aria-pressed={contorno === "quitar"}
+                    className={cn(
+                      "px-3 py-2 font-body text-body-sm border-l border-concrete/30 transition-colors",
+                      contorno === "quitar" ? "bg-ink text-bone" : "hover:bg-mist",
+                    )}
+                  >
+                    Quitar la zona
+                  </button>
+                </div>
+                <button
+                  onClick={cerrarContorno}
+                  aria-disabled={vertices.length < 3}
+                  className={cn(
+                    "px-3 py-2 font-body text-body-sm border border-ink transition-colors",
+                    vertices.length < 3 ? "opacity-40" : "bg-ink text-bone",
+                  )}
+                >
+                  Cerrar contorno
+                </button>
+                {vertices.length > 0 && (
+                  <button
+                    onClick={() => setVertices((v) => v.slice(0, -1))}
+                    className="py-2 font-body text-body-sm text-concrete hover:text-ink transition-colors"
+                  >
+                    Borrar última esquina
+                  </button>
+                )}
+              </div>
+            )}
 
             {brush !== "off" && (
               <label className="flex items-center gap-2 font-mono text-mono-sm text-concrete">
@@ -1026,7 +1257,7 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
             </div>
 
             {/* Sensibilidad de la varita: recalcula el último clic en vivo. */}
-            {brush === "off" && !useAI && (
+            {brush === "off" && !useAI && contorno === "off" && (
               <label
                 className="flex items-center gap-2 font-mono text-mono-sm text-concrete"
                 title="Cuánta superficie abarca cada clic. Bajala si se pasa a otras zonas; subila si quedó corto."
@@ -1106,12 +1337,20 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
 
           {errorMsg ? (
             <p className="font-body text-body-sm text-[#C41E3A]">{errorMsg}</p>
+          ) : status === "ready" && contorno !== "off" ? (
+            <p className="font-body text-body-sm text-concrete">
+              <strong className="text-ink">Tocá las esquinas de la zona</strong>, una por una. Para cerrarla, tocá la
+              primera esquina o <strong className="text-ink">Cerrar contorno</strong>. Sirve para fachadas de ladrillo,
+              piedra o madera, y con <strong className="text-ink">Quitar la zona</strong> para sacar el techo si la
+              varita se pasó.
+            </p>
           ) : status === "ready" && brush === "off" ? (
             <p className="font-body text-body-sm text-concrete">
               <strong className="text-ink">Tocá la pared</strong> que querés pintar. Si agarró de más o de menos, movés
               <strong className="text-ink"> Sensibilidad</strong> y se recalcula al instante. Podés
-              <strong className="text-ink"> sumar clics</strong> para agregar otras paredes, y separar zonas del mismo color
-              (una pared de su techo, por ejemplo) con el 🖌 Pincel.
+              <strong className="text-ink"> sumar toques</strong> para agregar otras paredes. Si se pasó al techo o a un
+              mueble del mismo color, o la pared tiene mucha textura, marcala con
+              <strong className="text-ink"> ⬠ Contorno</strong>.
             </p>
           ) : null}
         </div>
