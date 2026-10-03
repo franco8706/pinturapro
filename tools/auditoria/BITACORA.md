@@ -161,14 +161,15 @@ Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arri
 - **Un pintor puede publicar un pedido** en /publicar (sólo se pide sesión). No rompe nada;
   es una pregunta de producto para el dueño. **Severidad: decisión.**
 
-- **Migraciones 0024 y 0025 escritas y probadas, SIN aplicar** (29/9). 0024: los números de la
-  portada calculados en la base (hoy la app baja todas las reseñas y la API corta en 1.000),
-  el tablero con "ver anteriores" (hoy muestra los 50 pedidos más nuevos y el resto desaparece
-  para siempre), tres índices, las 14 policies envueltas en `(select …)`, y `es_service_role`
-  cerrada. 0025: las preguntas frecuentes de la base dicen "pintamos" y "nuestro equipo", y una
-  novedad anuncia "pintores verificados". El clasificador de permisos frenó aplicarlas y
-  commitearlas: **las tiene que autorizar el dueño**. Después falta conectar la web
-  (`getNumerosReales` → `resumen_publico()`, y la paginación de /trabajos).
+- **Migraciones 0024, 0025 y 0026 escritas, revisadas y probadas, SIN aplicar** (29/9-3/10).
+  0024: números de la portada en la base, tablero con "ver anteriores", tres índices, 13
+  policies envueltas en `(select …)`, `es_service_role` cerrada. 0025: los textos de la base que
+  hablaban como empresa. 0026: los topes por hora, el piso de la cotización y "un pedido
+  adjudicado no se edita", en la base (hoy sólo los cumple la web; la API directa los saltea).
+  `seguridad-rls` las revisó el 3/10 y encontró tres atajos en 0026 y un problema de orden:
+  corregidos. Ensayo completo en rollback: `tools/auditoria/escala/probar-orden.sql`. El
+  clasificador de permisos frenó aplicarlas y commitear los archivos: **las autoriza el
+  dueño** (ver "Tareas del dueño"). La web ya está lista para antes y después.
 - **Topes sin "ver más"** (escala-y-volumen, 29/9): el directorio, el mapa y el sitemap muestran
   60 pintores; /obras, 60 obras. El número 61 no aparece en ningún lado. Con 3 pintores no se
   nota. **Hay que resolverlo antes de llegar a 60.**
@@ -272,6 +273,14 @@ No los vuelvas a levantar sin evidencia nueva.
   distinto de identificar al responsable, que también falta (riesgo-legal, 29/9).
 - **Preguntarle al abogado** por el botón de arrepentimiento (Res. 424/2020) aplicado a un
   intermediario que no vende.
+
+- **Aplicar las migraciones 0024, 0025 y 0026, en ese orden.** Desde el Codespace, con la
+  contraseña de la base:
+  `psql "postgresql://postgres.ojdtixmysrfywgvowqie@aws-1-us-east-1.pooler.supabase.com:5432/postgres" --single-transaction -v ON_ERROR_STOP=1 -f supabase/migrations/0024_escala.sql`
+  y lo mismo con 0025 y 0026. O pegando cada archivo en Supabase → SQL Editor. Antes conviene
+  correr `tools/auditoria/escala/probar-orden.sql` (no cambia nada: termina en rollback).
+  Después: borrar el encabezado "ESTADO … SIN APLICAR" de cada archivo, commitearlos, y conectar
+  la paginación de /trabajos (`pedidos_abiertos(limite, antes_de)`).
 
 ## Decisión del dueño (no son bugs)
 
