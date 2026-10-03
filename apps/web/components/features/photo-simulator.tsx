@@ -15,6 +15,7 @@ import {
   type WandOptions,
   type FotoPerceptual,
   type Curva,
+  type Capa,
   type Rect,
 } from "@pinturapro/color";
 import type { PedidoVarita, RespuestaVarita } from "./varita.worker";
@@ -23,6 +24,8 @@ type Status = "empty" | "ready" | "segmenting" | "error";
 
 interface PhotoSimulatorProps {
   color: string | null;
+  /** Nombre del color elegido, para nombrar las paredes ya pintadas ("Verde Agua"). */
+  colorName?: string;
   /**
    * Intensidad del color (0,4 a 1), si la maneja la página.
    *
@@ -32,9 +35,17 @@ interface PhotoSimulatorProps {
    * Sin esta prop, el componente sigue trayendo su propio control.
    */
   strength?: number;
+  /**
+   * Lo que va pegado abajo de la foto. La página pone ahí, en el celular, una tira con los
+   * colores: la grilla completa queda 630 px más abajo y cada prueba de color era bajar, tocar y
+   * volver a subir para ver la pared (`simulador-uso-real`, 3/10/2026).
+   */
+  debajoDelLienzo?: React.ReactNode;
 }
 
 const MAX_DIM = 1024;
+/** Paredes de distinto color a la vez. Cada una guarda su borde (4 bytes por píxel). */
+const MAX_PAREDES = 8;
 /**
  * Tope de megapíxeles de la foto que se acepta.
  *
@@ -57,7 +68,7 @@ const MAX_MEGAPIXELES = 24;
  * Toda la cuenta de color vive en el paquete y se prueba sin navegador:
  * `node packages/color/pruebas.ts`. Acá queda la interfaz y el estado.
  */
-export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimulatorProps) {
+export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, debajoDelLienzo }: PhotoSimulatorProps) {
   const viewRef = useRef<HTMLCanvasElement>(null);
   const baseImageData = useRef<ImageData | null>(null);
   const compositeRef = useRef<ImageData | null>(null);
@@ -73,6 +84,21 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
    */
   const curvaRef = useRef<{ color: string; version: number; curva: Curva } | null>(null);
   const versionAlfaRef = useRef(0);
+  /**
+   * Las paredes que ya quedaron pintadas, cada una con SU color.
+   *
+   * Había una sola selección y un solo color: todo lo tocado se pintaba igual, y elegir un color
+   * para la segunda pared cambiaba también la primera — se ve como si el simulador hubiera
+   * pintado mal (lo probó `simulador-uso-real`, 3/10/2026). "＋ Otra pared, otro color" deja la
+   * selección actual fija con su color y empieza una nueva encima. Se guarda el alfa (el borde
+   * difuminado) y la tabla de su color; la máscara ya no hace falta.
+   */
+  const capasRef = useRef<{ id: number; alfa: Float32Array; color: string; nombre: string; curva: Curva }[]>([]);
+  const [capas, setCapas] = useState<{ id: number; color: string; nombre: string }[]>([]);
+  const idCapaRef = useRef(0);
+  /** "Ver la foto original": el lienzo muestra la foto sin pintar mientras está prendido. */
+  const verOriginalRef = useRef(false);
+  const [verOriginal, setVerOriginal] = useState(false);
   const maskRef = useRef<Uint8Array | null>(null); // máscara binaria
   const alphaRef = useRef<Float32Array | null>(null); // máscara con bordes difuminados (0..1)
   const imageUrlRef = useRef<string>(""); // dataURL de la foto (para enviar al server)
@@ -110,6 +136,14 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
   const [puedeDeshacer, setPuedeDeshacer] = useState(false);
   /** Los clics se atienden de a uno, en orden: el segundo suma sobre lo que dejó el primero. */
   const colaClicsRef = useRef<Promise<unknown>>(Promise.resolve());
+  /**
+   * Cuántos toques esperan su turno, y si alguno dejó la selección sin dibujar. Con toques en
+   * cola, difuminar y repintar después de CADA uno es trabajo tirado (el siguiente lo pisa):
+   * diez toques en un segundo congelaban hasta 1,06 s un celular de gama media. Los de en medio
+   * sólo suman a la máscara; el último dibuja.
+   */
+  const enColaRef = useRef(0);
+  const dibujoPendienteRef = useRef(false);
   /** Arrastrando la sensibilidad: un pedido en vuelo y, como mucho, el último valor esperando. */
   const arrastreRef = useRef<{ enVuelo: boolean; pendiente: number | null }>({ enVuelo: false, pendiente: null });
   const lastClickRef = useRef<{ x: number; y: number } | null>(null); // para re-aplicar al mover el slider
@@ -179,16 +213,30 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
    * dice UNA vez, cuando la persona deja de moverse.
    */
   const avisoPendiente = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Para mantener la mira a la vista: con zoom 400 % se salía del recuadro y éste no la seguía. */
+  const miraRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (mira) miraRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [mira]);
   const drawing = useRef(false);
   /** Canvas reutilizable para redibujar máscaras (ver la nota en pickAt). */
   const scratchCanvasRef = useRef<HTMLCanvasElement | null>(null);
   /** Permite cancelar el análisis en curso: sin esto, un 4G que se corta dejaba el spinner
    *  girando para siempre y todos los botones deshabilitados. */
   const abortRef = useRef<AbortController | null>(null);
+  /**
+   * Cambia con cada foto (y al volver a la caja de subida). El análisis con IA tarda de 3 a 60
+   * segundos y "Cambiar foto" sigue habilitado: si la foto cambió mientras tanto, lo que vuelve
+   * es de la foto ANTERIOR y no se usa. Antes se usaba: la foto nueva aparecía pintada sin
+   * tocarla, con la forma de la pared de la otra (`simulador-uso-real`, 3/10/2026).
+   */
+  const fotoIdRef = useRef(0);
 
   // ---- Cargar imagen ----
   const onFile = useCallback(async (file: File) => {
     setErrorMsg("");
+    fotoIdRef.current++;
+    abortRef.current?.abort();
     let bitmap: ImageBitmap;
     try {
       // `createImageBitmap` con `resizeWidth/Height` decodifica YA ESCALADO: nunca materializa
@@ -201,7 +249,7 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
       if (mp > MAX_MEGAPIXELES) {
         probe.close();
         setErrorMsg(
-          `La foto es demasiado grande (${mp.toFixed(0)} megapíxeles). Probá con una más chica o sacale una captura.`,
+          `La foto es demasiado grande (${mp.toFixed(1).replace(".", ",")} megapíxeles; el máximo es ${MAX_MEGAPIXELES}). Probá con una más chica o sacale una captura.`,
         );
         // "empty" y no "error": el selector de archivos sólo se dibuja en "empty". Con
         // "error" quedaba el editor abierto con el lienzo vacío y SIN forma de elegir otra
@@ -212,7 +260,10 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
       const escala = Math.min(1, MAX_DIM / Math.max(probe.width, probe.height));
       const w0 = Math.max(1, Math.round(probe.width * escala));
       const h0 = Math.max(1, Math.round(probe.height * escala));
-      bitmap = escala < 1 ? await createImageBitmap(probe, { resizeWidth: w0, resizeHeight: h0 }) : probe;
+      // `resizeQuality: "high"`: con el valor por defecto ("low") achicar una foto de cámara a
+      // 1024 px deja serrucho y ruido en el revoque, que después la pintura conserva como textura.
+      bitmap =
+        escala < 1 ? await createImageBitmap(probe, { resizeWidth: w0, resizeHeight: h0, resizeQuality: "high" }) : probe;
       if (bitmap !== probe) probe.close();
     } catch {
       setErrorMsg("No pudimos leer esa imagen. Probá con un JPG o PNG.");
@@ -228,6 +279,10 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
       off.width = w;
       off.height = h;
       const octx = off.getContext("2d", { willReadFrequently: true })!;
+      // Una PNG con transparencia se ve sobre blanco. Sin esto lo transparente quedaba en
+      // (0,0,0,0): tocarlo no mostraba nada ni avisaba, porque la pintura también salía invisible.
+      octx.fillStyle = "#FFFFFF";
+      octx.fillRect(0, 0, w, h);
       octx.drawImage(img, 0, 0, w, h);
 
       const base = octx.getImageData(0, 0, w, h);
@@ -235,7 +290,13 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
       compositeRef.current = octx.createImageData(w, h);
       maskRef.current = new Uint8Array(w * h);
       alphaRef.current = new Float32Array(w * h);
-      imageUrlRef.current = off.toDataURL("image/jpeg", 0.85); // para enviar al backend
+      // La foto para la IA se arma recién si alguien la usa (ver `analyzeImage`): convertirla a
+      // JPEG en cada carga costaba tiempo y memoria a todos para un modo que casi nadie usa.
+      imageUrlRef.current = "";
+      // El lienzo auxiliar ya no hace falta. Achicarlo libera su memoria YA: si no, quedaba vivo
+      // hasta que pasara el recolector (uno de más cada dos fotos, medido; ~2,8 MB cada uno).
+      off.width = 0;
+      off.height = 0;
       dims.current = { w, h };
       setAspecto(w / h);
 
@@ -262,6 +323,10 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
       lastClickRef.current = null;
       maskBeforeClickRef.current = null;
       setVertices([]);
+      capasRef.current = [];
+      setCapas([]);
+      verOriginalRef.current = false;
+      setVerOriginal(false);
 
       // foto nueva → invalidar segmentación remota previa (queda como opción, no como default)
       maskBankRef.current = [];
@@ -313,6 +378,8 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
       const color = colorRef.current;
       const strength = strengthRef.current;
 
+      // Las paredes ya pintadas, de abajo hacia arriba, y la selección actual encima.
+      const capasAComponer: Capa[] = capasRef.current.map((c) => ({ alfa: c.alfa, curva: c.curva }));
       const pintura = color ? pinturaDesdeHex(color) : null;
       if (color && pintura) {
         let cache = curvaRef.current;
@@ -322,13 +389,14 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
           cache = { color, version: versionAlfaRef.current, curva: curva(pintura, ancla(foto, alpha, pintura)) };
           curvaRef.current = cache;
         }
-        componer(composite.data, base.data, foto, [{ alfa: alpha, curva: cache.curva }], strength, w, rect);
-      } else {
-        seleccionVisible(composite.data, base.data, alpha, w, rect);
+        capasAComponer.push({ alfa: alpha, curva: cache.curva });
       }
+      componer(composite.data, base.data, foto, capasAComponer, strength, w, rect);
+      if (!(color && pintura)) seleccionVisible(composite.data, alpha, w, rect);
       const ctx = canvas.getContext("2d")!;
-      if (rect) ctx.putImageData(composite, 0, 0, rect.x0, rect.y0, rect.x1 - rect.x0, rect.y1 - rect.y0);
-      else ctx.putImageData(composite, 0, 0);
+      const mostrar = verOriginalRef.current ? base : composite;
+      if (rect) ctx.putImageData(mostrar, 0, 0, rect.x0, rect.y0, rect.x1 - rect.x0, rect.y1 - rect.y0);
+      else ctx.putImageData(mostrar, 0, 0);
     },
     [],
   );
@@ -389,6 +457,16 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
     if (segmentingRef.current) return false;
     const { w, h } = dims.current;
     if (!w || !h) return false;
+    const foto = fotoIdRef.current;
+    if (!imageUrlRef.current && baseImageData.current) {
+      const c = document.createElement("canvas");
+      c.width = w;
+      c.height = h;
+      c.getContext("2d")!.putImageData(baseImageData.current, 0, 0);
+      imageUrlRef.current = c.toDataURL("image/jpeg", 0.85);
+      c.width = 0;
+      c.height = 0;
+    }
     segmentingRef.current = true;
     setStatus("segmenting");
     setErrorMsg("");
@@ -410,9 +488,9 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
 
       if (!res.ok) {
         let msg = "No se pudo analizar la foto.";
-        if (data?.error === "backend_not_configured") msg = "El servidor de IA todavía no está configurado. Por ahora marcá la pared con el 🖌 Pincel.";
-        else if (data?.error === "unauthorized") msg = "Iniciá sesión para usar la detección automática. Mientras tanto podés marcar la pared con el 🖌 Pincel.";
-        else if (data?.error === "rate_limited") msg = "Llegaste al límite de análisis por hora. Seguí con el 🖌 Pincel o probá más tarde.";
+        if (data?.error === "backend_not_configured") msg = "La detección con IA no está disponible ahora. La ✨ Varita y el ⬠ Contorno funcionan igual.";
+        else if (data?.error === "unauthorized") msg = "La detección con IA es para quienes tienen cuenta: ingresá desde «Ingresar», arriba. Sin cuenta funcionan la ✨ Varita y el ⬠ Contorno.";
+        else if (data?.error === "rate_limited") msg = "Llegaste al límite de análisis con IA por hora. Seguí con la ✨ Varita o el ⬠ Contorno, o probá más tarde.";
         else if (data?.error === "image_too_large") msg = "La foto es demasiado pesada. Probá con una imagen más chica.";
         else if (data?.message) msg = `Error del servidor: ${data.message}`;
         else if (data?.error) msg = `Error del servidor (${data.error}).`;
@@ -450,6 +528,8 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
         }
         bank.push({ small, sw, sh, area, url });
       }
+      // Mientras se analizaba cambió la foto: estas regiones son de la otra.
+      if (foto !== fotoIdRef.current) return false;
       maskBankRef.current = bank;
       segmentedRef.current = bank.length > 0;
       return segmentedRef.current;
@@ -474,7 +554,7 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
 
   // ---- Selección instantánea: del banco cacheado, suma la región del clic a la máscara. ----
   const pickAt = useCallback(
-    async (nx: number, ny: number): Promise<boolean> => {
+    async (nx: number, ny: number, foto: number): Promise<boolean> => {
       const out = maskRef.current;
       const bank = maskBankRef.current;
       const { w, h } = dims.current;
@@ -511,7 +591,7 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
 
       // Redibujamos la ganadora a resolución plena y la SUMAMOS a la selección (clics acumulativos).
       const img = await loadImage(best.url).catch(() => null);
-      if (!img) return false;
+      if (!img || foto !== fotoIdRef.current || maskRef.current !== out) return false;
       // Un solo canvas reusado, no uno por clic: cada uno pesa ~3 MB y el navegador no los
       // libera enseguida. Con setenta clics se llegaba al techo de memoria de canvas de iOS
       // ("Total canvas memory exceeds the limit") y la pestaña moría.
@@ -604,8 +684,11 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
       const prev = maskBeforeClickRef.current;
       for (let i = 0; i < out.length; i++) out[i] = (prev?.[i] ?? 0) || region[i] ? 1 : 0;
 
-      recomputeMaskDerived(true);
-      repaint();
+      if (enColaRef.current > 1 && !opts?.rapido) dibujoPendienteRef.current = true;
+      else {
+        recomputeMaskDerived(true);
+        repaint();
+      }
       // "Deshacer" vuelve a como estaba antes del toque, con la Sensibilidad que sea.
       recordarParaDeshacer(prev);
       setHasSelection(true);
@@ -646,7 +729,19 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
   const aplicarEn = (nx: number, ny: number): Promise<void> => {
     // En cola: la varita contesta un instante después, y un segundo clic que llegue antes
     // tiene que sumar sobre lo que dejó el primero, no pisarlo.
-    const turno = colaClicsRef.current.then(() => aplicarEnAhora(nx, ny)).catch(() => {});
+    enColaRef.current++;
+    const turno = colaClicsRef.current
+      .then(() => aplicarEnAhora(nx, ny))
+      .catch(() => {})
+      .finally(() => {
+        enColaRef.current--;
+        // El último de la cola dibuja lo que los de antes dejaron sin dibujar.
+        if (enColaRef.current === 0 && dibujoPendienteRef.current) {
+          dibujoPendienteRef.current = false;
+          recomputeMaskDerived(true);
+          repaint();
+        }
+      });
     colaClicsRef.current = turno;
     return turno;
   };
@@ -665,11 +760,12 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
     if (useAI) {
       // Modo remoto: la primera vez hay que analizar la foto entera (lento).
       lastClickRef.current = null; // la sensibilidad no aplica a las regiones del modelo
+      const foto = fotoIdRef.current;
       if (!segmentedRef.current) {
         const ok = await analyzeImage();
-        if (!ok) return;
+        if (!ok || foto !== fotoIdRef.current) return;
       }
-      if (await pickAt(nx, ny)) {
+      if (await pickAt(nx, ny, foto)) {
         recordarParaDeshacer(maskBeforeClickRef.current);
         setHasSelection(true);
         setAviso(color ? "Superficie pintada." : "Superficie seleccionada. Elegí un color de la lista para aplicarlo.");
@@ -806,28 +902,43 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
   };
 
   // ---- Pincel (ajuste manual) ----
-  /** Pincelada en coordenadas de 0 a 1, para que el teclado pinte igual que el dedo. */
+  /**
+   * Pincelada de `desde` a (nx, ny), en coordenadas de 0 a 1, para que el teclado pinte igual
+   * que el dedo. Sin `desde`, un solo toque.
+   *
+   * Estampa círculos a lo largo del tramo, no uno por evento. El dedo se mueve más rápido de lo
+   * que llegan los eventos: un trazo de lado a lado en 0,4 s dejaba de 2 a 25 círculos sueltos
+   * con huecos entre ellos (`simulador-uso-real`, 3/10/2026).
+   */
   const pintarEn = useCallback(
-    (nx: number, ny: number) => {
+    (nx: number, ny: number, desde?: { x: number; y: number }) => {
       const canvas = viewRef.current;
       const mask = maskRef.current;
       if (!canvas || !mask || brush === "off") return;
       const rect = canvas.getBoundingClientRect();
       const { w, h } = dims.current;
-      const x = Math.round(nx * w);
-      const y = Math.round(ny * h);
-      const radius = Math.round((brushSize / rect.width) * w);
+      const x1 = Math.round(nx * w);
+      const y1 = Math.round(ny * h);
+      const x0 = desde ? Math.round(desde.x * w) : x1;
+      const y0 = desde ? Math.round(desde.y * h) : y1;
+      const radius = Math.max(1, Math.round((brushSize / rect.width) * w));
       const val = brush === "add" ? 1 : 0;
       const alpha = alphaRef.current;
-      for (let dy = -radius; dy <= radius; dy++) {
-        for (let dx = -radius; dx <= radius; dx++) {
-          if (dx * dx + dy * dy > radius * radius) continue;
-          const px = x + dx;
-          const py = y + dy;
-          if (px < 0 || py < 0 || px >= w || py >= h) continue;
-          mask[py * w + px] = val;
-          // El alfa, sin difuminar, sólo donde pasó el pincel: el resto de la foto no cambió.
-          if (alpha) alpha[py * w + px] = val;
+      const largo = Math.hypot(x1 - x0, y1 - y0);
+      const pasos = Math.max(1, Math.ceil(largo / Math.max(1, radius * 0.5)));
+      for (let k = 0; k <= pasos; k++) {
+        const cx = Math.round(x0 + ((x1 - x0) * k) / pasos);
+        const cy = Math.round(y0 + ((y1 - y0) * k) / pasos);
+        for (let dy = -radius; dy <= radius; dy++) {
+          for (let dx = -radius; dx <= radius; dx++) {
+            if (dx * dx + dy * dy > radius * radius) continue;
+            const px = cx + dx;
+            const py = cy + dy;
+            if (px < 0 || py < 0 || px >= w || py >= h) continue;
+            mask[py * w + px] = val;
+            // El alfa, sin difuminar, sólo donde pasó el pincel: el resto de la foto no cambió.
+            if (alpha) alpha[py * w + px] = val;
+          }
         }
       }
       // Una pincelada es una edición manual: deja de haber un "último clic" que recalcular,
@@ -836,27 +947,32 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
       maskBeforeClickRef.current = null;
       generacionRef.current++;
 
-      // Sólo se repinta el círculo del pincel. Antes cada movimiento del dedo recalculaba y
+      // Sólo se repinta el rectángulo del tramo. Antes cada movimiento del dedo recalculaba y
       // repintaba la foto entera —dos pasadas por la máscara y la composición completa—, y en
-      // un celular el trazo llegaba tarde. El difuminado y el ancla de la pared se recalculan
-      // una vez, al soltar (`terminarTrazo`).
+      // un celular de gama media cada movimiento congelaba la pantalla de 77 a 510 ms. El
+      // difuminado y el ancla de la pared se recalculan una vez, al soltar (`terminarTrazo`).
       repaint({
-        x0: Math.max(0, x - radius),
-        y0: Math.max(0, y - radius),
-        x1: Math.min(w, x + radius + 1),
-        y1: Math.min(h, y + radius + 1),
+        x0: Math.max(0, Math.min(x0, x1) - radius),
+        y0: Math.max(0, Math.min(y0, y1) - radius),
+        x1: Math.min(w, Math.max(x0, x1) + radius + 1),
+        y1: Math.min(h, Math.max(y0, y1) + radius + 1),
       });
       if (val === 1) setHasSelection(true);
     },
     [brush, brushSize, repaint],
   );
 
+  /** Dónde estaba el dedo en el evento anterior del trazo (fracciones 0..1). */
+  const ultimoPuntoRef = useRef<{ x: number; y: number } | null>(null);
+
   const paintAt = useCallback(
-    (clientX: number, clientY: number) => {
+    (clientX: number, clientY: number, continuar: boolean) => {
       const canvas = viewRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
-      pintarEn((clientX - rect.left) / rect.width, (clientY - rect.top) / rect.height);
+      const p = { x: (clientX - rect.left) / rect.width, y: (clientY - rect.top) / rect.height };
+      pintarEn(p.x, p.y, continuar ? (ultimoPuntoRef.current ?? undefined) : undefined);
+      ultimoPuntoRef.current = p;
     },
     [pintarEn],
   );
@@ -951,7 +1067,92 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
     setHasSelection(false);
   };
 
+  // ---- Varias paredes, cada una con su color ----
+  /** Deja la selección actual pintada con el color de ahora y empieza una selección nueva. */
+  const pintarOtraPared = () => {
+    const mask = maskRef.current;
+    const alpha = alphaRef.current;
+    const foto = fotoRef.current;
+    const actual = colorRef.current;
+    const pintura = actual ? pinturaDesdeHex(actual) : null;
+    if (!mask || !alpha || !foto || !actual || !pintura || !mask.some((v) => v === 1)) return;
+    if (capasRef.current.length >= MAX_PAREDES) {
+      setErrorMsg(`Podés tener hasta ${MAX_PAREDES} paredes de distinto color. Quitá alguna para sumar otra.`);
+      return;
+    }
+    const cache = curvaRef.current;
+    const tabla =
+      cache && cache.color === actual && cache.version === versionAlfaRef.current
+        ? cache.curva
+        : curva(pintura, ancla(foto, alpha, pintura));
+    const nombre = colorName || actual.toUpperCase();
+    capasRef.current = [...capasRef.current, { id: ++idCapaRef.current, alfa: new Float32Array(alpha), color: actual, nombre, curva: tabla }];
+    setCapas(capasRef.current.map(({ id, color: c, nombre: n }) => ({ id, color: c, nombre: n })));
+    // La selección nueva arranca vacía. "Deshacer" no cruza este paso: lo que se fijó se saca
+    // con la ✕ de su ficha.
+    mask.fill(0);
+    lastClickRef.current = null;
+    maskBeforeClickRef.current = null;
+    generacionRef.current++;
+    deshacerRef.current = null;
+    setPuedeDeshacer(false);
+    recomputeMaskDerived(true);
+    repaint();
+    setHasSelection(false);
+    setErrorMsg("");
+    setAviso(`La pared quedó pintada de ${nombre}. Tocá la próxima y elegí su color.`);
+  };
+
+  const quitarPared = (id: number) => {
+    const quitada = capasRef.current.find((c) => c.id === id);
+    capasRef.current = capasRef.current.filter((c) => c.id !== id);
+    setCapas(capasRef.current.map(({ id: i, color: c, nombre: n }) => ({ id: i, color: c, nombre: n })));
+    repaint();
+    if (quitada) setAviso(`Se quitó la pared pintada de ${quitada.nombre}.`);
+  };
+
+  const alternarOriginal = () => {
+    verOriginalRef.current = !verOriginalRef.current;
+    setVerOriginal(verOriginalRef.current);
+    repaint();
+    setAviso(verOriginalRef.current ? "Se ve la foto original, sin pintar." : "Se ve la foto pintada.");
+  };
+
+  /**
+   * Guarda la foto pintada (no el lienzo: si está prendido "Ver la foto original", el lienzo
+   * muestra la de antes). Para mandársela a un pintor o compararla con otra.
+   */
+  const guardarImagen = () => {
+    const composite = compositeRef.current;
+    if (!composite) return;
+    const c = document.createElement("canvas");
+    c.width = composite.width;
+    c.height = composite.height;
+    c.getContext("2d")!.putImageData(composite, 0, 0);
+    c.toBlob(
+      (blob) => {
+        if (!blob) {
+          setErrorMsg("No se pudo guardar la imagen. Probá con una captura de pantalla.");
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "simulacion-de-color.jpg";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 10_000);
+        setAviso("Imagen guardada.");
+      },
+      "image/jpeg",
+      0.92,
+    );
+  };
+
   const reset = () => {
+    fotoIdRef.current++;
+    abortRef.current?.abort();
     baseImageData.current = null;
     maskRef.current = null;
     compositeRef.current = null;
@@ -976,6 +1177,10 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
     setBrush("off");
     setContorno("off");
     setVertices([]);
+    capasRef.current = [];
+    setCapas([]);
+    verOriginalRef.current = false;
+    setVerOriginal(false);
   };
 
   const segmenting = status === "segmenting";
@@ -983,7 +1188,17 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
   return (
     <div>
       {status === "empty" ? (
-        <label className="flex flex-col items-center justify-center aspect-[4/3] border-2 border-dashed border-concrete/30 bg-mist cursor-pointer hover:border-ink transition-colors duration-300">
+        <label
+          className="flex flex-col items-center justify-center aspect-[4/3] border-2 border-dashed border-concrete/30 bg-mist cursor-pointer hover:border-ink transition-colors duration-300"
+          // Arrastrar una foto desde la compu a la caja no hacía nada: el navegador la abría en
+          // otra pestaña y se perdía la página.
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            const archivo = e.dataTransfer.files?.[0];
+            if (archivo) void onFile(archivo);
+          }}
+        >
           <span className="font-display text-display-md text-concrete mb-2">＋</span>
           <span className="font-body text-body-md text-ink">Subí una foto de tu ambiente</span>
           <span className="font-body text-body-sm text-concrete mt-1">JPG o PNG · pared, frente o fachada</span>
@@ -1043,9 +1258,9 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
                   recordarParaDeshacer(maskRef.current);
                   drawing.current = true;
                   (e.target as HTMLElement).setPointerCapture(e.pointerId);
-                  paintAt(e.clientX, e.clientY);
+                  paintAt(e.clientX, e.clientY, false);
                 }}
-                onPointerMove={(e) => drawing.current && paintAt(e.clientX, e.clientY)}
+                onPointerMove={(e) => drawing.current && paintAt(e.clientX, e.clientY, true)}
                 onPointerUp={terminarTrazo}
                 // Sin estos dos, una llamada entrante o un gesto que el sistema se lleva dejan
                 // `drawing` en true: se vuelve a la pestaña y el pincel sigue pintando solo.
@@ -1105,6 +1320,7 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
                   lienzo que tiene abajo. */}
               {mira && (
                 <div
+                  ref={miraRef}
                   aria-hidden="true"
                   className="absolute pointer-events-none"
                   style={{ left: `${mira.x * 100}%`, top: `${mira.y * 100}%` }}
@@ -1132,6 +1348,8 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
               )}
             </div>
           </div>
+
+          {debajoDelLienzo}
 
           {/* Controles */}
           <div className="flex flex-wrap items-center gap-3">
@@ -1301,6 +1519,15 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
               </label>
             )}
 
+            {hasSelection && color && (
+              <button
+                onClick={pintarOtraPared}
+                disabled={segmenting}
+                className="px-3 py-2 font-body text-body-sm border border-ink hover:bg-ink hover:text-bone transition-colors disabled:opacity-40"
+              >
+                ＋ Otra pared, otro color
+              </button>
+            )}
             {puedeDeshacer && (
               <button onClick={deshacer} disabled={segmenting} className="py-1 font-body text-body-sm text-concrete hover:text-ink transition-colors disabled:opacity-40">
                 Deshacer
@@ -1312,10 +1539,39 @@ export function PhotoSimulator({ color, strength: strengthDeAfuera }: PhotoSimul
               </button>
             )}
 
+            <button
+              onClick={alternarOriginal}
+              aria-pressed={verOriginal}
+              className="py-1 font-body text-body-sm text-concrete hover:text-ink transition-colors"
+            >
+              {verOriginal ? "Ver la foto pintada" : "Ver la foto original"}
+            </button>
+            <button onClick={guardarImagen} className="py-1 font-body text-body-sm text-concrete hover:text-ink transition-colors">
+              Guardar imagen
+            </button>
             <button onClick={reset} className="ml-auto font-body text-body-sm text-concrete hover:text-ink transition-colors">
               Cambiar foto
             </button>
           </div>
+
+          {capas.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-mono-sm text-concrete">Ya pintadas:</span>
+              {capas.map((c) => (
+                <span key={c.id} className="inline-flex items-center gap-2 border border-concrete/30 pl-2">
+                  <span className="w-4 h-4 border border-black/10" style={{ backgroundColor: c.color }} />
+                  <span className="font-body text-body-sm text-ink">{c.nombre}</span>
+                  <button
+                    onClick={() => quitarPared(c.id)}
+                    aria-label={`Quitar la pared pintada de ${c.nombre}`}
+                    className="min-w-8 min-h-8 px-2 font-body text-body-sm text-concrete hover:text-ink hover:bg-mist transition-colors"
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Lo que pasa en el lienzo no se ve si no ves el lienzo. Enter con la varita tarda
               unos milisegundos y no cambia ningún texto: sin esto, quien navega con lector de
@@ -1426,7 +1682,7 @@ function featherMask(mask: Uint8Array, alpha: Float32Array, w: number, h: number
  * Sin color elegido, la selección se ve azul a medias: que se note qué está marcado antes de
  * elegir con qué pintarlo.
  */
-function seleccionVisible(destino: Uint8ClampedArray, origen: Uint8ClampedArray, alpha: Float32Array, ancho: number, rect?: Rect) {
+function seleccionVisible(destino: Uint8ClampedArray, alpha: Float32Array, ancho: number, rect?: Rect) {
   const alto = alpha.length / ancho;
   const x0 = rect ? Math.max(0, rect.x0) : 0;
   const y0 = rect ? Math.max(0, rect.y0) : 0;
@@ -1434,13 +1690,15 @@ function seleccionVisible(destino: Uint8ClampedArray, origen: Uint8ClampedArray,
   const y1 = rect ? Math.min(alto, rect.y1) : alto;
   for (let y = y0; y < y1; y++) {
     for (let i = y * ancho + x0, fin = y * ancho + x1; i < fin; i++) {
-      const p = i * 4;
       const a = alpha[i] * 0.5;
+      if (a <= 0) continue;
+      const p = i * 4;
       const ia = 1 - a;
-      destino[p] = a > 0 ? 20 * a + origen[p] * ia : origen[p];
-      destino[p + 1] = a > 0 ? 120 * a + origen[p + 1] * ia : origen[p + 1];
-      destino[p + 2] = a > 0 ? 230 * a + origen[p + 2] * ia : origen[p + 2];
-      destino[p + 3] = origen[p + 3];
+      // Sobre lo que ya está dibujado (la foto, o una pared pintada antes): por eso se mezcla
+      // con `destino` y no con la foto original.
+      destino[p] = 20 * a + destino[p] * ia;
+      destino[p + 1] = 120 * a + destino[p + 1] * ia;
+      destino[p + 2] = 230 * a + destino[p + 2] * ia;
     }
   }
 }

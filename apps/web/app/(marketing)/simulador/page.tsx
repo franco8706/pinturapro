@@ -55,11 +55,11 @@ export default function SimuladorPage() {
             {(["interior", "exterior"] as Target[]).map((t) => (
               <button
                 key={t}
-                onClick={() => {
-                  setTarget(t);
-                  setColor(null);
-                  setColorName("");
-                }}
+                // Cambiar de interior a exterior (o de marca, abajo) NO borra el color elegido. Lo
+                // borraba, y la pared ya pintada volvía al velo azul de "selección", que se lee
+                // como "pintada de azul" (`simulador-uso-real`, 3/10/2026). El color queda hasta
+                // que se elija otro; la ficha de abajo dice cuál es.
+                onClick={() => setTarget(t)}
                 className={cn(
                   "px-6 py-3 font-body text-body-sm capitalize transition-colors duration-300",
                   target === t ? "bg-ink text-bone" : "hover:bg-mist",
@@ -73,7 +73,40 @@ export default function SimuladorPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
             {/* Lienzo */}
             <div className="lg:col-span-8">
-              <PhotoSimulator color={color} strength={intensidad} />
+              <PhotoSimulator
+                color={color}
+                colorName={colorName}
+                strength={intensidad}
+                debajoDelLienzo={
+                  // Sólo en el celular (en la compu los colores están al lado de la foto): la
+                  // misma paleta en una fila que se desliza, pegada a la foto.
+                  <div className="lg:hidden">
+                    <p className="font-mono text-mono-sm text-concrete mb-2">
+                      {color ? `Color: ${colorName}` : "Elegí un color"}
+                    </p>
+                    <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1" role="group" aria-label="Colores">
+                      {colors.map((c) => (
+                        <button
+                          key={`tira-${c.name}-${c.code}`}
+                          type="button"
+                          onClick={() => {
+                            setColor(c.hex);
+                            setColorName(c.name);
+                          }}
+                          aria-pressed={color === c.hex && colorName === c.name}
+                          aria-label={c.name}
+                          title={c.name}
+                          className={cn(
+                            "shrink-0 w-11 h-11 border transition-shadow",
+                            color === c.hex && colorName === c.name ? "ring-2 ring-offset-2 ring-ink border-ink" : "border-black/10",
+                          )}
+                          style={{ backgroundColor: c.hex }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                }
+              />
             </div>
 
             {/* Selector de marca + colores */}
@@ -84,11 +117,7 @@ export default function SimuladorPage() {
                   {brands.map((b) => (
                     <button
                       key={b.id}
-                      onClick={() => {
-                        setBrandId(b.id);
-                        setColor(null);
-                        setColorName("");
-                      }}
+                      onClick={() => setBrandId(b.id)}
                       className={cn(
                         "px-3 py-2 font-body text-body-sm border transition-colors duration-300 flex items-center gap-2",
                         brandId === b.id ? "border-ink bg-ink text-bone" : "border-concrete/30 hover:border-ink",
