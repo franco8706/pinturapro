@@ -38,6 +38,54 @@ end $$;
 reset role;
 select set_config('request.jwt.claims', '', true); -- sin identidad: lo que sigue es preparación
 
+-- ── 1c. Una fecha vieja no esquiva el tope (seguridad-rls, 3/10) ──
+set local role authenticated;
+select pg_temp.como(:'cliente');
+do $$
+declare yo uuid := auth.uid();
+begin
+  insert into public.projects (owner_id, type, title, slug, published, created_at)
+  values (yo, 'service', 'ZZAGENT tope fecha vieja', 'zzagent-tope-0026-viejo', true, '2020-01-01');
+  raise notice '¡FALLÓ! 1c: con created_at de 2020 el undécimo pedido entró';
+exception when others then
+  raise notice 'OK 1c: con fecha vieja también se rechaza -> %', sqlerrm;
+end $$;
+-- Y una fila vieja no se puede "envejecer" para hacer lugar: la fecha no cambia.
+do $$
+declare antes timestamptz; despues timestamptz;
+begin
+  select created_at into antes from public.projects where slug = 'zzagent-tope-0026-3';
+  update public.projects set created_at = '2020-01-01' where slug = 'zzagent-tope-0026-3';
+  select created_at into despues from public.projects where slug = 'zzagent-tope-0026-3';
+  if despues = antes then raise notice 'OK 1d: la fecha de alta de un pedido no se puede cambiar';
+  else raise notice '¡FALLÓ! 1d: la fecha pasó de % a %', antes, despues; end if;
+end $$;
+reset role;
+select set_config('request.jwt.claims', '', true);
+
+-- ── 1e. Borrar los pedidos propios no resetea el tope (seguridad-rls, 3/10) ──
+select id as otra from public.profiles where full_name = 'Marina Acosta' \gset
+set local role authenticated;
+select pg_temp.como(:'otra');
+do $$
+declare yo uuid := auth.uid(); i int;
+begin
+  for i in 1..10 loop
+    insert into public.projects (owner_id, type, title, slug, published)
+    values (yo, 'service', 'ZZAGENT borrar ' || i, 'zzagent-borrar-0026-' || i, true);
+  end loop;
+  delete from public.projects where slug like 'zzagent-borrar-0026-%';
+  begin
+    insert into public.projects (owner_id, type, title, slug, published)
+    values (yo, 'service', 'ZZAGENT borrar 11', 'zzagent-borrar-0026-11', true);
+    raise notice '¡FALLÓ! 1e: después de borrar los diez, el undécimo entró';
+  exception when others then
+    raise notice 'OK 1e: borrar y volver a publicar no esquiva el tope -> %', sqlerrm;
+  end;
+end $$;
+reset role;
+select set_config('request.jwt.claims', '', true);
+
 -- ── 2. Piso y tope de cotizaciones ──
 set local role authenticated;
 select pg_temp.como(:'pintor');
@@ -94,6 +142,33 @@ exception when others then
 end $$;
 reset role;
 select set_config('request.jwt.claims', '', true); -- sin identidad: lo que sigue es preparación
+
+-- ── 2d. El piso no se esquiva corrigiendo el monto después (seguridad-rls, 3/10) ──
+set local role authenticated;
+select pg_temp.como(:'pintor');
+do $$
+begin
+  update public.jobs set amount = 1, commission_amount = 0
+  where painter_id = auth.uid() and status = 'quoted'
+    and project_id = (select id from public.projects where slug = 'zzagent-tope-0026-2');
+  raise notice '¡FALLÓ! 2d: una cotización se pudo bajar a $1 con un PATCH';
+exception when others then
+  raise notice 'OK 2d: bajar el monto a $1 después de cotizar se rechaza -> %', sqlerrm;
+end $$;
+do $$
+declare n int;
+begin
+  update public.jobs set amount = 120000, commission_amount = 12000
+  where painter_id = auth.uid() and status = 'quoted'
+    and project_id = (select id from public.projects where slug = 'zzagent-tope-0026-2');
+  get diagnostics n = row_count;
+  if n = 1 then raise notice 'OK 2e: corregir el monto a uno válido sigue andando';
+  else raise notice '¡FALLÓ! 2e: no se pudo corregir el monto a uno válido (% filas)', n; end if;
+exception when others then
+  raise notice '¡FALLÓ! 2e: corregir el monto a uno válido se rechazó -> %', sqlerrm;
+end $$;
+reset role;
+select set_config('request.jwt.claims', '', true);
 
 -- ── 3. Un pedido adjudicado no se edita; uno abierto sí; una obra con historial también ──
 update public.jobs set status = 'accepted'
