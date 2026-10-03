@@ -80,16 +80,26 @@ export interface WandOptions {
   /** Radio (px) del cierre morfológico que tapa huecos. 0 = desactivado. */
   fillHoles?: number;
   /**
-   * Radio máximo (px) de expansión desde el clic. 0 = sin límite.
+   * Radio máximo (px) de expansión desde el clic. 0 o sin definir = sin límite.
    *
-   * Red de contención contra el peor modo de falla: en una foto con una ventana, la
-   * selección puede escaparse por el vidrio y agarrar el edificio de enfrente. Cortar por
-   * distancia mantiene el error acotado y previsible: "agarró de más, pero acá cerca".
+   * Hasta el 3/10/2026 el valor por defecto era media diagonal, como red de contención (que la
+   * selección no se escapara por una ventana al edificio de enfrente). En fotos reales hacía
+   * algo peor que lo que evitaba: cortaba la pintura en un ARCO DE CÍRCULO en medio de una
+   * pared lisa —7 de 13 interiores; en la sintética 02 dejaba afuera el 22 % de la pared con
+   * cualquier Sensibilidad—, y eso no se ve como "agarró de menos" sino como algo roto. Sin el
+   * tope, la pared entera con un toque: 77,9 → 99,3 % en la 02, 82 → 94,5 % en la 01, con la
+   * precisión igual (99,5-100 %). Lo que frena la selección son los bordes, no la distancia.
    */
   maxRadius?: number;
 }
 
 const DEFAULTS = { edgeResistance: 45, sampleRadius: 2, fillHoles: 2 };
+
+/** Freno relativo al grano de la pared tocada (ver `magicWand`): cuántas veces su gradiente
+ *  típico, en qué ventana se mide (radio en px) y el mínimo, para que el ruido no frene. */
+const BORDE_LOCAL = 4;
+const RADIO_GRANO = 12;
+const PISO_GRANO = 20;
 
 /**
  * Precalcula YCbCr + gradiente. Es la parte cara (una pasada por píxel), por eso corre
@@ -157,8 +167,31 @@ export function prepareWandImage(img: ImageData): WandImage {
     }
   }
 
-  // Sobel sobre la luminancia. Los bordes de la imagen quedan en 0 (no hay vecindario completo).
+  // Sobel sobre la luminancia.
+  //
+  // El marco de la foto (primera y última fila y columna) se calcula repitiendo el píxel del
+  // borde. Antes quedaba en 0 —"no hay vecindario completo"—, y eso era un pasillo sin ningún
+  // borde alrededor de toda la foto: la selección se escurría pegada al marco, pasaba la línea
+  // entre la pared y el techo por donde esa línea toca el borde de la foto, y se desparramaba
+  // del otro lado (3/10/2026).
   const grad = new Float32Array(n);
+  const sobel = (x: number, y: number) => {
+    const xa = x > 0 ? x - 1 : 0;
+    const xb = x < w - 1 ? x + 1 : w - 1;
+    const ya = y > 0 ? y - 1 : 0;
+    const yb = y < h - 1 ? y + 1 : h - 1;
+    const gx = Y[ya * w + xb] + 2 * Y[y * w + xb] + Y[yb * w + xb] - (Y[ya * w + xa] + 2 * Y[y * w + xa] + Y[yb * w + xa]);
+    const gy = Y[yb * w + xa] + 2 * Y[yb * w + x] + Y[yb * w + xb] - (Y[ya * w + xa] + 2 * Y[ya * w + x] + Y[ya * w + xb]);
+    return Math.sqrt(gx * gx + gy * gy);
+  };
+  for (let x = 0; x < w; x++) {
+    grad[x] = sobel(x, 0);
+    grad[(h - 1) * w + x] = sobel(x, h - 1);
+  }
+  for (let y = 1; y < h - 1; y++) {
+    grad[y * w] = sobel(0, y);
+    grad[y * w + w - 1] = sobel(w - 1, y);
+  }
   for (let y = 1; y < h - 1; y++) {
     for (let x = 1; x < w - 1; x++) {
       const i = y * w + x;
@@ -252,9 +285,38 @@ export function magicWand(img: WandImage, sx: number, sy: number, opts: WandOpti
   // 0 → p99 (casi no frena) · 50 → p87 · 100 → p75
   const edgeTol =
     edgeResistance <= 0 ? Infinity : img.gradPercentile[Math.round(99 - (edgeResistance / 100) * 24)];
-  // Por defecto, media diagonal: no molesta en una pared normal, pero corta la fuga.
-  const maxRadius = opts.maxRadius ?? Math.sqrt(w * w + h * h) * 0.5;
+  const maxRadius = opts.maxRadius ?? 0;
   const maxR2 = maxRadius > 0 ? maxRadius * maxRadius : 0;
+
+  // ── Freno relativo al grano de la pared tocada ──
+  // `edgeTol` es un percentil de TODA la foto: lo fijan los bordes fuertes (muebles, cuadros,
+  // la alfombra). La esquina entre una pared blanca y un techo blanco es una línea tenue
+  // —gradiente 30-60 contra un umbral de 88-98— y la selección pasaba de largo: en un cuarto
+  // blanco un toque pintaba también el techo entero y las alacenas (r03, 3/10/2026). Pero
+  // comparada con la pared que se tocó, esa línea es enorme: una pared lisa tiene un gradiente
+  // típico de 5-10. Así que además del umbral de la foto hay otro, el de la pared: `BORDE_LOCAL`
+  // veces su gradiente típico (percentil 75 alrededor del clic), con un piso para que el grano
+  // del sensor no frene nada. Sobre una pared con textura el gradiente típico es alto, este
+  // umbral queda por encima del de la foto, y manda el de siempre.
+  // Medido en 18 fotos reales: el techo de r03 pasa de 100 % pintado a 0 %, las alacenas de
+  // 87 % a 58 %, la pared de al lado de 56 % a 0 %; las paredes bajan de cobertura entre 0 y
+  // 5 puntos (r04 88,7 → 84 %), que se recuperan con otro toque. Las sintéticas, igual.
+  let tolGrano = Infinity;
+  {
+    const vecinos: number[] = [];
+    for (let dy = -RADIO_GRANO; dy <= RADIO_GRANO; dy++) {
+      for (let dx = -RADIO_GRANO; dx <= RADIO_GRANO; dx++) {
+        const x = x0 + dx;
+        const y = y0 + dy;
+        if (x < 1 || y < 1 || x >= w - 1 || y >= h - 1) continue;
+        vecinos.push(grad[y * w + x]);
+      }
+    }
+    if (vecinos.length > 0) {
+      vecinos.sort((a, b) => a - b);
+      tolGrano = Math.max(PISO_GRANO, BORDE_LOCAL * vecinos[Math.floor(vecinos.length * 0.75)]);
+    }
+  }
 
   // ── Flood fill (BFS, 4-conectividad) ──
   // Cola sobre un typed array: sin allocations por píxel, sin recursión (evita stack overflow).
@@ -290,7 +352,7 @@ export function magicWand(img: WandImage, sx: number, sy: number, opts: WandOpti
       }
 
       // (3) No cruzar bordes estructurales.
-      if (grad[j] > edgeTol) continue;
+      if (grad[j] > edgeTol || grad[j] > tolGrano) continue;
 
       // (1) Croma contra la SEMILLA: el tono de la superficie no cambia con la luz.
       const dCb = Cb[j] - refCb;

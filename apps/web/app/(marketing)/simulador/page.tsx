@@ -34,13 +34,17 @@ export default function SimuladorPage() {
       <section className="pt-32 sm:pt-40 pb-section bg-plaster min-h-screen">
         <div className="container-asymmetric">
           <div className="mb-10">
-            <p className="font-mono text-mono-sm text-concrete uppercase tracking-widest mb-4">Simulador con IA (SAM)</p>
+            {/* Decía "Simulador con IA (SAM)" y "la IA marca el contorno exacto". Lo que marca la
+                pared es la varita, que corre en el navegador sin ninguna IA; la detección con IA
+                es un modo opcional. Y "exacto" prometía algo que ninguna de las dos garantiza:
+                para eso están la Sensibilidad y el pincel. */}
+            <p className="font-mono text-mono-sm text-concrete uppercase tracking-widest mb-4">Simulador de color</p>
             <h1 className="font-display text-display-xl max-w-3xl text-balance mb-6">
               Probá el color en tu propia pared.
             </h1>
             <p className="font-body text-body-lg text-concrete max-w-xl">
-              Subí una foto y <strong className="text-ink">hacé clic en la pared</strong>: la IA marca el contorno exacto.
-              Después probá colores sobre tu propia pared.
+              Subí una foto y <strong className="text-ink">tocá la pared</strong> que querés pintar. Después probá
+              colores: cada uno se ve con la luz y las sombras de tu foto.
             </p>
           </div>
 

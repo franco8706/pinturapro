@@ -21,6 +21,9 @@ registerHooks({
 
 const { rgbAOklab, oklabASrgb, rgbAOklch } = await import("./src/oklab.ts");
 const P = await import("./src/pintura.ts");
+// VARITA_DE permite correr las pruebas de la varita contra otra versión del archivo (para verlas
+// fallar contra la de antes de un arreglo): VARITA_DE=/ruta/magic-wand.ts node packages/color/pruebas.ts
+const V = await import(process.env.VARITA_DE ?? "./src/magic-wand.ts");
 
 let fallas = 0;
 let pruebas = 0;
@@ -106,6 +109,33 @@ console.log("OKLab");
   }
   nota(`ida y vuelta sRGB → OKLab → sRGB: el peor canal se corre ${peor.toFixed(3)} niveles`);
   cierto(peor <= 1, `la ida y vuelta corre un canal ${peor.toFixed(3)} niveles (máximo 1)`);
+}
+
+// ── 1 bis. Lo que no entra en la pantalla pierde saturación, no tono ──────────────
+// `oklabASrgb` baja el croma hasta que el color entre. El margen de "entra" estaba en luz
+// LINEAL (0,5/255), que cerca del negro son 6,5 niveles de pantalla: un oscuro saturado que se
+// salía por poco pasaba por bueno, y el recorte canal por canal le corría el tono (Rojo Teja
+// en sombra, ΔE 2,5; medido por `simulador-fidelidad`, 3/10/2026).
+console.log("Gama");
+{
+  let peor = 0;
+  let caso = "";
+  // Desde L = 0,15: más abajo la pantalla muestra el color con 20-38 niveles de brillo y el tono
+  // ya no se distingue (con el margen viejo, a L = 0,15 el tono se corría 43,5°; ahora 2,7°).
+  for (let L = 0.15; L <= 0.4; L += 0.01) {
+    for (let grados = 0; grados < 360; grados += 10) {
+      const h = (grados * Math.PI) / 180;
+      const C = 0.2; // bien afuera de la pantalla a esta luminosidad
+      const [r, g, b] = oklabASrgb(L, C * Math.cos(h), C * Math.sin(h));
+      const salida = rgbAOklch(r, g, b);
+      if (salida.C < 0.02) continue;
+      let d = Math.abs(salida.h - h) * (180 / Math.PI);
+      if (d > 180) d = 360 - d;
+      if (d > peor) { peor = d; caso = `L=${L.toFixed(2)} tono ${grados}°`; }
+    }
+  }
+  nota(`al recortar la gama de oscuros saturados, el tono se corre como máximo ${peor.toFixed(2)}° (${caso})`);
+  cierto(peor <= 3, `un oscuro saturado fuera de la pantalla cambia de tono ${peor.toFixed(2)}° (${caso}) en vez de perder saturación`);
 }
 
 // ── 2. La tabla da lo mismo que la cuenta exacta ──────────────────────────────
@@ -302,6 +332,58 @@ console.log("Textura");
   const min = Math.min(...medidas), max = Math.max(...medidas);
   nota(`textura conservada: entre ${min.toFixed(3)} y ${max.toFixed(3)} (objetivo ~${P.CONTRASTE})`);
   cierto(min >= 0.45 && max <= 0.7, `la textura conservada va de ${min.toFixed(3)} a ${max.toFixed(3)} (tiene que quedar entre 0,45 y 0,7 con cualquier color)`);
+}
+
+// ── 2 quinquies. La varita ────────────────────────────────────────────────────
+console.log("Varita");
+{
+  /** Foto en escala de grises con grano: `valor(x, y)` da el gris de cada píxel. */
+  const foto = (w: number, h: number, valor: (x: number, y: number) => number, grano = 2) => {
+    const data = new Uint8ClampedArray(w * h * 4);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const v = valor(x, y) + gauss() * grano;
+      const p = (y * w + x) * 4;
+      data[p] = v; data[p + 1] = v - 3; data[p + 2] = v - 8; data[p + 3] = 255;
+    }
+    return V.prepareWandImage({ width: w, height: h, data } as ImageData);
+  };
+  const cuenta = (m: Uint8Array, w: number, x0: number, y0: number, x1: number, y1: number) => {
+    let n = 0;
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) n += m[y * w + x];
+    return n / ((x1 - x0) * (y1 - y0));
+  };
+
+  // Una pared ancha y lisa, tocada en un costado: tiene que pintarse entera. El tope de radio
+  // (media diagonal) la cortaba en un arco de círculo en medio de la pared.
+  {
+    const w = 640, h = 200;
+    const img = foto(w, h, (x) => 200 - x * 0.01);
+    const m = V.magicWand(img, 20, 100, { tolerance: 26 });
+    const cubierta = cuenta(m, w, 0, 0, w, h);
+    nota(`pared ancha tocada en un costado: ${(cubierta * 100).toFixed(1)}% pintada`);
+    cierto(cubierta >= 0.99, `una pared lisa tocada en un costado queda pintada al ${(cubierta * 100).toFixed(1)}% (se corta en arco)`);
+  }
+
+  // Pared y techo del mismo blanco, unidos por una esquina tenue (una línea un poco más oscura),
+  // en una foto con muebles muy contrastados que suben el umbral de borde de la foto entera. El
+  // toque en la pared no puede pasar al techo. Con la varita de antes pasaba por dos lados: la
+  // línea quedaba por debajo del umbral de la foto, y el marco de la foto no tenía bordes (la
+  // selección se escurría pegada a él y cruzaba la esquina ahí). Contra esa versión: techo 99 %.
+  {
+    const w = 400, h = 300;
+    semilla = 7;
+    const img = foto(w, h, (x, y) => {
+      if (x >= 300) return ((x >> 2) + (y >> 2)) % 2 ? 40 : 230; // "muebles": bordes fuertes
+      if (y === 100) return 196; // la esquina: una línea tenue
+      return 206; // pared y techo del mismo blanco
+    }, 1);
+    const m = V.magicWand(img, 150, 200, { tolerance: 26 });
+    const techo = cuenta(m, w, 0, 0, 300, 98);
+    const pared = cuenta(m, w, 0, 103, 300, h);
+    nota(`esquina tenue: pared ${(pared * 100).toFixed(1)}%, techo ${(techo * 100).toFixed(1)}%`);
+    cierto(pared >= 0.95, `la pared quedó pintada al ${(pared * 100).toFixed(1)}% (mínimo 95%)`);
+    cierto(techo <= 0.02, `el toque en la pared pintó el ${(techo * 100).toFixed(1)}% del techo, pasando una esquina`);
+  }
 }
 
 // ── 3. Lo que no se pinta queda igual ─────────────────────────────────────────

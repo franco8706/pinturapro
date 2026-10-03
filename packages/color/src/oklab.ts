@@ -108,10 +108,22 @@ function oklabALineal(L: number, a: number, b: number): [number, number, number]
   return lineal;
 }
 
-/** ¿Los tres canales entran en la pantalla? Con un margen de medio nivel de 255. */
+/**
+ * ¿Los tres canales entran en la pantalla? Con un margen de medio nivel de pantalla (de 255).
+ *
+ * El margen se mira en luz LINEAL, y medio nivel de pantalla no es lo mismo en todo el rango:
+ * cerca del negro la curva de sRGB es una recta de pendiente 12,92, así que medio nivel son
+ * 0,5/255/12,92 en lineal. Antes el margen era 0,5/255 en los dos extremos, que abajo son 6,5
+ * niveles: un oscuro saturado que se salía por poco pasaba por bueno, y al recortarlo canal por
+ * canal se le corría el tono (hasta 69° en un oliva muy oscuro; Rojo Teja en sombra, ΔE 2,5).
+ * Arriba, 0,5/255 en lineal es menos de medio nivel: no cambia.
+ */
+const MARGEN_NEGRO = 0.5 / 255 / 12.92;
+const MARGEN_BLANCO = 0.5 / 255;
 function entraEnPantalla([r, g, b]: [number, number, number]): boolean {
-  const m = 0.5 / 255;
-  return r >= -m && r <= 1 + m && g >= -m && g <= 1 + m && b >= -m && b <= 1 + m;
+  const lo = -MARGEN_NEGRO;
+  const hi = 1 + MARGEN_BLANCO;
+  return r >= lo && r <= hi && g >= lo && g <= hi && b >= lo && b <= hi;
 }
 
 function oklabACrudo(L: number, a: number, b: number): [number, number, number] {
