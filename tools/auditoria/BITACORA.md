@@ -69,9 +69,31 @@ Estos ya no se reportan. `pnpm verificar` los revisa en cada corrida.
 | Una reseña abusiva no tenía salida | 1★ con una amenaza: el pintor no veía el texto ni recibía aviso, y el dueño no tenía dónde leerla ni borrarla | `moderacion-resenas` |
 | No había "Deshacer" en el simulador | Un clic de más obligaba a "Limpiar selección" y empezar de nuevo | `simulador-deshacer` |
 | "Intensidad" quedaba a 7-14 Shift+Tab del color | El control vivía antes de la grilla de colores en el orden del teclado | `simulador-deshacer` |
+| **El color de la pared no era el elegido** (3/10) | Intensidad por defecto 90 %: el 10 % lo ponía la pared vieja. Blanco Puro sobre pared roja se veía `#F3E5E0` (ΔE 7,4), Negro Mate sobre clara ΔE 4,7. Y el croma bajaba según la distancia a L=0,5: Marfil, Durazno 10-15 % más grises (ΔE 2,2 en pared pareja). Ahora 100 % y C/L constante: ΔE 0,26-0,61 | `simulador-color-fiel`, `pnpm pruebas-color` |
+| La pintura terminaba en un arco de círculo (3/10) | El tope de radio de la varita (media diagonal) cortaba una pared lisa en medio: 7 de 13 fotos reales; la sintética 02 nunca pasaba de 77,9 % | `simulador-calidad` (piso 90 %; hoy 94 %), `pruebas-color` |
+| Un toque en un cuarto blanco pintaba también el techo (3/10) | La esquina pared-techo es una línea tenue, por debajo del umbral de borde de la foto entera; y el marco de la foto no tenía bordes (la selección se escurría por ahí). r03: techo 100 % → 0 % | `pruebas-color` (esquina tenue) |
+| Deshacer se llevaba la pared anterior (3/10) | Toque fallido ("subí la Sensibilidad") + subir la Sensibilidad: aparecía la zona, seguía el aviso de error, no había "Limpiar selección", y Deshacer dejaba 0 px donde había 262.451 | `simulador-acciones` |
+| La pared quedaba con el color VIEJO (3/10) | Elegir otro color mientras la varita calculaba: la muestra marcada decía Arena y la pared seguía azul (hasta 2 s de ventana con toques en cola) | `simulador-carreras` |
+| La IA pintaba una foto con las regiones de otra (3/10, BLOQUEANTE) | Cambiar de foto mientras decía "Analizando…": la nueva aparecía pintada sin tocarla (699.392 px) | `simulador-carreras` (IA simulada, sin costo) |
+| El pincel dejaba círculos sueltos y llegaba tarde (3/10) | Un trazo rápido: 2 a 25 huecos; cada movimiento repintaba la foto entera (77-510 ms en gama media) | `simulador-acciones` |
+| Dos paredes no podían tener dos colores (3/10) | Elegir color para la segunda pared cambiaba la primera. Ahora "＋ Otra pared, otro color" | `simulador-acciones` |
+| Las fachadas no se podían pintar (3/10) | Ladrillo, piedra, madera: la varita daba aviso o agarraba 1-13 %; ninguna llegaba al 80 % con 8 toques. Ahora "⬠ Contorno" (esquinas de la zona) | `simulador-acciones`, `pruebas-color` |
+| En el celular no se veían la pared y los colores a la vez (3/10) | El primer color estaba 630 px debajo de la foto. Ahora una tira pegada (42 px) | `simulador-celular` |
+| Un contorno del color viejo alrededor de lo pintado (3/10) | Pared verde oscura pintada de blanco: la mitad del borde seguía verde (en esquinas y alrededor de cada cuadro). Ahora el borde se pinta en la proporción en que es pared | `simulador-borde`, `pruebas-color` |
+| Los oscuros saturados cambiaban de tono al recortar la gama (3/10) | El margen de "entra en pantalla" estaba en luz lineal: cerca del negro eran 6,5 niveles. A L=0,15 el tono se corría 43,5° (ahora 2,7°) | `pruebas-color` (Gama) |
 ## Corregido, sin prueba todavía
 
 Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arriba.
+
+- **Simulador, ronda del 3/10** (`tools/auditoria/rondas/2026-10-03-simulador/`), lo chico:
+  cambiar de marca o de Interior/Exterior ya no borra el color (la pared volvía al velo azul de
+  "selección"); una PNG transparente se ve sobre blanco (lo transparente no se podía pintar);
+  el lienzo auxiliar de cada foto se libera (quedaba uno vivo de más cada dos fotos); la mira del
+  teclado sigue a la vista con zoom 400 %; soltar una foto sobre la caja la carga; el aviso de
+  foto grande dice el máximo (24 MP); los avisos de la IA nombran la Varita y el Contorno; la
+  foto vertical entra entera en el recuadro (medía 1.316 px en uno de 628); los toques en cola se
+  dibujan una vez al final (10 toques congelaban 1,06 s); "Simulador con IA (SAM)… la IA marca el
+  contorno exacto" decía algo que no hace la varita.
 
 - **La base que falla ya no muestra pintores inventados** (20/9). Cuesta probarlo sin poder
   cortarle la base a la app; se podría interceptar la conexión desde el navegador.
@@ -203,15 +225,26 @@ Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arri
   deja rastro visible (el trabajo queda `cancelled` en la base). Y **retirar y recotizar** el
   mismo pedido no tiene límite. Con 3 pintores no es urgente; con tráfico, un contador por
   cuenta en /admin.
-- **La moldura manchada mide 4,5 %** (referencia 2,5 %; el piso de alarma es 6 %) sin que el
-  código del simulador haya cambiado. El perfil del filo sigue en 0. Puede ser la versión de
-  Chrome; si vuelve a moverse, es regresión (simulador-color, 2/10).
+- **Un toque en una pared gris o blanca sigue pintando el techo en 2 de 13 fotos reales** (r07,
+  r13, 3/10): ahí la esquina es tan tenue que ni el freno relativo la ve. La salida es "⬠
+  Contorno" → "Quitar la zona", y el texto de ayuda lo dice. Un modelo que entienda qué es un
+  techo (la IA) lo resolvería; la varita, que elige por color y borde, no.
+- **El ancla en percentil** (3/10, `simulador-fidelidad`): en una pared con luz fuerte de ventana,
+  los blancos quedan ~ΔE 4 más oscuros en la mediana que la muestra (r09: 4,8). Es a propósito
+  —anclar en la mediana quemaba las luces y aplanaba la textura en la mitad clara—; una pendiente
+  menor lo baja a 1,7 pero sube el recorte a 21,7 %. Queda así salvo que el dueño prefiera otra cosa.
 - **Un título de 5.000 caracteres pasa los tres pasos de /publicar** y lo rechaza recién el
   servidor. Correcto, pero la persona se entera al final. **Severidad: menor.**
 
 ## Descartado (se midió y no era)
 
 No los vuelvas a levantar sin evidencia nueva.
+
+- **"La moldura manchada subió de 2,5 % a 4,5 %"** (3/10, `simulador-color`). Es la MISMA pintura
+  medida sobre dos franjas distintas: la sonda del 19/9 contaba x ∈ [60, 82) e y ∈ [140, 700); la
+  prueba `sangrado-moldura`, x ∈ [60, 82] e y ∈ [102, 623], que incluye la columna de transición
+  x=82 (mitad pared, mitad moldura, por el reescalado 1200 → 1024). Chrome no cambió (una sola
+  instalación, el 8/9) y las fotos se regeneran idénticas byte a byte. Referencia: 4,5 %.
 
 - **"Enter y un clic dan máscaras distintas en el simulador".** Llaman a la misma función con
   la misma fracción; la diferencia de 1 px venía de que un clic de mouse se redondea a píxeles

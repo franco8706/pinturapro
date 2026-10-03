@@ -7,7 +7,8 @@
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "verificar": "node tools/auditoria/regresiones/correr.cjs",
-    "fotos-prueba": "python3 tools/auditoria/generar.py --grande && python3 tools/auditoria/mascara.py"
+    "fotos-prueba": "python3 tools/auditoria/generar.py --grande && python3 tools/auditoria/mascara.py && python3 tools/auditoria/simulador/fotos-reales.py",
+    "pruebas-color": "node packages/color/pruebas.ts"
   },
   "devDependencies": {
     "prettier": "^3.2.0",

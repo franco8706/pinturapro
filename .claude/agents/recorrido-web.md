@@ -20,7 +20,7 @@ cómo usar el kit de navegador y las cuentas demo.
 - El kit te da tu propio Chrome: `require("<repo>/tools/auditoria/navegador.cjs")`.
   `abrir({movil})`, `ir`, `ingresar(page, rol)`, `auditar(page, eventos)`, `limpiarEventos`.
 - **Un navegador a la vez**, y cerralo siempre en `finally`.
-- Guardá tus scripts en `/tmp/auditoria/<tu-nombre>/`, nunca dentro del repo.
+- Guardá tus scripts en `tools/auditoria/.salida/<tu-nombre>/` (fuera de git; `/tmp` se borra con cada reinicio del Codespace).
 - Cada pantalla: corré `k.auditar()` **y además** mirala con criterio humano. ¿Se entiende qué
   hacer? ¿Los números cierran con las listas? ¿Los estados vacíos explican el paso siguiente?
 - Todo lo que crees lleva el prefijo `ZZAGENT` y lo listás al final para que lo borren.

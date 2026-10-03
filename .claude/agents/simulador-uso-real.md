@@ -42,7 +42,7 @@ python3 tools/auditoria/generar.py                  # las 3 sintéticas
   tomar el `boundingBox()`.
 - Elegir color: `page.click('button:has-text("Verde Agua")')` — desplaza la página en celular.
 - Leer el resultado: `getImageData` dentro de `page.evaluate`, devolviendo números.
-- **Mirá con tus ojos**: guardá capturas en `/tmp/auditoria/simulador-uso-real/` y abrilas con
+- **Mirá con tus ojos**: guardá capturas en `tools/auditoria/.salida/simulador-uso-real/` (no en /tmp: se borra al reiniciar) y abrilas con
   Read. Una pared "pintada" con el techo incluido se ve en un segundo y no en un porcentaje.
 
 ## Qué recorrer (celular 390 px y compu 1440 px)

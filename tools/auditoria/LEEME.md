@@ -14,8 +14,8 @@ sesión y sin que haya que explicarles el contexto cada vez.
 | `rondas/` | Un reporte por agente en cada ronda grande, el cierre del orquestador y la retroalimentación. |
 | `cobertura.mjs` → `COBERTURA.md` | Qué pantalla, acción, tabla o función no mira ninguna prueba ni agente. |
 | `escala/` | Carga contra producción (`carga.mjs`) y pruebas de la base con volumen, siempre en rollback. |
-| `simulador/` | Cuánto congela la pantalla el primer clic de la varita (`congelamiento.cjs`). |
-| `generar.py`, `mascara.py` | Fotos de prueba del simulador y dónde está la pared en cada una (`pnpm fotos-prueba`). |
+| `simulador/` | Cuánto congela la pantalla el primer clic de la varita (`congelamiento.cjs`) y las fotos REALES: `fotos-reales.py` baja 18 fotos de living, dormitorio y fachada (siempre las mismas) y arma 19 variantes de archivo (EXIF, PNG transparente, WebP, 24 MP, rotas…). |
+| `generar.py`, `mascara.py` | Fotos sintéticas del simulador y dónde está la pared en cada una. `pnpm fotos-prueba` arma las sintéticas y las reales. |
 | `instalar-agentes.sh` | Hace que los agentes se vean desde las sesiones abiertas en la raíz del Codespace. |
 | `historico/` | Las sondas de la primera auditoría (septiembre). Historia, no herramientas. |
 | `.salida/` | Lo que escriben las corridas largas (`verificar.log`). No va a git. |

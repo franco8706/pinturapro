@@ -46,9 +46,14 @@ const k = require("/workspaces/codespaces-blank/pinturapro/tools/auditoria/naveg
 })();
 ```
 
-Guardá tus scripts en `/tmp/auditoria/<tu-nombre>/` (NO dentro del repo: son descartables y
-ensucian el control de versiones). Corrélos con
-`timeout 240 node <script>`. **Un solo navegador a la vez, y cerralo** antes de abrir otro.
+Guardá tus scripts y capturas en `tools/auditoria/.salida/<tu-nombre>/`: está dentro del repo
+pero fuera de git, así que no ensucia y **sobrevive a un reinicio del Codespace**. Hasta el 3/10
+iban en `/tmp/auditoria/`, y un reinicio a mitad de ronda se llevó los scripts y las capturas de
+tres agentes. Corrélos con `timeout 240 node <script>`. **Un solo navegador a la vez, y
+cerralo** antes de abrir otro.
+
+**Nada de bajar ni instalar archivos en la raíz del repo.** Un `pip download` dejó dos `.whl` de
+30 MB junto al `package.json` (3/10). Si necesitás una librería de Python: `pip install --user`.
 
 `k.auditar()` devuelve `titulo`, `h1`, `scrollHorizontal`, `elementosFueraDePantalla`,
 `objetivosTactilesChicos` (< 24px), `imagenesRotas`, `textosProhibidos` (errores crudos de base, stack
@@ -165,6 +170,14 @@ Y estas trampas del propio script, que ya costaron tiempo:
 Todas pasaron en este proyecto. Si escribís una prueba, revisá que no caiga en ninguna, y
 **verla fallar rompiendo el arreglo a propósito es la única forma de saber que mide algo**.
 
+- **Cómo verla fallar sin romper el producto a mano:** mientras la compilación de producción
+  (:3100) siga siendo la del código ANTERIOR al arreglo, corré la prueba nueva contra ella:
+  `PINTURAPRO_URL=http://localhost:3100 node tools/auditoria/regresiones/correr.cjs --solo <prueba>`.
+  Tiene que dar rojo con el mismo número que vio el agente (3/10: "Deshacer dejó 0 píxeles donde
+  había 262.451"). Recién después se recompila :3100.
+- **Lo que cuesta plata se simula.** La IA del simulador (`/api/segment`, Replicate) se contesta
+  desde la prueba con `page.route`: tarde, y con una máscara blanca de 8×8 en data URL ("toda la
+  foto es una región"). Así se prueba una carrera sin gastar (`simulador-carreras`).
 - **Una prueba salteada para siempre.** `doble-envio` pedía `psql` y una conexión directa que
   desde el Codespace nunca anduvo: figuró "1 salteada" en cada corrida durante días, y el
   "salteada" se volvió ruido. Para contar filas usá `regresiones/base.cjs` (API REST).
@@ -200,7 +213,28 @@ Todas pasaron en este proyecto. Si escribís una prueba, revisá que no caiga en
   orquestador (`tools/auditoria/escala/volumen.sql` es el modelo). Aplicar una migración a la
   base real lo autoriza el dueño: el sistema de permisos lo frena, y no se le busca la vuelta.
 
+### El simulador se mide con fotos REALES
+
+Hasta el 3/10 la varita se afinó sólo con las tres fotos sintéticas de `generar.py`: daban 82-84 %
+de pared con 99 % de precisión, y en fotos de verdad la pintura terminaba en un arco de círculo,
+se comía el techo de los cuartos blancos y no servía en ninguna fachada. Las sintéticas no tienen
+techo del mismo color, cuadros, ni textura de ladrillo. `python3 tools/auditoria/simulador/fotos-reales.py`
+baja 18 fotos reales (siempre las mismas) y arma 19 variantes de archivo; los puntos de toque y
+las zonas "seguro pared"/"fugas" de cada una están en `tools/auditoria/.salida/simulador-color/reales.json`
+(los dibujó el agente mirando cada foto). Para medir en Node, el reescalado de PIL no es el de
+Chrome: los números son aproximados; lo que se publica, se confirma en el navegador.
+
 ### Lo que le pasó al orquestador (para el que lance agentes)
+
+- **Mientras los agentes miden contra :3000, el orquestador arregla en una copia aparte**
+  (`git worktree add`) y verifica en Node (`pnpm pruebas-color`, `tsc`). Editar el código que el
+  servidor de desarrollo está sirviendo cambia lo que los agentes miden a mitad de camino. Se
+  integra cuando terminan (3/10: así se arreglaron 15 cosas del simulador sin pisar ninguna
+  medición).
+- **El Codespace se puede reiniciar a mitad de ronda** (3/10, ~07:17 UTC): se cae el servidor de
+  desarrollo (`pnpm dev`, lo levanta el orquestador), se borra `/tmp`, y los agentes que estaban
+  cortados por el límite de uso se retoman con SendMessage: conservan lo que sabían, no sus
+  archivos de `/tmp`. Pediles que escriban el reporte parcial apenas tengan algo.
 
 - **Un agente lanzado como `general-purpose` puede editar**, aunque su definición diga
   `tools: Bash, Read, Glob, Grep`. Pasó el 28/9 con `buscadores` (su tipo todavía no estaba
