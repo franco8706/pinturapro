@@ -452,6 +452,43 @@ console.log("Borde");
   cierto(b(30) === 0 && b(31) === 0, "con dos lados casi iguales, la pintura se extendió fuera de la selección");
 }
 
+// ── 2 octies. El borde no deja una línea adentro ni cruza una arista ───────────
+// La varita suele frenar 1-2 px antes del objeto (ahí el gradiente ya es alto): esos píxeles
+// son PARED y se pintan. Hasta el 4/10 el último píxel de la selección quedaba al 67 % por el
+// difuminado hacia adentro, justo al lado de los de afuera pintados al 100 %: una línea gris de
+// 1 px adentro de la pintura, en el 89 % del filo de la pared verde de r08 (`simulador-uso-real`).
+// Y la desmezcla no puede saltar una arista: la tapa de una cómoda, casi del color de la pared,
+// separada de ella por una línea más oscura, quedaba con pintura encima.
+console.log("Borde sin línea");
+{
+  const w = 60, h = 20;
+  const armar = (columna: (x: number) => number, hastaX: number) => {
+    const rgba = new Uint8ClampedArray(w * h * 4);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const p = (y * w + x) * 4;
+      rgba[p] = rgba[p + 1] = rgba[p + 2] = columna(x);
+      rgba[p + 3] = 255;
+    }
+    const mascara = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < hastaX; x++) mascara[y * w + x] = 1;
+    const alfa = new Float32Array(w * h);
+    alfaDeLaSeleccion(mascara, alfa, P.fotoPerceptual(rgba, w * h), w, h);
+    return (x: number) => alfa[10 * w + x];
+  };
+  // Pared oscura hasta x=41; la selección llega hasta x=39 (le faltan dos píxeles de pared);
+  // un objeto blanco desde x=42.
+  const a = armar((x) => (x < 42 ? 50 : 230), 40);
+  nota(`pared que la varita no tomó entera: ${[38, 39, 40, 41, 42].map((x) => a(x).toFixed(2)).join(" · ")} (x = 38…42)`);
+  cierto(a(39) > 0.95, `el último píxel de la selección queda al ${(a(39) * 100).toFixed(0)} % entre píxeles pintados: línea gris adentro de la pintura`);
+  cierto(a(40) > 0.9 && a(41) > 0.9, "los dos píxeles de pared que la varita dejó afuera no se pintan: contorno del color viejo");
+  cierto(a(42) === 0, "la pintura se pasa al objeto blanco");
+  // Pared gris clara (200); en x=40 una arista oscura (110); después la tapa de una cómoda casi
+  // del color de la pared (206) y el frente, más oscuro (90). La selección llega hasta x=39.
+  const c = armar((x) => (x < 40 ? 200 : x === 40 ? 110 : x < 44 ? 206 : 90), 40);
+  nota(`arista y tapa del mueble: ${[39, 40, 41, 42].map((x) => c(x).toFixed(2)).join(" · ")} (x = 39…42)`);
+  cierto(c(40) < 0.3 && c(41) === 0 && c(42) === 0, `la pintura cruza la arista y se mete en la tapa del mueble (${c(40).toFixed(2)}, ${c(41).toFixed(2)}, ${c(42).toFixed(2)})`);
+}
+
 // ── 3. Lo que no se pinta queda igual ─────────────────────────────────────────
 console.log("Fuera de la máscara");
 {

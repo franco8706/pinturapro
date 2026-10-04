@@ -66,7 +66,21 @@ module.exports = {
           const i = p * 4;
           if (Math.hypot(d[i] - r0, d[i + 1] - g0, d[i + 2] - b0) < 30) viejos++;
         }
-        return { junto, viejos };
+        // La línea gris ADENTRO de la pintura (4/10, `simulador-uso-real`): un píxel que quedó a
+        // medias entre dos pintados (izquierda y derecha, o arriba y abajo). Pasaba cuando el
+        // último píxel de la selección se difuminaba al 67 % y los de afuera se pintaban enteros.
+        // Sólo cuenta lo que era pared verde oscura en la foto (luz < 120 antes): la alfombra
+        // blanca con dibujo negro ya era clara y su dibujo no es ninguna línea de la pintura.
+        let linea = 0;
+        const eraOscuro = (p) => luz(a, p * 4) < 120;
+        const pintadoClaro = (p) => eraOscuro(p) && luz(d, p * 4) > 215;
+        for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+          const p = y * W + x;
+          const ahora = luz(d, p * 4);
+          if (!eraOscuro(p) || ahora >= 200 || ahora < 120) continue;
+          if ((pintadoClaro(p - 1) && pintadoClaro(p + 1)) || (pintadoClaro(p - W) && pintadoClaro(p + W))) linea++;
+        }
+        return { junto, viejos, linea };
       });
       if (r.junto < 500) {
         t.cierto(false, `el toque no pintó la pared verde (${r.junto} píxeles de borde): la prueba no puede medir`);
@@ -75,6 +89,8 @@ module.exports = {
       const parte = r.viejos / r.junto;
       t.nota(`borde de lo pintado: ${r.junto} píxeles, ${r.viejos} con el verde viejo (${(parte * 100).toFixed(1)} %)`);
       t.cierto(parte <= MAXIMO, `${(parte * 100).toFixed(1)} % del borde de la pared pintada quedó con el verde viejo (máximo ${MAXIMO * 100} %): contorno oscuro`);
+      t.nota(`línea gris adentro de la pintura: ${r.linea} píxeles`);
+      t.cierto(r.linea <= 150, `${r.linea} píxeles a medias entre dos pintados: una línea gris adentro de la pintura (con el difuminado de antes, miles)`);
     } finally {
       await browser.close();
     }
