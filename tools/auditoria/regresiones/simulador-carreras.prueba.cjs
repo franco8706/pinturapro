@@ -9,6 +9,9 @@
  *  2. 🤖 IA: cambiar de foto mientras decía "Analizando…" (3-60 s) dejaba la foto NUEVA pintada
  *     sin tocarla, con la forma de la pared de la anterior: las regiones de la foto vieja se
  *     guardaban igual y el toque pendiente las aplicaba sobre la nueva.
+ *  3. 🤖 IA colgada (4/10): 70 s con todo apagado, sin forma de cancelar salvo perder la foto, y
+ *     al vencer el tiempo se iba sin ningún aviso. Ahora hay "Cancelar", y el corte por tiempo
+ *     avisa. El tiempo se adelanta con el reloj simulado de Playwright: no se esperan 70 s.
  *
  * La IA no se llama de verdad (cuesta plata): `/api/segment` se contesta desde la prueba, tarde,
  * con una máscara que cubre toda la foto. Si la regresión vuelve, la foto nueva queda pintada.
@@ -110,6 +113,40 @@ module.exports = {
       await page.waitForTimeout(4500); // la respuesta de la IA de la foto anterior llega acá
       const sinTocar = await pintados(page);
       t.igual(sinTocar, 0, "la foto nueva quedó pintada sin tocarla, con las regiones que la IA devolvió para la foto anterior");
+      await page.unroute("**/api/segment");
+
+      // ── 3. 🤖 IA colgada: se puede cancelar, y el corte por tiempo avisa ──
+      await page.route("**/api/segment", () => {}); // nunca contesta
+      const analizar = async () => {
+        await page.click("button:has-text('🤖 IA')");
+        await page.evaluate(() => document.querySelector("canvas").scrollIntoView({ block: "center" }));
+        const c3 = await page.locator("canvas").boundingBox();
+        await page.mouse.click(c3.x + c3.width * 0.4, c3.y + c3.height * 0.5);
+        return page.waitForSelector("text=Analizando", { timeout: 5000 }).then(() => true).catch(() => false);
+      };
+      if (await analizar()) {
+        const cancelar = page.locator("button", { hasText: "Cancelar" });
+        t.cierto((await cancelar.count()) === 1, "mientras la IA analiza no hay forma de cancelar (sólo «Cambiar foto», que pierde la foto)");
+        if ((await cancelar.count()) === 1) {
+          await cancelar.click();
+          await page.waitForTimeout(500);
+          t.cierto((await page.locator("text=Analizando").count()) === 0, "«Cancelar» no sacó el cartel de «Analizando…»");
+          t.cierto(await page.locator("button:has-text('🖌 Pincel')").isEnabled(), "después de cancelar, las herramientas siguen apagadas");
+        }
+      } else t.nota("no apareció «Analizando…» (cancelar)");
+      // El corte por tiempo: reloj simulado, se adelantan 71 s.
+      await page.clock.install();
+      await k.ir(page, "/simulador");
+      await page.click('button:has-text("Azul Profundo")');
+      await page.setInputFiles("input[type=file]", `${FOTOS}/02-pared-plana.jpg`);
+      await page.waitForSelector("canvas", { timeout: 40000 });
+      await page.clock.runFor(1500);
+      if (await analizar()) {
+        await page.clock.runFor(71_000);
+        await page.waitForTimeout(500);
+        const aviso = await page.evaluate(() => /tardó demasiado/.test(document.body.innerText));
+        t.cierto(aviso, "la IA se cortó por tiempo y no avisó nada");
+      } else t.nota("no apareció «Analizando…» (tiempo)");
       await page.unroute("**/api/segment");
     } finally {
       await browser.close();

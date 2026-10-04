@@ -489,6 +489,27 @@ console.log("Borde sin línea");
   cierto(c(40) < 0.3 && c(41) === 0 && c(42) === 0, `la pintura cruza la arista y se mete en la tapa del mueble (${c(40).toFixed(2)}, ${c(41).toFixed(2)}, ${c(42).toFixed(2)})`);
 }
 
+// ── 2 nonies. Cada pared fija conserva su intensidad ───────────────────────────
+console.log("Varias paredes");
+{
+  const n = W * H;
+  const src = PAREDES["blanca pareja"];
+  const foto = P.fotoPerceptual(src, n);
+  const izquierda = new Float32Array(n), derecha = new Float32Array(n);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) (x < W / 2 ? izquierda : derecha)[y * W + x] = 1;
+  const pintura = (hex: string, alfa: Float32Array) => { const p = P.pinturaDesdeHex(hex)!; return P.curva(p, P.ancla(foto, alfa, p)); };
+  const capas = [
+    { alfa: izquierda, curva: pintura("#28415F", izquierda), intensidad: 1 },
+    { alfa: derecha, curva: pintura("#A8C7BB", derecha) },
+  ];
+  const a = new Uint8ClampedArray(n * 4), b = new Uint8ClampedArray(n * 4);
+  P.componer(a, src, foto, capas, 1, W);
+  P.componer(b, src, foto, capas, 0.5, W);
+  const igual = (x: number) => { const p = (50 * W + x) * 4; return a[p] === b[p] && a[p + 1] === b[p + 1] && a[p + 2] === b[p + 2]; };
+  cierto(igual(20), "bajar la Intensidad cambió una pared fija que tenía la suya");
+  cierto(!igual(W - 20), "bajar la Intensidad no cambió la pared que se está pintando");
+}
+
 // ── 3. Lo que no se pinta queda igual ─────────────────────────────────────────
 console.log("Fuera de la máscara");
 {

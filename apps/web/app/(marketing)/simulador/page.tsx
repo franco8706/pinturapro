@@ -84,7 +84,9 @@ export default function SimuladorPage() {
                     <p className="font-mono text-mono-sm text-concrete mb-2">
                       {color ? `Color: ${colorName}` : "Elegí un color"}
                     </p>
-                    <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1" role="group" aria-label="Colores">
+                    {/* En grilla y no en una fila que se desliza: en 390 px el 8.º color quedaba
+                        escondido a la derecha sin ningún indicio de que había más (4/10). */}
+                    <div className="grid grid-cols-8 gap-1.5" role="group" aria-label="Colores">
                       {colors.map((c) => (
                         <button
                           key={`tira-${c.name}-${c.code}`}
@@ -97,7 +99,7 @@ export default function SimuladorPage() {
                           aria-label={c.name}
                           title={c.name}
                           className={cn(
-                            "shrink-0 w-11 h-11 border transition-shadow",
+                            "aspect-square w-full min-h-8 border transition-shadow",
                             color === c.hex && colorName === c.name ? "ring-2 ring-offset-2 ring-ink border-ink" : "border-black/10",
                           )}
                           style={{ backgroundColor: c.hex }}

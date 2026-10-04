@@ -45,6 +45,21 @@ interface PhotoSimulatorProps {
 }
 
 const MAX_DIM = 1024;
+
+/**
+ * Una pared que ya quedó pintada con su color. Nunca se modifica en el lugar: borrar parte de
+ * ella crea otra con un alfa nuevo. Así "Deshacer" puede guardar la lista tal cual estaba.
+ */
+interface ParedFija {
+  id: number;
+  alfa: Float32Array;
+  color: string;
+  nombre: string;
+  curva: Curva;
+  /** La Intensidad que tenía al quedar fija (mover la de ahora no la cambia). */
+  intensidad: number;
+}
+const fichas = (capas: ParedFija[]) => capas.map(({ id, color, nombre }) => ({ id, color, nombre }));
 /** Paredes de distinto color a la vez. Cada una guarda su borde (4 bytes por píxel). */
 const MAX_PAREDES = 8;
 /**
@@ -94,7 +109,7 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
    * selección actual fija con su color y empieza una nueva encima. Se guarda el alfa (el borde
    * difuminado) y la tabla de su color; la máscara ya no hace falta.
    */
-  const capasRef = useRef<{ id: number; alfa: Float32Array; color: string; nombre: string; curva: Curva }[]>([]);
+  const capasRef = useRef<ParedFija[]>([]);
   const [capas, setCapas] = useState<{ id: number; color: string; nombre: string }[]>([]);
   const idCapaRef = useRef(0);
   /** "Ver la foto original": el lienzo muestra la foto sin pintar mientras está prendido. */
@@ -128,12 +143,13 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
    */
   const generacionRef = useRef(0);
   /**
-   * La selección tal como estaba antes de la última acción, para "Deshacer".
+   * Cómo estaba todo antes de la última acción, para "Deshacer": la selección y las paredes ya
+   * pintadas. Un solo nivel.
    *
-   * No había forma de volver un paso atrás: sólo "Limpiar selección", que borra todo. Un clic
-   * de más —la varita agarró el techo— obligaba a empezar de nuevo. Un solo nivel alcanza.
+   * Guardaba sólo la selección: quitar una pared con su ✕ y apretar Deshacer no la devolvía, y
+   * además deshacía el toque anterior, que no tenía nada que ver (`simulador-uso-real`, 4/10).
    */
-  const deshacerRef = useRef<Uint8Array | null>(null);
+  const deshacerRef = useRef<{ mascara: Uint8Array; capas: ParedFija[] } | null>(null);
   const [puedeDeshacer, setPuedeDeshacer] = useState(false);
   /** Los clics se atienden de a uno, en orden: el segundo suma sobre lo que dejó el primero. */
   const colaClicsRef = useRef<Promise<unknown>>(Promise.resolve());
@@ -177,10 +193,18 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
    */
   const colorRef = useRef(color);
   const strengthRef = useRef(strength);
+  const nombreColorRef = useRef(colorName);
   useEffect(() => {
+    // Cambiar el color o la Intensidad es pintar: con "Ver la foto original" prendido no se
+    // veía nada (ver `verPintada`).
+    if (colorRef.current !== color || strengthRef.current !== strength) {
+      verOriginalRef.current = false;
+      setVerOriginal(false);
+    }
     colorRef.current = color;
     strengthRef.current = strength;
-  }, [color, strength]);
+    nombreColorRef.current = colorName;
+  }, [color, strength, colorName]);
   const [hasSelection, setHasSelection] = useState(false);
   const [zoom, setZoom] = useState(1);
   /** Ancho / alto de la foto: para que entre entera en el recuadro (ver el lienzo). */
@@ -232,6 +256,8 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
    * tocarla, con la forma de la pared de la otra (`simulador-uso-real`, 3/10/2026).
    */
   const fotoIdRef = useRef(0);
+  /** Si el análisis con IA se cortó por tiempo (y no porque la persona lo canceló). */
+  const porTiempoRef = useRef(false);
 
   // ---- Cargar imagen ----
   const onFile = useCallback(async (file: File) => {
@@ -381,7 +407,7 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
       const strength = strengthRef.current;
 
       // Las paredes ya pintadas, de abajo hacia arriba, y la selección actual encima.
-      const capasAComponer: Capa[] = capasRef.current.map((c) => ({ alfa: c.alfa, curva: c.curva }));
+      const capasAComponer: Capa[] = capasRef.current.map((c) => ({ alfa: c.alfa, curva: c.curva, intensidad: c.intensidad }));
       const pintura = color ? pinturaDesdeHex(color) : null;
       if (color && pintura) {
         let cache = curvaRef.current;
@@ -479,7 +505,14 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
       abortRef.current?.abort();
       const ctrl = new AbortController();
       abortRef.current = ctrl;
-      const corte = setTimeout(() => ctrl.abort(), 70_000);
+      // Se marca si el corte fue por tiempo: eso SÍ se avisa. Antes cualquier AbortError se
+      // tomaba como "lo canceló la persona": 70 s con todo apagado y después nada, ni pintura ni
+      // aviso (`simulador-uso-real`, 4/10).
+      porTiempoRef.current = false;
+      const corte = setTimeout(() => {
+        porTiempoRef.current = true;
+        ctrl.abort();
+      }, 70_000);
       const res = await fetch("/api/segment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -537,6 +570,10 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
       return segmentedRef.current;
     } catch (e) {
       if ((e as Error)?.name === "AbortError") {
+        if (porTiempoRef.current)
+          setErrorMsg(
+            "La detección con IA tardó demasiado y se cortó. Probá de nuevo en un rato, o seguí con la ✨ Varita o el ⬠ Contorno.",
+          );
         // Lo canceló la persona, o venció el tope de 70s. No es un error que reportar.
         return false;
       }
@@ -642,9 +679,13 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
     return Promise.resolve(wandRef.current ? magicWand(wandRef.current, x, y, opciones) : null);
   }, []);
 
-  /** Guarda cómo estaba la selección antes de un cambio, para "Deshacer" (un solo nivel). */
-  const recordarParaDeshacer = useCallback((antes: Uint8Array | null) => {
-    deshacerRef.current = antes ? new Uint8Array(antes) : null;
+  /**
+   * Guarda cómo estaba todo antes de un cambio, para "Deshacer" (un solo nivel): la selección
+   * que se pasa (se copia) y las paredes fijas de ese momento (la lista no se modifica nunca en
+   * el lugar, así que alcanza con guardarla).
+   */
+  const recordarParaDeshacer = useCallback((antes: Uint8Array | null, capasAntes?: ParedFija[]) => {
+    deshacerRef.current = antes ? { mascara: new Uint8Array(antes), capas: capasAntes ?? capasRef.current } : null;
     setPuedeDeshacer(!!antes);
   }, []);
 
@@ -708,12 +749,16 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
    * la mira: un clic y un Enter tienen que hacer exactamente lo mismo, y la única forma de
    * garantizarlo es que sea el mismo código.
    */
-  /** Vuelve la selección a como estaba antes del último clic, pincelada o "Limpiar". */
+  /** Vuelve todo a como estaba antes de la última acción: toque, pincelada, contorno, "Limpiar",
+   *  "＋ Otra pared" o la ✕ de una pared ya pintada. */
   const deshacer = () => {
     const antes = deshacerRef.current;
     const mask = maskRef.current;
-    if (!antes || !mask || antes.length !== mask.length) return;
-    mask.set(antes);
+    if (!antes || !mask || antes.mascara.length !== mask.length) return;
+    verPintada();
+    mask.set(antes.mascara);
+    capasRef.current = antes.capas;
+    setCapas(fichas(antes.capas));
     deshacerRef.current = null;
     setPuedeDeshacer(false);
     // Ya no hay un "último clic" que recalcular con la sensibilidad, y lo que esté en vuelo
@@ -726,6 +771,8 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
     setHasSelection(mask.some((v) => v === 1));
     setErrorMsg("");
     setAviso("Se deshizo el último cambio.");
+    // El botón desaparece al usarlo: el foco iría a parar a la nada (al <body>).
+    viewRef.current?.focus();
   };
 
   const aplicarEn = (nx: number, ny: number): Promise<void> => {
@@ -753,6 +800,7 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
     const canvas = viewRef.current;
     if (!canvas) return;
 
+    verPintada();
     // Congelamos la selección actual como base: este clic SUMA sobre ella.
     generacionRef.current++;
     arrastreRef.current.pendiente = null;
@@ -811,10 +859,17 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
     const pegar = (v: number, largo: number) => (v * largo < 12 ? 0 : (1 - v) * largo < 12 ? 1 : Math.min(1, Math.max(0, v)));
     const p = { x: pegar(nx, anchoCss), y: pegar(ny, altoCss) };
     const primera = vertices[0];
-    if (rect && primera && vertices.length >= 3 && Math.hypot((p.x - primera.x) * anchoCss, (p.y - primera.y) * altoCss) < 18) {
+    // Cerca de la primera esquina se cierra la zona: 18 px con el dedo o el mouse; con el
+    // teclado (sin `rect`), a menos de 2 % de la foto. Enter sobre la primera esquina agregaba
+    // otra, aunque la ayuda dice "tocá la primera esquina" (`simulador-uso-real`, 4/10).
+    const cerca = rect
+      ? Math.hypot((p.x - (primera?.x ?? 9)) * anchoCss, (p.y - (primera?.y ?? 9)) * altoCss) < 18
+      : Math.hypot(p.x - (primera?.x ?? 9), p.y - (primera?.y ?? 9)) < 0.02;
+    if (primera && vertices.length >= 3 && cerca) {
       cerrarContorno();
       return;
     }
+    verPintada();
     const siguientes = [...vertices, p];
     setVertices(siguientes);
     setErrorMsg("");
@@ -833,20 +888,30 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
       setErrorMsg("Marcá al menos tres esquinas de la zona.");
       return;
     }
-    const antes = new Uint8Array(mask);
-    rellenarPoligono(
-      mask,
-      w,
-      h,
-      vertices.map((v) => [v.x * w, v.y * h] as const),
-      contorno === "quitar" ? 0 : 1,
-    );
+    verPintada();
+    recordarParaDeshacer(mask, capasRef.current);
+    const puntos = vertices.map((v) => [v.x * w, v.y * h] as const);
+    rellenarPoligono(mask, w, h, puntos, contorno === "quitar" ? 0 : 1);
+    if (contorno === "quitar" && capasRef.current.length > 0) {
+      // "Quitar la zona" saca la pintura de ahí, sea de la selección o de una pared ya fijada.
+      // Antes sólo tocaba la selección: decía "Zona quitada." y el techo de una pared fija seguía
+      // pintado, sin forma de corregirlo más que con la ✕ (`simulador-uso-real`, 4/10).
+      const zona = new Uint8Array(w * h);
+      rellenarPoligono(zona, w, h, puntos, 1);
+      capasRef.current = capasRef.current.map((c) => {
+        let toca = false;
+        for (let i = 0; i < zona.length && !toca; i++) if (zona[i] && c.alfa[i] > 0) toca = true;
+        if (!toca) return c;
+        const alfa = new Float32Array(c.alfa); // pared nueva: la de antes queda para Deshacer
+        for (let i = 0; i < zona.length; i++) if (zona[i]) alfa[i] = 0;
+        return { ...c, alfa };
+      });
+    }
     lastClickRef.current = null;
     maskBeforeClickRef.current = null;
     generacionRef.current++;
     recomputeMaskDerived(true);
     repaint();
-    recordarParaDeshacer(antes);
     setHasSelection(mask.some((v) => v === 1));
     setVertices([]);
     setErrorMsg("");
@@ -926,6 +991,9 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
       const radius = Math.max(1, Math.round((brushSize / rect.width) * w));
       const val = brush === "add" ? 1 : 0;
       const alpha = alphaRef.current;
+      // ⌫ Borrar saca la pintura de ahí, también de las paredes ya fijadas (esas copias las hizo
+      // `empezarTrazo`: las de antes quedan intactas para Deshacer).
+      const fijas = val === 0 ? capasRef.current : [];
       const largo = Math.hypot(x1 - x0, y1 - y0);
       const pasos = Math.max(1, Math.ceil(largo / Math.max(1, radius * 0.5)));
       for (let k = 0; k <= pasos; k++) {
@@ -940,6 +1008,7 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
             mask[py * w + px] = val;
             // El alfa, sin difuminar, sólo donde pasó el pincel: el resto de la foto no cambió.
             if (alpha) alpha[py * w + px] = val;
+            for (const c of fijas) c.alfa[py * w + px] = 0;
           }
         }
       }
@@ -963,6 +1032,18 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
     },
     [brush, brushSize, repaint],
   );
+
+  /**
+   * Antes de una pincelada: guarda para Deshacer y, si se va a borrar, cambia las paredes fijas
+   * por copias que el trazo puede modificar (las de antes quedan en Deshacer tal cual estaban).
+   */
+  const empezarTrazo = () => {
+    verPintada();
+    recordarParaDeshacer(maskRef.current, capasRef.current);
+    if (brush === "erase" && capasRef.current.length > 0) {
+      capasRef.current = capasRef.current.map((c) => ({ ...c, alfa: new Float32Array(c.alfa) }));
+    }
+  };
 
   /** Dónde estaba el dedo en el evento anterior del trazo (fracciones 0..1). */
   const ultimoPuntoRef = useRef<{ x: number; y: number } | null>(null);
@@ -1005,7 +1086,7 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
         return;
       }
       if (brush !== "off") {
-        recordarParaDeshacer(maskRef.current);
+        empezarTrazo();
         pintarEn(actual.x, actual.y);
         cerrarTrazo();
         setAviso(brush === "add" ? "Sumaste pintura en la mira." : "Borraste pintura en la mira.");
@@ -1059,6 +1140,7 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
   }, [cerrarTrazo]);
 
   const clearSelection = () => {
+    verPintada();
     recordarParaDeshacer(maskRef.current);
     if (maskRef.current) maskRef.current.fill(0);
     lastClickRef.current = null;
@@ -1067,11 +1149,32 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
     recomputeMaskDerived(true);
     repaint();
     setHasSelection(false);
+    viewRef.current?.focus(); // el botón desaparece: que el foco no caiga en el <body>
+  };
+
+  /**
+   * Cualquier cosa que cambie la pintura apaga "Ver la foto original". Si no, con la original a
+   * la vista, tocar, elegir un color o pintar con el pincel no mostraba nada (0 px de cambio) y
+   * el aviso para lector de pantalla decía "Superficie pintada." (`simulador-uso-real`, 4/10).
+   */
+  const verPintada = () => {
+    if (!verOriginalRef.current) return;
+    verOriginalRef.current = false;
+    setVerOriginal(false);
   };
 
   // ---- Varias paredes, cada una con su color ----
-  /** Deja la selección actual pintada con el color de ahora y empieza una selección nueva. */
+  /**
+   * Deja la selección actual pintada con el color de ahora y empieza una selección nueva.
+   *
+   * Espera a que terminen los toques en cola: apretado al instante después de tocar, fijaba la
+   * selección sin el último toque (una ficha sin pintura, `simulador-uso-real`, 4/10).
+   */
   const pintarOtraPared = () => {
+    colaClicsRef.current = colaClicsRef.current.then(() => pintarOtraParedAhora()).catch(() => {});
+  };
+
+  const pintarOtraParedAhora = () => {
     const mask = maskRef.current;
     const alpha = alphaRef.current;
     const foto = fotoRef.current;
@@ -1087,30 +1190,39 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
       cache && cache.color === actual && cache.version === versionAlfaRef.current
         ? cache.curva
         : curva(pintura, ancla(foto, alpha, pintura));
-    const nombre = colorName || actual.toUpperCase();
-    capasRef.current = [...capasRef.current, { id: ++idCapaRef.current, alfa: new Float32Array(alpha), color: actual, nombre, curva: tabla }];
-    setCapas(capasRef.current.map(({ id, color: c, nombre: n }) => ({ id, color: c, nombre: n })));
-    // La selección nueva arranca vacía. "Deshacer" no cruza este paso: lo que se fijó se saca
-    // con la ✕ de su ficha.
+    const nombre = nombreColorRef.current || actual.toUpperCase();
+    verPintada();
+    // "Deshacer" la vuelve a la selección (y la saca de las fijas).
+    recordarParaDeshacer(mask, capasRef.current);
+    capasRef.current = [
+      ...capasRef.current,
+      { id: ++idCapaRef.current, alfa: new Float32Array(alpha), color: actual, nombre, curva: tabla, intensidad: strengthRef.current },
+    ];
+    setCapas(fichas(capasRef.current));
+    // La selección nueva arranca vacía.
     mask.fill(0);
     lastClickRef.current = null;
     maskBeforeClickRef.current = null;
     generacionRef.current++;
-    deshacerRef.current = null;
-    setPuedeDeshacer(false);
     recomputeMaskDerived(true);
     repaint();
     setHasSelection(false);
     setErrorMsg("");
     setAviso(`La pared quedó pintada de ${nombre}. Tocá la próxima y elegí su color.`);
+    viewRef.current?.focus(); // el botón desaparece: que el foco no caiga en el <body>
   };
 
   const quitarPared = (id: number) => {
     const quitada = capasRef.current.find((c) => c.id === id);
+    if (!quitada) return;
+    verPintada();
+    // Con Deshacer vuelve (antes no: y Deshacer se llevaba el toque anterior).
+    if (maskRef.current) recordarParaDeshacer(maskRef.current, capasRef.current);
     capasRef.current = capasRef.current.filter((c) => c.id !== id);
-    setCapas(capasRef.current.map(({ id: i, color: c, nombre: n }) => ({ id: i, color: c, nombre: n })));
+    setCapas(fichas(capasRef.current));
     repaint();
-    if (quitada) setAviso(`Se quitó la pared pintada de ${quitada.nombre}.`);
+    setAviso(`Se quitó la pared pintada de ${quitada.nombre}. Con «Deshacer» vuelve.`);
+    viewRef.current?.focus();
   };
 
   const alternarOriginal = () => {
@@ -1126,11 +1238,27 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
    */
   const guardarImagen = () => {
     const composite = compositeRef.current;
-    if (!composite) return;
+    const base = baseImageData.current;
+    const foto = fotoRef.current;
+    if (!composite || !base || !foto) return;
+    let imagen = composite;
+    if (!colorRef.current) {
+      // Sin color elegido el lienzo muestra la selección con un velo azul, que no es pintura: se
+      // guardaba igual (`simulador-uso-real`, 4/10). Se arma la imagen sólo con las paredes fijas.
+      imagen = new ImageData(composite.width, composite.height);
+      componer(
+        imagen.data,
+        base.data,
+        foto,
+        capasRef.current.map((p) => ({ alfa: p.alfa, curva: p.curva, intensidad: p.intensidad })),
+        strengthRef.current,
+        composite.width,
+      );
+    }
     const c = document.createElement("canvas");
-    c.width = composite.width;
-    c.height = composite.height;
-    c.getContext("2d")!.putImageData(composite, 0, 0);
+    c.width = imagen.width;
+    c.height = imagen.height;
+    c.getContext("2d")!.putImageData(imagen, 0, 0);
     c.toBlob(
       (blob) => {
         if (!blob) {
@@ -1257,7 +1385,7 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
                 )}
                 onPointerDown={(e) => {
                   if (brush === "off") return;
-                  recordarParaDeshacer(maskRef.current);
+                  empezarTrazo();
                   drawing.current = true;
                   (e.target as HTMLElement).setPointerCapture(e.pointerId);
                   paintAt(e.clientX, e.clientY, false);
@@ -1345,6 +1473,17 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
                     <span className="font-mono text-mono-sm uppercase tracking-widest mt-3 bg-ink/60 px-3 py-1">
                       Analizando la foto (una sola vez)…
                     </span>
+                    {/* La única salida mientras analizaba era "Cambiar foto", que pierde la foto. */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        abortRef.current?.abort();
+                        setAviso("Se canceló la detección con IA. La ✨ Varita y el ⬠ Contorno siguen disponibles.");
+                      }}
+                      className="mt-4 px-4 py-2 bg-bone text-ink font-body text-body-sm hover:bg-mist transition-colors"
+                    >
+                      Cancelar
+                    </button>
                   </div>
                 </div>
               )}
@@ -1352,6 +1491,28 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
           </div>
 
           {debajoDelLienzo}
+
+          {/* Las paredes ya pintadas, pegadas a la foto: debajo de la barra de herramientas
+              quedaban fuera de la pantalla en el celular (y=880-914 de 844) y "＋" no mostraba
+              ningún cambio (`simulador-uso-real`, 4/10). */}
+          {capas.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-mono-sm text-concrete">Ya pintadas:</span>
+              {capas.map((c) => (
+                <span key={c.id} className="inline-flex items-center gap-2 border border-concrete/30 pl-2">
+                  <span className="w-4 h-4 border border-black/10" style={{ backgroundColor: c.color }} />
+                  <span className="font-body text-body-sm text-ink">{c.nombre}</span>
+                  <button
+                    onClick={() => quitarPared(c.id)}
+                    aria-label={`Quitar la pared pintada de ${c.nombre}`}
+                    className="min-w-8 min-h-8 px-2 font-body text-body-sm text-concrete hover:text-ink hover:bg-mist transition-colors"
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Controles */}
           <div className="flex flex-wrap items-center gap-3">
@@ -1527,7 +1688,10 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
                 disabled={segmenting}
                 className="px-3 py-2 font-body text-body-sm border border-ink hover:bg-ink hover:text-bone transition-colors disabled:opacity-40"
               >
-                ＋ Otra pared, otro color
+                {/* Dice QUÉ color queda fijo: "＋ Otra pared, otro color" se usaba al revés —se elegía
+                    el color de la pared siguiente ANTES de apretarlo, y la que quedaba fija se
+                    llevaba ese color: colores cruzados (`simulador-uso-real`, 4/10). */}
+                ＋ Dejar {colorName || "este color"} y pintar otra pared
               </button>
             )}
             {puedeDeshacer && (
@@ -1556,24 +1720,6 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
             </button>
           </div>
 
-          {capas.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-mono-sm text-concrete">Ya pintadas:</span>
-              {capas.map((c) => (
-                <span key={c.id} className="inline-flex items-center gap-2 border border-concrete/30 pl-2">
-                  <span className="w-4 h-4 border border-black/10" style={{ backgroundColor: c.color }} />
-                  <span className="font-body text-body-sm text-ink">{c.nombre}</span>
-                  <button
-                    onClick={() => quitarPared(c.id)}
-                    aria-label={`Quitar la pared pintada de ${c.nombre}`}
-                    className="min-w-8 min-h-8 px-2 font-body text-body-sm text-concrete hover:text-ink hover:bg-mist transition-colors"
-                  >
-                    ✕
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
 
           {/* Lo que pasa en el lienzo no se ve si no ves el lienzo. Enter con la varita tarda
               unos milisegundos y no cambia ningún texto: sin esto, quien navega con lector de

@@ -38,6 +38,12 @@ export interface FotoPerceptual {
 export interface Capa {
   alfa: Float32Array;
   curva: Curva;
+  /**
+   * Intensidad propia (0..1). Una pared que ya quedó fija conserva la que tenía; sin esto, mover
+   * la Intensidad para la pared nueva cambiaba también las anteriores (4/10, `simulador-uso-real`).
+   * Sin definir, vale la de `componer`.
+   */
+  intensidad?: number;
 }
 
 /**
@@ -243,7 +249,7 @@ export function componer(
       const f = pos - k;
 
       // Camino rápido: la de arriba cubre del todo → el color sale de la tabla.
-      const wArriba = capas[arriba].alfa[i] * fuerza;
+      const wArriba = capas[arriba].alfa[i] * (capas[arriba].intensidad ?? fuerza);
       if (wArriba >= 1) {
         const t = capas[arriba].curva.rgb;
         const q = k * 3;
@@ -260,7 +266,7 @@ export function componer(
       let b = foto.ab[i * 2 + 1];
       for (let c = 0; c <= arriba; c++) {
         const capa = capas[c];
-        const w = capa.alfa[i] * fuerza;
+        const w = capa.alfa[i] * (capa.intensidad ?? fuerza);
         if (w <= 0) continue;
         const cv = capa.curva;
         const nl = cv.L[k] + (cv.L[k + 1] - cv.L[k]) * f;

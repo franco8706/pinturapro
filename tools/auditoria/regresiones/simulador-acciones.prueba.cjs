@@ -108,8 +108,10 @@ module.exports = {
       // ── 2. Varias paredes, cada una con su color ──
       await cargar(k, page, `${FOTOS}/01-living-luz.jpg`, "Verde Agua");
       await tocar(page, 0.22, 0.35);
-      t.cierto(await hayBoton(page, "＋ Otra pared, otro color"), "no aparece «＋ Otra pared, otro color» con una pared pintada");
-      await page.click("button:has-text('Otra pared, otro color')");
+      const botonMas = page.locator("button", { hasText: "y pintar otra pared" });
+      t.cierto((await botonMas.count()) === 1, "no aparece «＋ Dejar … y pintar otra pared» con una pared pintada");
+      t.contiene(await botonMas.innerText(), "Verde Agua", "el botón ＋ no dice qué color queda fijo");
+      await botonMas.click();
       await page.waitForTimeout(500);
       await page.click('button:has-text("Arena")');
       await page.waitForTimeout(500);
@@ -128,6 +130,47 @@ module.exports = {
       });
       const quitada = await colorEn(page, 0.3, 0.4);
       t.cierto(distancia(quitada, original) < 25, `después de quitar la pared Verde Agua, ahí se ve ${quitada} y la foto era ${original}`);
+      // Deshacer después de la ✕: vuelve la pared, y el techo (el último toque) se queda.
+      await page.click("button:has-text('Deshacer')");
+      await page.waitForTimeout(800);
+      const vuelta = await colorEn(page, 0.3, 0.4);
+      const techoTras = await colorEn(page, 0.5, 0.05);
+      t.cierto(distancia(vuelta, verde) < distancia(vuelta, original), `Deshacer después de la ✕ no devolvió la pared Verde Agua (se ve ${vuelta})`);
+      t.cierto(distancia(techoTras, arena) < distancia(techoTras, verde) && distancia(techoTras, arena) < 60, `Deshacer después de la ✕ se llevó también el último toque (el techo se ve ${techoTras})`);
+
+      // Una pared ya fijada se corrige: "Quitar la zona" le saca pintura, y Deshacer la devuelve.
+      // Y la Intensidad de ahora no cambia las paredes fijas.
+      await cargar(k, page, `${FOTOS}/02-pared-plana.jpg`, "Azul Profundo");
+      await tocar(page, 0.4, 0.5);
+      await page.locator("button", { hasText: "y pintar otra pared" }).click();
+      await page.waitForTimeout(600);
+      const fija = await colorEn(page, 0.45, 0.45);
+      const intensidad = page.locator("label", { hasText: "Intensidad" }).locator("input[type=range]").first();
+      await intensidad.focus();
+      for (let i = 0; i < 6; i++) await page.keyboard.press("ArrowLeft");
+      await page.waitForTimeout(600);
+      t.cierto(distancia(await colorEn(page, 0.45, 0.45), fija) < 6, "bajar la Intensidad cambió una pared que ya había quedado fija");
+      await page.click("button:has-text('Contorno')");
+      await page.click("button:has-text('Quitar la zona')");
+      for (const [x, y] of [[0.3, 0.3], [0.6, 0.3], [0.6, 0.6], [0.3, 0.6]]) await tocar(page, x, y, 150);
+      await page.click("button:has-text('Cerrar contorno')");
+      await page.waitForTimeout(800);
+      const fotoAhi = await page.evaluate(() => {
+        const c = document.querySelector("canvas"), x = Math.round(0.45 * c.width), y = Math.round(0.45 * c.height), i = (y * c.width + x) * 4;
+        return [window.__antes[i], window.__antes[i + 1], window.__antes[i + 2]];
+      });
+      const sinPintura = await colorEn(page, 0.45, 0.45);
+      t.cierto(distancia(sinPintura, fotoAhi) < 25, `«Quitar la zona» sobre una pared ya fijada no le sacó la pintura (se ve ${sinPintura}, la foto era ${fotoAhi})`);
+      await page.click("button:has-text('Deshacer')");
+      await page.waitForTimeout(800);
+      t.cierto(distancia(await colorEn(page, 0.45, 0.45), fija) < 6, "Deshacer no devolvió la pintura que «Quitar la zona» le sacó a la pared fija");
+      await page.click("button:has-text('Contorno')"); // apagar el contorno
+      // Con "Ver la foto original" prendido, tocar la pared vuelve a mostrar la pintura.
+      await page.click("button:has-text('Ver la foto original')");
+      await page.waitForTimeout(400);
+      await tocar(page, 0.8, 0.2);
+      t.cierto((await pintados(page)) > 1000, "con «Ver la foto original» prendido, tocar la pared no muestra nada");
+      t.cierto(await hayBoton(page, "Ver la foto original"), "tocar la pared no apagó «Ver la foto original»");
 
       // ── 3. Contorno ──
       await cargar(k, page, `${FOTOS}/02-pared-plana.jpg`, "Azul Profundo");
