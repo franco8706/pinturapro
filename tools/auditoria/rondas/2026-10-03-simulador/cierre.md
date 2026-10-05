@@ -47,7 +47,8 @@ dio bit a bit lo mismo que el navegador en 864 lienzos.
 |---|---|---|
 | Cambiar de color (Intensidad 100 %) | 241 ms (22/9) | ~100 ms (2d75c7a, `rendimiento`) |
 | Borde de la selección (cada toque, trazo, Deshacer) | 229 ms (versión del 4/10) / 142 (2d75c7a) | ~5× más rápido que la del 4/10, idéntico píxel a píxel |
-| Convertir la foto al cargarla | 561-592 ms | 3× más rápido, idéntico (huella igual) |
+| Cargar una foto (r11): pasarla a OKLab + copia | 561-592 ms | 272-283 ms: 2×, idéntico (huella igual) |
+| Cargar una foto (r11): pantalla congelada | 675-689 ms | 377-399 ms (5067477, 3 corridas válidas de 10) |
 | Primer toque, tarea larga | 319-339 ms (referencia) | 247-269 ms (5067477, máquina cargada) |
 | Primer toque, hasta ver el color | 413-425 ms | 344-387 ms |
 | Diez toques seguidos | 1,06 s congelado | 0,43-0,51 s |
@@ -61,6 +62,10 @@ dio bit a bit lo mismo que el navegador en 864 lienzos.
 - **"El segundo color no se aplica"** (5/10, `simulador-color-fiel` en rojo): era la PRUEBA. El botón
   "＋ Dejar Blanco Puro y pintar otra pared" también dice el nombre del color y `page.click`
   apretaba ése. Las pruebas eligen ahora con `button[aria-pressed]` (REGLAS).
+- **"La carga de la foto, 3× más rápida"** (lo escribí yo antes de remedir): medida otra vez en Chrome
+  sobre 5067477, la conversión con su copia para el worker pasó de 561-592 a 272-283 ms, o sea **2×**.
+  Corregido en la tabla de arriba, en la BITÁCORA y en CLAUDE.md. Las mediciones de "cambiar de color"
+  y "primer toque" de esa remedición no llegaron a correr: el Codespace se apagó a las 04:36.
 
 ## Abierto (en la BITÁCORA)
 

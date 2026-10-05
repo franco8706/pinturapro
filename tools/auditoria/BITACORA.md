@@ -96,8 +96,8 @@ Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arri
 - **Simulador, velocidad (4-5/10, medido por `rendimiento` en un celular de gama media)**: el
   borde recorría la foto entera tres veces creando una función por píxel (229 ms por toque): ahora
   sólo el rectángulo de la selección, mismo resultado exacto, ~5× más rápido. La carga de cada foto
-  (561-592 ms de pantalla congelada) usa una tabla para la potencia de sRGB: 3× más rápida, mismo
-  resultado. Cambiar de color con Intensidad < 100 % no crea un arreglo por píxel (−35 %), y un
+  (675-689 ms de pantalla congelada, 561-592 en pasarla a OKLab) usa una tabla para la potencia de
+  sRGB: la conversión 2× más rápida y la pantalla congelada 377-399 ms, mismo resultado. Cambiar de color con Intensidad < 100 % no crea un arreglo por píxel (−35 %), y un
   arrastre de Intensidad repinta una vez por cuadro. Sin prueba de tiempos en la suite (necesita la
   compilación de producción); se mide con `rendimiento` y `tools/auditoria/simulador/congelamiento.cjs`.
 - **Simulador, ronda del 3/10** (`tools/auditoria/rondas/2026-10-03-simulador/`), lo chico:

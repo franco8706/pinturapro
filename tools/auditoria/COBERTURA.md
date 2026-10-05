@@ -1,10 +1,10 @@
 # Mapa de cobertura — Pintura Pro
 
-Generado por `node tools/auditoria/cobertura.mjs` el 2026-10-03. **No se edita a mano**: se vuelve a generar.
+Generado por `node tools/auditoria/cobertura.mjs` el 2026-10-05. **No se edita a mano**: se vuelve a generar.
 
 🟢 lo nombra una prueba de regresión · 🟡 sólo un agente o el vigilante · 🔴 no lo nombra nadie
 
-**Total:** 47 🟢 · 28 🟡 · 12 🔴 — 32 archivos de prueba, 21 agentes.
+**Total:** 48 🟢 · 27 🟡 · 12 🔴 — 37 archivos de prueba, 23 agentes.
 
 Que algo esté 🟢 no quiere decir que esté bien probado: quiere decir que alguien lo nombra. Lo 🔴
 seguro que no lo mira nadie. El agente `retroalimentacion` lee este archivo al cerrar cada ronda.
@@ -46,7 +46,7 @@ Las páginas que ve la gente. 🔴 = ninguna prueba, agente ni vigilante la nomb
 | 🟢 | `/publicar` | accesibilidad, acciones-hostiles, borrador, ciclo-de-trabajo, desborde-celular, duplicados-publicar, formularios-de-pasos, tope-por-hora | accesibilidad, buscadores, formularios-hostiles, recorrido-web, rendimiento, sesiones-y-acceso | sí |
 | 🟢 | `/recuperar` | titulos | abuso-marketplace | — |
 | 🟢 | `/registro` | duplicados-publicar, formularios-de-pasos, titulos | accesibilidad, contenido-confianza, formularios-hostiles | — |
-| 🟢 | `/simulador` | desborde-celular, foto-rechazada, sangrado-moldura, simulador-calidad, simulador-deshacer, simulador-teclado, tactil, titulos | accesibilidad, buscadores, rendimiento, simulador-color | sí |
+| 🟢 | `/simulador` | desborde-celular, foto-rechazada, sangrado-moldura, simulador-acciones, simulador-borde, simulador-calidad, simulador-carreras, simulador-celular, simulador-color-fiel, simulador-deshacer, simulador-teclado, tactil, titulos | accesibilidad, buscadores, rendimiento, simulador-color, simulador-fidelidad, simulador-uso-real | sí |
 | 🟢 | `/terminos` | desborde-celular, moderacion-resenas, titulos | buscadores, contenido-confianza, riesgo-legal | sí |
 | 🟢 | `/trabajos` | acciones-hostiles, ciclo-de-trabajo, desborde-celular, seguridad-roles, tactil, textos-largos, titulos, ya-cotizado | buscadores, dinero-y-comisiones, recorrido-web | sí |
 
@@ -57,11 +57,11 @@ Lo que se puede llamar sin pasar por una pantalla.
 | | Qué | Pruebas | Agentes | Vigilante |
 |---|---|---|---|---|
 | 🟡 | `/api/health` | — | listo-para-publicar | sí |
-| 🟡 | `/api/segment` | — | abuso-marketplace, escala-y-volumen, listo-para-publicar, nube-google | — |
 | 🟡 | `/api/sesion` | — | rendimiento, sesiones-y-acceso | — |
 | 🟡 | `/auth/callback` | — | sesiones-y-acceso | — |
 | 🟡 | `/auth/signout` | — | sesiones-y-acceso | — |
 | 🟢 | `/api/mis-datos` | acciones-hostiles, mis-datos | — | sí |
+| 🟢 | `/api/segment` | simulador-carreras | abuso-marketplace, escala-y-volumen, listo-para-publicar, nube-google | — |
 
 ## Acciones de servidor (15)
 
