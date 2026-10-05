@@ -99,6 +99,8 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
    * cada vez que cambia el alfa, salvo en medio de una pincelada (ver `pintarEn`).
    */
   const curvaRef = useRef<{ color: string; version: number; curva: Curva } | null>(null);
+  /** El repintado pendiente para el próximo cuadro (ver el efecto que repinta al cambiar el color). */
+  const cuadroRef = useRef(0);
   const versionAlfaRef = useRef(0);
   /**
    * Las paredes que ya quedaron pintadas, cada una con SU color.
@@ -475,10 +477,16 @@ export function PhotoSimulator({ color, colorName, strength: strengthDeAfuera, d
       canvas.width = dims.current.w;
       canvas.height = dims.current.h;
     }
-    repaint();
+    // Un repintado por cuadro de pantalla, con el último valor. Arrastrando la Intensidad, cada
+    // movimiento repintaba la foto entera en el momento: en un celular de gama media eran seis
+    // bloqueos seguidos de ~300 ms por un gesto de un segundo, y el control se movía a saltos
+    // (`rendimiento`, 4/10). Lo que llegue antes del próximo cuadro se junta en uno solo.
+    cancelAnimationFrame(cuadroRef.current);
+    cuadroRef.current = requestAnimationFrame(() => repaint());
     // `color` y `strength` están a propósito: `repaint` los lee de sus refs (que se actualizan en
     // el efecto de arriba, que corre antes que este), pero cambiarlos tiene que repintar.
   }, [color, strength, status, repaint]);
+  useEffect(() => () => cancelAnimationFrame(cuadroRef.current), []);
 
   // ---- Análisis SAM: UNA sola llamada al servidor por foto; cacheamos todas las regiones. ----
   const analyzeImage = useCallback(async (): Promise<boolean> => {

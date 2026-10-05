@@ -67,7 +67,7 @@ module.exports = {
     try {
       // ── 1. Otro color mientras la varita calcula ──
       await k.ir(page, "/simulador");
-      await page.click('button:has-text("Azul Profundo")');
+      await page.click('button[aria-pressed]:has-text("Azul Profundo")');
       await page.setInputFiles("input[type=file]", `${FOTOS}/02-pared-plana.jpg`);
       await page.waitForSelector("canvas", { timeout: 40000 });
       await page.waitForTimeout(1200);
@@ -79,7 +79,7 @@ module.exports = {
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: 6 });
       const b = await page.locator("canvas").boundingBox();
       for (const [x, y] of [[0.4, 0.5], [0.6, 0.4], [0.3, 0.3]]) await page.mouse.click(b.x + b.width * x, b.y + b.height * y);
-      await page.click('button:has-text("Arena")'); // sin esperar a la varita
+      await page.click('button[aria-pressed]:has-text("Arena")'); // sin esperar a la varita
       await page.waitForTimeout(6000);
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
       const visto = await medianaPintada(page);
@@ -96,7 +96,7 @@ module.exports = {
         await ruta.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ masks: [MASCARA_TODA] }) }).catch(() => {});
       });
       await k.ir(page, "/simulador");
-      await page.click('button:has-text("Azul Profundo")');
+      await page.click('button[aria-pressed]:has-text("Azul Profundo")');
       await page.setInputFiles("input[type=file]", `${FOTOS}/02-pared-plana.jpg`);
       await page.waitForSelector("canvas", { timeout: 40000 });
       await page.waitForTimeout(1000);
@@ -137,7 +137,7 @@ module.exports = {
       // El corte por tiempo: reloj simulado, se adelantan 71 s.
       await page.clock.install();
       await k.ir(page, "/simulador");
-      await page.click('button:has-text("Azul Profundo")');
+      await page.click('button[aria-pressed]:has-text("Azul Profundo")');
       await page.setInputFiles("input[type=file]", `${FOTOS}/02-pared-plana.jpg`);
       await page.waitForSelector("canvas", { timeout: 40000 });
       await page.clock.runFor(1500);

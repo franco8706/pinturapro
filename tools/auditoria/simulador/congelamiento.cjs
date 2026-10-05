@@ -25,7 +25,7 @@ async function corrida() {
   try {
     await page.goto(`${BASE}/simulador`, { waitUntil: "domcontentloaded", timeout: 60000 });
     await page.waitForTimeout(1500);
-    await page.click('button:has-text("Azul Profundo")');
+    await page.click('button[aria-pressed]:has-text("Azul Profundo")');
     await page.setInputFiles("input[type=file]", FOTO);
     await page.waitForSelector("canvas", { timeout: 40000 });
     await page.waitForTimeout(2500);

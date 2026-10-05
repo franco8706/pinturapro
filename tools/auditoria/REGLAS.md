@@ -175,6 +175,10 @@ Todas pasaron en este proyecto. Si escribís una prueba, revisá que no caiga en
   `PINTURAPRO_URL=http://localhost:3100 node tools/auditoria/regresiones/correr.cjs --solo <prueba>`.
   Tiene que dar rojo con el mismo número que vio el agente (3/10: "Deshacer dejó 0 píxeles donde
   había 262.451"). Recién después se recompila :3100.
+- **En el simulador, un color se elige con `button[aria-pressed]:has-text("Arena")`**, no con
+  `button:has-text("Arena")`. Desde el 4/10 el botón "＋ Dejar Arena y pintar otra pared" también
+  dice el nombre del color, y `page.click` toma el primero que encuentra: la prueba fijaba la pared
+  en vez de cambiarle el color, y parecía que el color nuevo no se aplicaba (`simulador-color-fiel`).
 - **Lo que cuesta plata se simula.** La IA del simulador (`/api/segment`, Replicate) se contesta
   desde la prueba con `page.route`: tarde, y con una máscara blanca de 8×8 en data URL ("toda la
   foto es una región"). Así se prueba una carrera sin gastar (`simulador-carreras`).

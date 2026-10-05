@@ -11,7 +11,7 @@
  * elegido, y con una luminosidad que sale de la de la foto — así sobreviven la luz de la
  * ventana, la sombra del mueble y el grano del revoque. Todo en OKLab (ver oklab.ts).
  */
-import { rgbAOklab, rgbAOklch, oklabASrgb } from "./oklab";
+import { rgbAOklch, oklabASrgb, oklabASrgbEn, LINEAL_DE_BYTE } from "./oklab";
 
 /**
  * Cuánta textura y sombra de la foto se conserva (1 = copia 1:1). Con 1 la pared pintada se
@@ -83,16 +83,29 @@ export function pinturaDesdeHex(hex: string): Pintura | null {
   return { L, C, cos: Math.cos(h), sen: Math.sin(h) };
 }
 
-/** OKLab de cada píxel de una foto RGBA. Se calcula una vez por foto. */
+/**
+ * OKLab de cada píxel de una foto RGBA (bytes 0..255, como los de un lienzo). Se calcula una vez
+ * por foto.
+ *
+ * Es la cuenta de `rgbAOklab`, escrita acá adentro: sin la potencia por canal (va por la tabla
+ * `LINEAL_DE_BYTE`) y sin crear un arreglo por píxel. Al cargar una foto era la tarea larga de
+ * 561-592 ms en un celular de gama media (`rendimiento`, 4/10). El resultado es idéntico.
+ */
 export function fotoPerceptual(rgba: ArrayLike<number>, n: number): FotoPerceptual {
   const L = new Float32Array(n);
   const ab = new Float32Array(n * 2);
+  const lin = LINEAL_DE_BYTE;
   for (let i = 0; i < n; i++) {
     const p = i * 4;
-    const [l, a, b] = rgbAOklab(rgba[p], rgba[p + 1], rgba[p + 2]);
-    L[i] = l;
-    ab[i * 2] = a;
-    ab[i * 2 + 1] = b;
+    const R = lin[rgba[p]];
+    const G = lin[rgba[p + 1]];
+    const B = lin[rgba[p + 2]];
+    const l = Math.cbrt(0.4122214708 * R + 0.5363325363 * G + 0.0514459929 * B);
+    const m = Math.cbrt(0.2119034982 * R + 0.6806995451 * G + 0.1073969566 * B);
+    const s = Math.cbrt(0.0883024619 * R + 0.2817188376 * G + 0.6299787005 * B);
+    L[i] = 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s;
+    ab[i * 2] = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
+    ab[i * 2 + 1] = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
   }
   return { L, ab };
 }
@@ -276,10 +289,7 @@ export function componer(
         a = nc * cv.cos * w + a * iw;
         b = nc * cv.sen * w + b * iw;
       }
-      const [r, g, bl] = oklabASrgb(L, a, b);
-      destino[p] = r;
-      destino[p + 1] = g;
-      destino[p + 2] = bl;
+      oklabASrgbEn(destino, p, L, a, b);
       destino[p + 3] = origen[p + 3];
     }
   }

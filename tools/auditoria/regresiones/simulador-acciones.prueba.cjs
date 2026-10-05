@@ -31,7 +31,7 @@ const pintados = (page) =>
 /** Sube la foto, guarda cómo se ve sin pintar y deja el lienzo centrado en la pantalla. */
 async function cargar(k, page, foto, color) {
   await k.ir(page, "/simulador");
-  if (color) await page.click(`button:has-text("${color}")`);
+  if (color) await page.click(`button[aria-pressed]:has-text("${color}")`);
   await page.setInputFiles("input[type=file]", foto);
   await page.waitForSelector("canvas", { timeout: 40000 });
   await page.waitForTimeout(1200);
@@ -113,7 +113,7 @@ module.exports = {
       t.contiene(await botonMas.innerText(), "Verde Agua", "el botón ＋ no dice qué color queda fijo");
       await botonMas.click();
       await page.waitForTimeout(500);
-      await page.click('button:has-text("Arena")');
+      await page.click('button[aria-pressed]:has-text("Arena")');
       await page.waitForTimeout(500);
       await tocar(page, 0.5, 0.05); // el techo
       const verde = hexARgb("#A8C7BB"), arena = hexARgb("#D8C6A3");
@@ -145,7 +145,7 @@ module.exports = {
       await page.locator("button", { hasText: "y pintar otra pared" }).click();
       await page.waitForTimeout(600);
       const fija = await colorEn(page, 0.45, 0.45);
-      const intensidad = page.locator("label", { hasText: "Intensidad" }).locator("input[type=range]").first();
+      const intensidad = page.locator("label", { hasText: "Intensidad" }).locator("input[type=range]:visible").first();
       await intensidad.focus();
       for (let i = 0; i < 6; i++) await page.keyboard.press("ArrowLeft");
       await page.waitForTimeout(600);

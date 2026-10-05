@@ -24,7 +24,7 @@ module.exports = {
     const { browser, page } = await k.abrir({ movil: false });
     try {
       await k.ir(page, "/simulador");
-      await page.click('button:has-text("Azul Profundo")');
+      await page.click('button[aria-pressed]:has-text("Azul Profundo")');
       await page.setInputFiles("input[type=file]", foto);
       await page.waitForSelector("canvas", { timeout: 40000 });
       await page.waitForTimeout(2500);
@@ -77,8 +77,9 @@ module.exports = {
       // De paso, el orden del teclado: "Intensidad" se usa DESPUÉS de elegir un color, y vivía
       // antes de la grilla de colores — volver costaba de 7 a 14 Shift+Tab. Ahora está después.
       const orden = await page.evaluate(() => {
-        const control = [...document.querySelectorAll("input[type=range]")].find((r) =>
-          /Intensidad/.test(r.closest("label")?.innerText || ""),
+        // El que está a la vista: en el celular hay otro, pegado a la foto, oculto en la compu.
+        const control = [...document.querySelectorAll("input[type=range]")].find(
+          (r) => r.offsetParent !== null && /Intensidad/.test(r.closest("label")?.innerText || ""),
         );
         const colores = [...document.querySelectorAll("button")].filter((b) => /Azul Profundo|Negro Mate|Blanco Puro/.test(b.innerText));
         const ultimo = colores[colores.length - 1];

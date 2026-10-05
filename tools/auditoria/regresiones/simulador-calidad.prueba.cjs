@@ -35,7 +35,7 @@ module.exports = {
     const { browser, page } = await k.abrir({ movil: false });
     try {
       await k.ir(page, "/simulador");
-      await page.click('button:has-text("Azul Profundo")');
+      await page.click('button[aria-pressed]:has-text("Azul Profundo")');
       await page.setInputFiles('input[type=file]', foto);
       await page.waitForSelector("canvas", { timeout: 40000 });
       await page.waitForTimeout(2500);
@@ -81,7 +81,7 @@ module.exports = {
 
       // Textura conservada, con varios colores: tiene que dar lo mismo con todos.
       for (const color of ["Blanco Puro", "Negro Mate"]) {
-        await page.click(`button:has-text("${color}")`);
+        await page.click(`button[aria-pressed]:has-text("${color}")`);
         await page.waitForTimeout(1200);
         const ret = await page.evaluate(() => {
           const c = document.querySelector("canvas");

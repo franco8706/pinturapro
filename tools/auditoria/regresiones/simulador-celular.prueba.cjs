@@ -56,6 +56,17 @@ module.exports = {
       const lejos = Math.hypot(visto[0] - verde[0], visto[1] - verde[1], visto[2] - verde[2]);
       t.cierto(lejos < 30, `tocar Verde Agua en la tira dejó la pared en ${visto}, lejos de Verde Agua (${verde})`);
       t.cierto((await tira.getAttribute("aria-pressed")) === "true", "el color elegido en la tira no queda marcado (aria-pressed)");
+      // La Intensidad también va pegada a la foto: en la ficha del color quedaba 1.000 px más abajo
+      // y se movía sin ver la pared (`rendimiento`, 4/10).
+      const lejosIntensidad = await page.evaluate(() => {
+        const lienzo = document.querySelector("canvas").getBoundingClientRect();
+        const r = [...document.querySelectorAll("input[type=range]")].find(
+          (x) => x.offsetParent !== null && /Intensidad/.test(x.closest("label")?.innerText || ""),
+        );
+        return r ? Math.round(r.getBoundingClientRect().top - lienzo.bottom) : null;
+      });
+      t.nota(`de la foto al control de Intensidad: ${lejosIntensidad} px`);
+      t.cierto(lejosIntensidad !== null && lejosIntensidad >= 0 && lejosIntensidad < 200, `en el celular el control de Intensidad queda a ${lejosIntensidad} px de la foto: se mueve sin ver la pared`);
     } finally {
       await browser.close();
     }

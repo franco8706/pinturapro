@@ -28,7 +28,7 @@ module.exports = {
     const { browser, page } = await k.abrir({ movil: false });
     try {
       await k.ir(page, "/simulador");
-      await page.click('button:has-text("Blanco Puro")');
+      await page.click('button[aria-pressed]:has-text("Blanco Puro")');
       await page.setInputFiles("input[type=file]", FOTO);
       await page.waitForSelector("canvas", { timeout: 40000 });
       await page.waitForTimeout(1200);

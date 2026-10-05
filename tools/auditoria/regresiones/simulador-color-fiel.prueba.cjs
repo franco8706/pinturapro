@@ -77,7 +77,7 @@ module.exports = {
     try {
       for (const [foto, colores] of Object.entries(porFoto)) {
         await k.ir(page, "/simulador");
-        await page.click(`button:has-text("${colores[0][0]}")`);
+        await page.click(`button[aria-pressed]:has-text("${colores[0][0]}")`);
         await page.setInputFiles("input[type=file]", `${FOTOS}/${foto}`);
         await page.waitForSelector("canvas", { timeout: 40000 });
         await page.waitForTimeout(1500);
@@ -99,7 +99,7 @@ module.exports = {
         }, null, { timeout: 15000 }).catch(() => {});
 
         for (const [color, hex] of colores) {
-          await page.click(`button:has-text("${color}")`);
+          await page.click(`button[aria-pressed]:has-text("${color}")`);
           await page.waitForTimeout(700);
           const mediana = await page.evaluate(() => {
             const c = document.querySelector("canvas");

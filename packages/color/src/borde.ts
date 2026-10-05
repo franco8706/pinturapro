@@ -78,73 +78,122 @@ export function difuminarHaciaAdentro(mascara: Uint8Array, alfa: Float32Array, w
  *    arista —la línea más oscura entre la pared y la tapa de un mueble del mismo color—, la
  *    pintura no la salta: la tapa de la cómoda de r02 quedaba pintada.
  * Donde los dos lados son casi iguales no hay proporción que calcular: queda el difuminado de
- * 1 px hacia adentro, que evita el serrucho, y afuera no se pinta nada.
+ * 1 px hacia adentro (el conteo de la vecindad de 3×3), que evita el serrucho, y afuera nada.
+ *
+ * Velocidad: corre en el hilo de la pantalla en cada toque, pincelada, contorno, Deshacer y
+ * Limpiar. Recorre sólo el rectángulo de la selección, una vez, y después trabaja sobre las
+ * listas del filo y del anillo (unos miles de píxeles), sin funciones por píxel. La versión
+ * anterior recorría la foto entera tres veces creando una función por píxel: 229 ms por llamada
+ * en un celular de gama media contra 142 de la anterior a ella (`rendimiento`, 4/10). Da
+ * exactamente el mismo resultado que esa versión (comprobado píxel a píxel en fotos reales).
  */
 export function alfaDeLaSeleccion(mascara: Uint8Array, alfa: Float32Array, foto: FotoPerceptual, w: number, h: number): void {
-  difuminarHaciaAdentro(mascara, alfa, w, h, 1);
-  const n = w * h;
+  alfa.fill(0);
+  // El rectángulo de la selección.
+  let bx0 = w, bx1 = -1, by0 = h, by1 = -1;
+  for (let y = 0; y < h; y++) {
+    const fila = y * w;
+    let primera = -1, ultima = -1;
+    for (let x = 0; x < w; x++) {
+      if (mascara[fila + x]) {
+        if (primera < 0) primera = x;
+        ultima = x;
+      }
+    }
+    if (primera < 0) continue;
+    if (primera < bx0) bx0 = primera;
+    if (ultima > bx1) bx1 = ultima;
+    if (y < by0) by0 = y;
+    by1 = y;
+  }
+  if (bx1 < 0) return; // selección vacía
 
-  // Distancia a la selección (vecindad de 8): 0 adentro, 1 y 2 en el anillo, 3 más allá.
-  // Y `filo`: los de adentro con algún vecino afuera.
-  const dist = new Uint8Array(n).fill(3);
-  const filo = new Uint8Array(n);
-  const vecinos = (i: number, x: number, y: number, f: (j: number) => void) => {
+  const n = w * h;
+  // Marca por píxel: 0 = nada, 1 = primer píxel de afuera, 2 = segundo, 3 = filo de adentro.
+  const marca = new Uint8Array(n);
+  const filo: number[] = [];
+  const anillo1: number[] = [];
+  const anillo2: number[] = [];
+
+  // 1) Interior, filo (con el difuminado de 3×3 replicando el borde de la foto, igual que
+  //    `difuminarHaciaAdentro` de radio 1) y primer píxel de afuera, en una sola pasada por el
+  //    rectángulo agrandado 1 px.
+  const rx0 = Math.max(0, bx0 - 1), rx1 = Math.min(w - 1, bx1 + 1);
+  const ry0 = Math.max(0, by0 - 1), ry1 = Math.min(h - 1, by1 + 1);
+  for (let y = ry0; y <= ry1; y++) {
+    const arriba = y > 0 ? -w : 0;
+    const abajo = y < h - 1 ? w : 0;
+    for (let x = rx0; x <= rx1; x++) {
+      const i = y * w + x;
+      const izq = x > 0 ? -1 : 0;
+      const der = x < w - 1 ? 1 : 0;
+      if (mascara[i]) {
+        const c =
+          mascara[i + arriba + izq] + mascara[i + arriba] + mascara[i + arriba + der] +
+          mascara[i + izq] + mascara[i] + mascara[i + der] +
+          mascara[i + abajo + izq] + mascara[i + abajo] + mascara[i + abajo + der];
+        if (c === 9) alfa[i] = 1;
+        else {
+          alfa[i] = c / 9;
+          // Filo = algún vecino REAL afuera (los de fuera de la foto no cuentan).
+          if (
+            (y > 0 && ((x > 0 && !mascara[i - w - 1]) || !mascara[i - w] || (x < w - 1 && !mascara[i - w + 1]))) ||
+            (x > 0 && !mascara[i - 1]) || (x < w - 1 && !mascara[i + 1]) ||
+            (y < h - 1 && ((x > 0 && !mascara[i + w - 1]) || !mascara[i + w] || (x < w - 1 && !mascara[i + w + 1])))
+          ) {
+            marca[i] = 3;
+            filo.push(i);
+          }
+        }
+      } else if (
+        (y > 0 && ((x > 0 && mascara[i - w - 1]) || mascara[i - w] || (x < w - 1 && mascara[i - w + 1]))) ||
+        (x > 0 && mascara[i - 1]) || (x < w - 1 && mascara[i + 1]) ||
+        (y < h - 1 && ((x > 0 && mascara[i + w - 1]) || mascara[i + w] || (x < w - 1 && mascara[i + w + 1])))
+      ) {
+        marca[i] = 1;
+        anillo1.push(i);
+      }
+    }
+  }
+  // 2) Segundo píxel de afuera: los vecinos de los primeros que no son ni selección ni primeros.
+  for (let k = 0; k < anillo1.length; k++) {
+    const i = anillo1[k];
+    const x = i % w;
+    const y = (i - x) / w;
     for (let dy = -1; dy <= 1; dy++) {
       const yy = y + dy;
       if (yy < 0 || yy >= h) continue;
       for (let dx = -1; dx <= 1; dx++) {
-        if (!dx && !dy) continue;
         const xx = x + dx;
         if (xx < 0 || xx >= w) continue;
-        f(i + dy * w + dx);
+        const j = yy * w + xx;
+        if (!mascara[j] && marca[j] === 0) {
+          marca[j] = 2;
+          anillo2.push(j);
+        }
       }
-    }
-  };
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = y * w + x;
-      if (mascara[i]) {
-        dist[i] = 0;
-        vecinos(i, x, y, (j) => {
-          if (!mascara[j]) filo[i] = 1;
-        });
-      } else {
-        vecinos(i, x, y, (j) => {
-          if (mascara[j]) dist[i] = 1;
-        });
-      }
-    }
-  }
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = y * w + x;
-      if (dist[i] !== 3) continue;
-      vecinos(i, x, y, (j) => {
-        if (dist[j] === 1) dist[i] = 2;
-      });
     }
   }
 
   const { L, ab } = foto;
   /** Proporción de pared del píxel `i` (0 = lo otro, 1 = pared), o -1 si no se puede saber. */
-  const proporcion = (i: number, x: number, y: number): number => {
+  const proporcion = (i: number): number => {
+    const x = i % w;
+    const y = (i - x) / w;
     let nP = 0, lP = 0, aP = 0, bP = 0;
     let nF = 0, lF = 0, aF = 0, bF = 0; // el filo, por si la pared no tiene interior en la ventana
     let nO = 0, lO = 0, aO = 0, bO = 0;
-    for (let dy = -VENTANA; dy <= VENTANA; dy++) {
-      const yy = y + dy;
-      if (yy < 0 || yy >= h) continue;
-      for (let dx = -VENTANA; dx <= VENTANA; dx++) {
-        const xx = x + dx;
-        if (xx < 0 || xx >= w) continue;
-        const j = yy * w + xx;
-        if (dist[j] === 0) {
-          if (filo[j]) {
+    const ya = Math.max(0, y - VENTANA), yb = Math.min(h - 1, y + VENTANA);
+    const xa = Math.max(0, x - VENTANA), xb = Math.min(w - 1, x + VENTANA);
+    for (let yy = ya; yy <= yb; yy++) {
+      for (let j = yy * w + xa, fin = yy * w + xb; j <= fin; j++) {
+        if (mascara[j]) {
+          if (marca[j] === 3) {
             nF++; lF += L[j]; aF += ab[j * 2]; bF += ab[j * 2 + 1];
           } else {
             nP++; lP += L[j]; aP += ab[j * 2]; bP += ab[j * 2 + 1];
           }
-        } else if (dist[j] === 3) {
+        } else if (marca[j] === 0) {
           nO++; lO += L[j]; aO += ab[j * 2]; bO += ab[j * 2 + 1];
         }
       }
@@ -170,44 +219,44 @@ export function alfaDeLaSeleccion(mascara: Uint8Array, alfa: Float32Array, foto:
     const tLin = Math.abs(yP - yO) > 0.02 ? (L[i] * L[i] * L[i] - yO) / (yP - yO) : 0;
     return Math.max(0, Math.min(1, Math.max(tOk, tLin)));
   };
-
-  // 1) El filo de adentro y el primer píxel de afuera.
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = y * w + x;
-      if (!filo[i] && dist[i] !== 1) continue;
-      const t = proporcion(i, x, y);
-      if (t < 0) continue; // lados parecidos: queda el difuminado (adentro) o nada (afuera)
-      if (filo[i]) alfa[i] = t;
-      else if (t > 0.05) alfa[i] = t;
+  /** ¿Algún vecino (8) es un primer píxel de afuera que es pared de verdad? */
+  const pegadoAPared = (i: number): boolean => {
+    const x = i % w;
+    const y = (i - x) / w;
+    for (let dy = -1; dy <= 1; dy++) {
+      const yy = y + dy;
+      if (yy < 0 || yy >= h) continue;
+      for (let dx = -1; dx <= 1; dx++) {
+        const xx = x + dx;
+        if (xx < 0 || xx >= w || (!dx && !dy)) continue;
+        const j = yy * w + xx;
+        if (marca[j] === 1 && alfa[j] >= 0.9) return true;
+      }
     }
+    return false;
+  };
+
+  // 3) El filo de adentro y el primer píxel de afuera, desmezclados.
+  for (let k = 0; k < filo.length; k++) {
+    const t = proporcion(filo[k]);
+    if (t >= 0) alfa[filo[k]] = t; // lados parecidos (-1): queda el difuminado
   }
-  // 1 bis) Un píxel del filo que quedó con el difuminado (su ventana no tenía contraste) pero
+  for (let k = 0; k < anillo1.length; k++) {
+    const t = proporcion(anillo1[k]);
+    if (t > 0.05) alfa[anillo1[k]] = t;
+  }
+  // 3 bis) Un píxel del filo que quedó con el difuminado (su ventana no tenía contraste) pero
   // está pegado a un píxel de afuera que sí es pared, también es pared: si no, queda un escalón
   // al 67 % entre la pintura de adentro y la de afuera — la misma línea gris, por otro camino.
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = y * w + x;
-      if (!filo[i] || alfa[i] >= 0.9) continue;
-      let pegadoAPared = false;
-      vecinos(i, x, y, (j) => {
-        if (dist[j] === 1 && alfa[j] >= 0.9) pegadoAPared = true;
-      });
-      if (pegadoAPared) alfa[i] = 1;
-    }
+  for (let k = 0; k < filo.length; k++) {
+    const i = filo[k];
+    if (alfa[i] < 0.9 && pegadoAPared(i)) alfa[i] = 1;
   }
-  // 2) El segundo de afuera, sólo pegado a un primero que es pared de verdad.
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = y * w + x;
-      if (dist[i] !== 2) continue;
-      let pegadoAPared = false;
-      vecinos(i, x, y, (j) => {
-        if (dist[j] === 1 && alfa[j] >= 0.9) pegadoAPared = true;
-      });
-      if (!pegadoAPared) continue;
-      const t = proporcion(i, x, y);
-      if (t > 0.05) alfa[i] = t;
-    }
+  // 4) El segundo de afuera, sólo pegado a un primero que es pared de verdad.
+  for (let k = 0; k < anillo2.length; k++) {
+    const i = anillo2[k];
+    if (!pegadoAPared(i)) continue;
+    const t = proporcion(i);
+    if (t > 0.05) alfa[i] = t;
   }
 }

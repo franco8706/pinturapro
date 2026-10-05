@@ -22,8 +22,22 @@
  * Todas las funciones trabajan con sRGB 0..255 y L 0..1.
  */
 
-/** sRGB (0..255) → lineal (0..1). */
+/**
+ * sRGB de un byte (0..255) → lineal (0..1), por tabla.
+ *
+ * Los píxeles de una foto son enteros de 0 a 255: hay sólo 256 valores posibles, y la potencia de
+ * la fórmula se calculaba tres veces por píxel al cargar cada foto (700.000 píxeles en una de
+ * 1024×683). La tabla tiene los mismos valores exactos que la fórmula.
+ */
+export const LINEAL_DE_BYTE = new Float64Array(256);
+for (let v = 0; v < 256; v++) {
+  const x = v / 255;
+  LINEAL_DE_BYTE[v] = x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+}
+
+/** sRGB (0..255) → lineal (0..1). Por tabla si es un byte; si no (un color con decimales), la fórmula. */
 function aLineal(v: number): number {
+  if ((v | 0) === v && v >= 0 && v <= 255) return LINEAL_DE_BYTE[v];
   const x = v / 255;
   return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
 }
@@ -195,6 +209,32 @@ export function oklabASrgb(L: number, a: number, b: number): [number, number, nu
     Math.max(0, Math.min(255, aSrgb(g))),
     Math.max(0, Math.min(255, aSrgb(bl))),
   ];
+}
+
+/**
+ * Lo mismo que `oklabASrgb`, pero escribe el resultado en `destino[p..p+2]` en vez de devolver
+ * un arreglo nuevo. Es el camino por píxel de `componer` cuando la Intensidad es menor a 100 %
+ * (o en el borde difuminado): un arreglo nuevo por píxel eran 700.000 por cambio de color, trabajo
+ * para el recolector justo cuando la pantalla tiene que responder. El valor es el mismo.
+ */
+export function oklabASrgbEn(destino: Uint8ClampedArray, p: number, L: number, a: number, b: number): void {
+  let lin = oklabALineal(L, a, b);
+  const m = 0.5 / 255;
+  const lo = -MARGEN_NEGRO;
+  if (!(lin[0] >= lo && lin[0] <= 1 + m && lin[1] >= lo && lin[1] <= 1 + m && lin[2] >= lo && lin[2] <= 1 + m)) {
+    let bajo = 0;
+    let alto = 1;
+    for (let i = 0; i < 10; i++) {
+      const medio = (bajo + alto) / 2;
+      const prueba = oklabALineal(L, a * medio, b * medio);
+      if (prueba[0] >= lo && prueba[0] <= 1 + m && prueba[1] >= lo && prueba[1] <= 1 + m && prueba[2] >= lo && prueba[2] <= 1 + m) bajo = medio;
+      else alto = medio;
+    }
+    lin = oklabALineal(L, a * bajo, b * bajo);
+  }
+  destino[p] = aSrgb(lin[0]);
+  destino[p + 1] = aSrgb(lin[1]);
+  destino[p + 2] = aSrgb(lin[2]);
 }
 
 /** Croma y tono (radianes) de un color de pantalla. */

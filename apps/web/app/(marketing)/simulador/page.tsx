@@ -106,6 +106,23 @@ export default function SimuladorPage() {
                         />
                       ))}
                     </div>
+                    {/* En el celular, la Intensidad también va pegada a la foto: en la ficha del
+                        color quedaba 1.000 px más abajo y se movía sin ver la pared (`rendimiento`,
+                        4/10). En la compu está en la ficha, al lado de los colores. */}
+                    {color && (
+                      <label className="mt-3 flex items-center gap-3 font-mono text-mono-sm text-concrete">
+                        Intensidad
+                        <input
+                          type="range"
+                          min={40}
+                          max={100}
+                          value={Math.round(intensidad * 100)}
+                          onChange={(e) => setIntensidad(Number(e.target.value) / 100)}
+                          className="flex-1 min-w-0"
+                        />
+                        <span className="tabular-nums w-10 text-right">{Math.round(intensidad * 100)}%</span>
+                      </label>
+                    )}
                   </div>
                 }
               />
@@ -165,8 +182,9 @@ export default function SimuladorPage() {
                     </div>
                   </div>
                   {/* Intensidad: acá, al lado del color recién elegido, y no dentro del lienzo
-                      (que en el orden del teclado queda antes de la grilla de colores). */}
-                  <label className="mt-4 flex items-center gap-3 font-mono text-mono-sm text-concrete">
+                      (que en el orden del teclado queda antes de la grilla de colores). Sólo en la
+                      compu: en el celular va pegada a la foto (ver `debajoDelLienzo`). */}
+                  <label className="mt-4 hidden lg:flex items-center gap-3 font-mono text-mono-sm text-concrete">
                     Intensidad
                     <input
                       type="range"
