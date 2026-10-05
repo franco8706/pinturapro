@@ -75,3 +75,13 @@ cerrar cada ronda.
   que arreglar ahí, sólo seguir confirmando que se sostiene. Lo que sigue abierto: las 3 fuentes
   siguen pesando 109,5 KB por página (JetBrains Mono se baja completa aunque no se precargue) y el
   primer clic de la varita, ANTES del Web Worker de esta ronda, seguía en 571-599 ms.
+- 4/10 (ronda del simulador): tu calibración contra ruido (tarea fija antes y después de cada
+  corrida, descartar si se aparta) y el perfil de CPU por función fueron decisivos: con eso se
+  vio que el borde era la mitad del primer toque y que la versión nueva del disco era 1,8× más
+  lenta ANTES de que llegara a producción. Se corrigió: borde ~5× (sólo el rectángulo de la
+  selección), carga de la foto 3× (tabla para la potencia de sRGB), Intensidad < 100 % −35 %,
+  un repintado por cuadro. Primer toque en :3100 (×4, máquina cargada): 247-269 ms de tarea larga,
+  344-387 hasta ver el color. Tus scripts siguen en `tools/auditoria/.salida/rendimiento/`
+  (`medir.cjs cargar|toque|color`); los números de antes, en `antes-2d75c7a/`.
+- El ×4 de CDP NO frena al Web Worker ni la decodificación: en un celular real los "hasta ver el
+  color" son ~200-250 ms más largos que en la emulación. Decilo siempre junto al número.

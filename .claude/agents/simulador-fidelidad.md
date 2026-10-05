@@ -79,3 +79,11 @@ mejora (medido en tu réplica, no supuesto). Marcá medido vs. deducido.
     pared blanca pareja.
   · En una pared con luz de ventana fuerte, los blancos quedan ~ΔE 4 más oscuros en la mediana:
     es el ancla en un percentil alto (a propósito, para no quemar las luces), no un error.
+- 3/10, tu primera ronda: tu réplica de Node fue bit a bit igual al navegador (864 lienzos): ese
+  método vale, repetilo. Hoy el motor está en `packages/color/src/pintura.ts` y se importa directo.
+  Se aplicó lo que recomendaste: croma C/L constante + Intensidad 100 % (ΔE de las 5 pruebas del
+  navegador 0,26-0,61), el margen de gama cerca del negro (a L=0,15 el tono se corría 43,5°, ahora
+  2,7°) y el borde de 1 px. El ancla en percentil quedó como decisión (los blancos con luz fuerte
+  de ventana ~ΔE 4 más oscuros en la mediana): no la reportes como error salvo que cambie el número.
+- 4/10: el borde ahora se desmezcla (`packages/color/src/borde.ts`): si medís el aro, separá el
+  filo de ADENTRO (antes una línea gris al 67 %) de los píxeles de afuera.

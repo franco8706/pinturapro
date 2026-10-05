@@ -85,3 +85,17 @@ cerrar cada ronda.
   reutilizar buffers, media resolución — los tres tocaban la calidad o dejaban el cálculo en el
   hilo principal). Resultado: primer clic 577-623→319-339 ms, calidad sin cambios. Confirmá ese
   número la próxima ronda.
+- 3-5/10 (ronda `2026-10-03-simulador`, la más grande del simulador): **medí también con las 18
+  fotos REALES** (`tools/auditoria/simulador/fotos-reales.py`; tus puntos y zonas quedaron en
+  `tools/auditoria/simulador/reales.json`, en git). Con sólo las sintéticas el 82-84 % "bueno"
+  escondía el arco del tope de radio (7 de 13 interiores), el techo comido en cuartos blancos y las
+  fachadas imposibles. Usá siempre las dos: sintéticas para el número exacto, reales para lo que ve
+  la gente. Referencias nuevas (sintéticas, Chrome 152): recall 94-95 %, precisión 99,3 %, textura
+  0,59 (Intensidad 100 %), moldura 4,5-4,6 % con el filo en 0.
+- La moldura 2,5 → 4,5 % **no fue regresión**: eran dos franjas distintas (la sonda del 19/9 y la
+  prueba) sobre la misma pintura, y Chrome no cambió. Antes de comparar porcentajes de píxeles,
+  compará las coordenadas de la franja.
+- r07 y r13 siguen pintando el techo con un toque (esquina tenue): no es un hallazgo nuevo, la
+  salida documentada es ⬠ Contorno → Quitar la zona (4 esquinas, techo 100 → 0,6 %).
+- Para capturar el lienzo usá `canvas.toDataURL()`, no `locator('canvas').screenshot` (captura lo
+  que tape el lienzo).

@@ -86,3 +86,13 @@ lo encontraste. Marcá medido vs. deducido. Lo que anda bien, en una línea por 
   la de 24 MP justos carga (1024×683). No lo vuelvas a medir salvo que cambie la carga de la foto.
 - El simulador tiene UNA sola selección y UN solo color: todo lo que se toca se pinta del color
   elegido. Si eso confunde a la persona, es hallazgo de uso, no un error de cálculo.
+- 3-4/10, tus dos primeras pasadas: encontraste 1 BLOQUEANTE y 12 IMPORTANTES y todos se
+  arreglaron con su prueba (`simulador-acciones`, `simulador-carreras`, `simulador-celular`,
+  `simulador-borde`). Lo que te sirvió y conviene repetir: los pasos exactos con números de
+  píxeles (262.451 → 0), atacar las carreras con la CPU frenada, y la IA interceptada con
+  `page.route` (no cuesta plata).
+- Para elegir un color en tus scripts: `button[aria-pressed]:has-text("Arena")`. El botón
+  "＋ Dejar Arena y pintar otra pared" también dice el nombre y `page.click` toma el primero.
+- Herramientas que existen desde el 4/10 (atacalas primero la próxima vez, son las más nuevas):
+  ⬠ Contorno (pintar/quitar, también sobre paredes fijas), varias paredes con su Intensidad,
+  Deshacer que incluye las paredes fijas, ver original, guardar, IA con "Cancelar".
