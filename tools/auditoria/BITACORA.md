@@ -80,11 +80,26 @@ Estos ya no se reportan. `pnpm verificar` los revisa en cada corrida.
 | Las fachadas no se podían pintar (3/10) | Ladrillo, piedra, madera: la varita daba aviso o agarraba 1-13 %; ninguna llegaba al 80 % con 8 toques. Ahora "⬠ Contorno" (esquinas de la zona) | `simulador-acciones`, `pruebas-color` |
 | En el celular no se veían la pared y los colores a la vez (3/10) | El primer color estaba 630 px debajo de la foto. Ahora una tira pegada (42 px) | `simulador-celular` |
 | Un contorno del color viejo alrededor de lo pintado (3/10) | Pared verde oscura pintada de blanco: la mitad del borde seguía verde (en esquinas y alrededor de cada cuadro). Ahora el borde se pinta en la proporción en que es pared | `simulador-borde`, `pruebas-color` |
+| Una línea gris de 1 px adentro de la pintura (4/10) | El último píxel de la selección quedaba al 67 % (difuminado) entre la pintura de adentro y la de afuera: en el 89 % del filo de una pared verde oscura pintada de blanco (3.037 px en r08; ahora 50). Y la pintura saltaba la arista entre la pared y la tapa de un mueble del mismo color | `simulador-borde`, `pruebas-color` |
+| Deshacer no devolvía una pared quitada con su ✕ (4/10) | Además deshacía el toque anterior, que no tenía nada que ver | `simulador-acciones` |
+| Una pared ya fijada no se podía corregir (4/10) | "Quitar la zona" decía "Zona quitada." y el techo seguía pintado; Borrar tampoco | `simulador-acciones` |
+| "＋ Otra pared, otro color" se usaba al revés (4/10) | Se elegía el color de la pared siguiente ANTES de apretarlo y las paredes quedaban con los colores cruzados; en el celular la ficha que lo confirmaba quedaba fuera de la pantalla. Ahora dice "＋ Dejar <color> y pintar otra pared" y las fichas van pegadas a la foto | `simulador-acciones` |
+| "Ver la foto original" tapaba lo que se hacía (4/10) | Con la original a la vista, tocar, elegir color o pintar no mostraba nada (0 px) | `simulador-acciones` |
+| La Intensidad cambiaba las paredes ya fijadas (4/10) | Cada pared fija conserva la suya | `simulador-acciones`, `pruebas-color` |
+| La IA colgada dejaba todo apagado 70 s y después nada (4/10) | Ahora "Cancelar" y aviso si se corta por tiempo | `simulador-carreras` (reloj simulado) |
+| En el celular la Intensidad quedaba lejos de la foto (4/10) | 1.000 px más abajo: se movía sin ver la pared. Ahora 94 px | `simulador-celular` |
 | Los oscuros saturados cambiaban de tono al recortar la gama (3/10) | El margen de "entra en pantalla" estaba en luz lineal: cerca del negro eran 6,5 niveles. A L=0,15 el tono se corría 43,5° (ahora 2,7°) | `pruebas-color` (Gama) |
 ## Corregido, sin prueba todavía
 
 Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arriba.
 
+- **Simulador, velocidad (4-5/10, medido por `rendimiento` en un celular de gama media)**: el
+  borde recorría la foto entera tres veces creando una función por píxel (229 ms por toque): ahora
+  sólo el rectángulo de la selección, mismo resultado exacto, ~5× más rápido. La carga de cada foto
+  (561-592 ms de pantalla congelada) usa una tabla para la potencia de sRGB: 3× más rápida, mismo
+  resultado. Cambiar de color con Intensidad < 100 % no crea un arreglo por píxel (−35 %), y un
+  arrastre de Intensidad repinta una vez por cuadro. Sin prueba de tiempos en la suite (necesita la
+  compilación de producción); se mide con `rendimiento` y `tools/auditoria/simulador/congelamiento.cjs`.
 - **Simulador, ronda del 3/10** (`tools/auditoria/rondas/2026-10-03-simulador/`), lo chico:
   cambiar de marca o de Interior/Exterior ya no borra el color (la pared volvía al velo azul de
   "selección"); una PNG transparente se ve sobre blanco (lo transparente no se podía pintar);

@@ -224,7 +224,7 @@ de pared con 99 % de precisión, y en fotos de verdad la pintura terminaba en un
 se comía el techo de los cuartos blancos y no servía en ninguna fachada. Las sintéticas no tienen
 techo del mismo color, cuadros, ni textura de ladrillo. `python3 tools/auditoria/simulador/fotos-reales.py`
 baja 18 fotos reales (siempre las mismas) y arma 19 variantes de archivo; los puntos de toque y
-las zonas "seguro pared"/"fugas" de cada una están en `tools/auditoria/.salida/simulador-color/reales.json`
+las zonas "seguro pared"/"fugas" de cada una están en `tools/auditoria/simulador/reales.json`
 (los dibujó el agente mirando cada foto). Para medir en Node, el reescalado de PIL no es el de
 Chrome: los números son aproximados; lo que se publica, se confirma en el navegador.
 
