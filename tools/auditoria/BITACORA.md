@@ -359,6 +359,10 @@ No los vuelvas a levantar sin evidencia nueva.
   El cliente no le paga nada a la plataforma. Plan aprobado en etapas (base y textos → dólar →
   Mercado Pago y transferencia → admin → cobro real); detalle en
   `tools/auditoria/rondas/2026-10-06-suscripcion/plan.md`.
+- **El CBU y el QR, para después** (8/10/2026): la transferencia ya está hecha (etapa 3) pero
+  queda apagada hasta que haya cuenta del negocio (`TRANSFERENCIA_ALIAS`/`TITULAR`/`CBU`): sin
+  ellas, "Mi plan" la muestra como "Muy pronto". El débito y el QR de Mercado Pago no se
+  construyen hasta que el dueño retome. Mientras dure el lanzamiento, nadie paga.
 - **¿El nombre del autor de una reseña se le muestra a quien no tiene cuenta?** Hoy no (0013):
   el anónimo ve "Cliente". Mostrar el nombre de pila daría más confianza y expone más.
 - **¿El tablero /trabajos va a Google?** Hoy no (`noindex`, 29/9): son pedidos de personas.
