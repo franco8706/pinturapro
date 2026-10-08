@@ -200,3 +200,78 @@ export async function getMetricasSuscripciones(): Promise<MetricasSuscripciones 
     return null;
   }
 }
+
+export interface CotizacionAdmin {
+  id: number;
+  venta: number;
+  control: number | null;
+  estado: "vigente" | "a_confirmar" | "descartada";
+  motivo: string | null;
+  leidaEn: string;
+  confirmadaEn: string | null;
+}
+
+/**
+ * Las últimas lecturas del dólar, para /admin. La tabla no la lee nadie con su sesión (0027):
+ * se lee con la clave de servicio, y por eso esta función la llama SÓLO una página que ya
+ * verificó que quien mira es el admin.
+ */
+export async function getCotizacionesParaAdmin(limite = 15): Promise<CotizacionAdmin[]> {
+  if (!SUPA || !process.env.SUPABASE_SERVICE_ROLE_KEY) return [];
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const { data, error } = await createAdminClient()
+      .from("cotizaciones_dolar")
+      .select("id, venta, control, estado, motivo, leida_en, confirmada_en")
+      .order("leida_en", { ascending: false })
+      .limit(limite);
+    if (error) {
+      if (!faltaLaMigracion(error)) dbError("getCotizacionesParaAdmin", error);
+      return [];
+    }
+    return ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
+      id: Number(r.id),
+      venta: Number(r.venta),
+      control: r.control == null ? null : Number(r.control),
+      estado: r.estado as CotizacionAdmin["estado"],
+      motivo: (r.motivo as string | null) ?? null,
+      leidaEn: String(r.leida_en),
+      confirmadaEn: (r.confirmada_en as string | null) ?? null,
+    }));
+  } catch (e) {
+    dbError("getCotizacionesParaAdmin", e);
+    return [];
+  }
+}
+
+export interface CancelacionTrasAceptar {
+  jobId: string;
+  monto: number | null;
+  aceptadoEn: string | null;
+  canceladoEn: string | null;
+  canceladoPor: string | null;
+}
+
+/** H5 a la vista: trabajos cancelados después de aceptar (el teléfono ya se había mostrado). Sólo admin (lo verifica la base). */
+export async function getCancelacionesTrasAceptar(limite = 30): Promise<CancelacionTrasAceptar[]> {
+  if (!SUPA) return [];
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("cancelaciones_tras_aceptar", { limite } as never);
+    if (error) {
+      if (!faltaLaMigracion(error)) dbError("getCancelacionesTrasAceptar", error);
+      return [];
+    }
+    const filas: unknown = data;
+    return ((Array.isArray(filas) ? filas : []) as Record<string, unknown>[]).map((r) => ({
+      jobId: String(r.job_id),
+      monto: r.monto == null ? null : Number(r.monto),
+      aceptadoEn: (r.aceptado_en as string | null) ?? null,
+      canceladoEn: (r.cancelado_en as string | null) ?? null,
+      canceladoPor: (r.cancelado_por as string | null) ?? null,
+    }));
+  } catch (e) {
+    dbError("getCancelacionesTrasAceptar", e);
+    return [];
+  }
+}

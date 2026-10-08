@@ -16,7 +16,8 @@ import { createServerClient } from "@supabase/ssr";
  * Supabase, al verlo usado de nuevo, puede cerrar todas las sesiones de la persona. El
  * middleware es quien renueva y guarda ANTES de que la página lea.
  */
-const SIN_VALIDAR = new Set(["/api/sesion", "/api/health", "/og.png", "/sitemap.xml", "/robots.txt"]);
+// `/api/cotizacion/actualizar` la llama Cloud Scheduler, sin sesión: se protege con su propio token.
+const SIN_VALIDAR = new Set(["/api/sesion", "/api/health", "/api/cotizacion/actualizar", "/og.png", "/sitemap.xml", "/robots.txt"]);
 
 /**
  * Refresca la sesión de Supabase (necesario con SSR: un Server Component no puede escribir

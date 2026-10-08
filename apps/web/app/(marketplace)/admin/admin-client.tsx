@@ -6,21 +6,37 @@ import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { LevelBadge } from "@/components/features/level-badge";
 import type { Painter } from "@/lib/data";
-import type { LeadView, ResenaParaModerar } from "@/lib/queries";
-import { borrarResena } from "./actions";
+import type {
+  LeadView,
+  ResenaParaModerar,
+  CotizacionAdmin,
+  MetricasSuscripciones,
+  CancelacionTrasAceptar,
+} from "@/lib/queries";
+import { borrarResena, confirmarCotizacion } from "./actions";
+import { fechaAR } from "@pinturapro/dominio";
 import { cn } from "@/lib/utils";
 
-const tabs = ["Consultas", "Pintores", "Reseñas"] as const;
+const tabs = ["Consultas", "Pintores", "Reseñas", "Cobro"] as const;
 type Tab = (typeof tabs)[number];
+
+export interface DatosDeCobro {
+  cotizaciones: CotizacionAdmin[];
+  metricas: MetricasSuscripciones | null;
+  cancelaciones: CancelacionTrasAceptar[];
+  precioArs: number | null;
+}
 
 export function AdminClient({
   leads,
   painters,
   resenas,
+  cobro,
 }: {
   leads: LeadView[];
   painters: Painter[];
   resenas: ResenaParaModerar[];
+  cobro: DatosDeCobro;
 }) {
   const [tab, setTab] = useState<Tab>("Consultas");
   const sinLeer = leads.filter((l) => l.status === "new").length;
@@ -37,7 +53,7 @@ export function AdminClient({
               <span className="px-2 py-0.5 bg-ink text-bone font-mono text-mono-sm">{sinLeer} sin leer</span>
             )}
           </div>
-          <h1 className="font-display text-display-xl mb-10">Consultas, pintores y reseñas.</h1>
+          <h1 className="font-display text-display-xl mb-10">Consultas, pintores, reseñas y cobro.</h1>
 
           {/* Tabs */}
           <div className="flex gap-1 border-b border-concrete/15 mb-8">
@@ -145,10 +161,152 @@ export function AdminClient({
             )
           )}
 
+          {tab === "Cobro" && <Cobro datos={cobro} />}
         </div>
       </section>
       <Footer />
     </main>
+  );
+}
+
+const ars = (n: number | null) =>
+  n == null ? "—" : new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 2 }).format(n);
+
+/**
+ * El cobro de la suscripción (6/10/2026): el dólar con el que se pasan a pesos los US$5, las
+ * lecturas que no se usaron (y el botón para confirmar un salto), las cifras del mes y las
+ * cancelaciones después de aceptar (H5).
+ */
+function Cobro({ datos }: { datos: DatosDeCobro }) {
+  const vigente = datos.cotizaciones.find((c) => c.estado === "vigente");
+  const aConfirmar = datos.cotizaciones.filter((c) => c.estado === "a_confirmar");
+  const m = datos.metricas;
+  return (
+    <div className="space-y-12">
+      <div>
+        <h2 className="font-display text-display-md mb-3">El dólar de la suscripción</h2>
+        {vigente ? (
+          <p className="font-body text-body-md text-concrete max-w-2xl">
+            Vigente: <strong className="text-ink">{ars(vigente.venta)}</strong> (oficial Banco Nación, venta), leído el{" "}
+            {fechaAR(vigente.leidaEn)}. US$5 hoy son <strong className="text-ink">{ars(datos.precioArs)}</strong>.
+          </p>
+        ) : (
+          <p className="font-body text-body-md text-concrete max-w-2xl">
+            Todavía no hay ninguna cotización vigente: la tarea de Cloud Scheduler no corrió nunca o
+            no está configurada (`COTIZACION_TOKEN`). Sin cotización no se muestra el precio en pesos.
+          </p>
+        )}
+        {aConfirmar.length > 0 && (
+          <p role="alert" className="mt-3 font-body text-body-md text-[#C41E3A] max-w-2xl">
+            Hay {aConfirmar.length} lectura{aConfirmar.length > 1 ? "s" : ""} que saltó más del 10 %: no se usa hasta
+            que la confirmes. Si el salto es real (una devaluación), confirmala; si no, dejala.
+          </p>
+        )}
+      </div>
+
+      {datos.cotizaciones.length > 0 && (
+        <Table headers={["Leída", "Venta", "Control (BCRA)", "Estado", "Motivo", ""]}>
+          {datos.cotizaciones.map((c) => (
+            <tr key={c.id} className="border-b border-concrete/10 align-top">
+              <Td className="text-concrete whitespace-nowrap">{fechaAR(c.leidaEn)}</Td>
+              <Td className="tabular-nums">{ars(c.venta)}</Td>
+              <Td className="tabular-nums text-concrete">{ars(c.control)}</Td>
+              <Td>{c.estado === "a_confirmar" ? "A confirmar" : c.estado === "vigente" ? "Vigente" : "Descartada"}</Td>
+              <Td className="text-concrete max-w-sm [overflow-wrap:anywhere]">{c.motivo ?? "—"}</Td>
+              <Td>{c.estado === "a_confirmar" ? <ConfirmarCotizacion id={c.id} venta={c.venta} /> : null}</Td>
+            </tr>
+          ))}
+        </Table>
+      )}
+
+      <div>
+        <h2 className="font-display text-display-md mb-3">Suscripciones</h2>
+        {m ? (
+          <p className="font-body text-body-md text-concrete max-w-2xl">
+            Al día: <strong className="text-ink">{m.activos}</strong> · en gracia: {m.enGracia} · en el lanzamiento:{" "}
+            {m.enLanzamiento} · sin acceso: {m.sinAcceso}. Ingreso del mes: <strong className="text-ink">{ars(m.ingresoMesArs)}</strong>
+            {m.devolucionesMesArs > 0 ? ` (devoluciones: ${ars(m.devolucionesMesArs)})` : ""}. Transferencias para revisar:{" "}
+            {m.transferenciasARevisar}.
+          </p>
+        ) : (
+          <p className="font-body text-body-md text-concrete">La base todavía no tiene el modelo de cobro (migración 0027).</p>
+        )}
+      </div>
+
+      <div>
+        <h2 className="font-display text-display-md mb-3">Cancelados después de aceptar</h2>
+        <p className="font-body text-body-sm text-concrete max-w-2xl mb-4">
+          Trabajos que se aceptaron —y por lo tanto las dos partes vieron el teléfono de la otra— y después se
+          cancelaron. Muchos de la misma cuenta pueden ser alguien juntando teléfonos o cerrando por fuera.
+        </p>
+        {datos.cancelaciones.length === 0 ? (
+          <p className="font-body text-body-md text-concrete">Ninguno.</p>
+        ) : (
+          <Table headers={["Aceptado", "Cancelado", "Canceló", "Monto"]}>
+            {datos.cancelaciones.map((c) => (
+              <tr key={c.jobId} className="border-b border-concrete/10">
+                <Td className="text-concrete whitespace-nowrap">{c.aceptadoEn ? fechaAR(c.aceptadoEn) : "—"}</Td>
+                <Td className="text-concrete whitespace-nowrap">{c.canceladoEn ? fechaAR(c.canceladoEn) : "—"}</Td>
+                <Td>{c.canceladoPor ?? "—"}</Td>
+                <Td className="tabular-nums">{ars(c.monto)}</Td>
+              </tr>
+            ))}
+          </Table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Dos clics, como dar de baja una reseña: cambia el precio que pagan todos. */
+function ConfirmarCotizacion({ id, venta }: { id: number; venta: number }) {
+  const router = useRouter();
+  const [confirmar, setConfirmar] = useState(false);
+  const [error, setError] = useState("");
+  const [pendiente, empezar] = useTransition();
+  if (!confirmar) {
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirmar(true)}
+        className="py-1 font-body text-body-sm text-concrete underline underline-offset-4 hover:text-ink whitespace-nowrap"
+      >
+        Confirmar
+      </button>
+    );
+  }
+  return (
+    <span className="flex flex-col gap-1">
+      <span className="flex gap-3 whitespace-nowrap">
+        <button
+          type="button"
+          disabled={pendiente}
+          onClick={() =>
+            empezar(async () => {
+              const r = await confirmarCotizacion(id);
+              if (r.error) setError(r.error);
+              else router.refresh();
+            })
+          }
+          className="py-1 font-body text-body-sm text-ink underline underline-offset-4"
+        >
+          {pendiente ? "Confirmando…" : `Sí, usar ${ars(venta)}`}
+        </button>
+        <button
+          type="button"
+          disabled={pendiente}
+          onClick={() => setConfirmar(false)}
+          className="py-1 font-body text-body-sm text-concrete underline underline-offset-4"
+        >
+          No
+        </button>
+      </span>
+      {error && (
+        <span role="alert" className="font-body text-body-sm text-[#C41E3A]">
+          {error}
+        </span>
+      )}
+    </span>
   );
 }
 

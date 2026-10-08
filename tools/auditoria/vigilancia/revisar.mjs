@@ -89,6 +89,23 @@ async function salud() {
     falla("el sitio está sirviendo datos de ejemplo en lugar de los reales");
   }
   notas.push(`base OK · ${cuerpo.checks} sondas · ${cuerpo.latencyMs} ms`);
+  // La suscripción cobra US$5 en pesos al dólar del día: un dólar viejo es un precio viejo. La
+  // tarea de Cloud Scheduler lo lee 3 veces por día hábil; 48 h sin lectura es que se cortó.
+  const horas = cuerpo.cobro?.cotizacionLeidaHaceHoras;
+  if (typeof horas === "number" && horas > 48) {
+    falla(`el dólar de la suscripción lleva ${horas} h sin actualizarse: el precio en pesos quedó viejo`);
+  }
+}
+
+// ── 1 bis. La tarea del dólar sólo la dispara Cloud Scheduler ──
+async function cotizacionCerrada() {
+  try {
+    const r = await fetch(BASE + "/api/cotizacion/actualizar", { method: "POST", signal: AbortSignal.timeout(20_000) });
+    // 401 (token configurado) o 503 (sin configurar) están bien; un 200 sin token, no.
+    if (r.status === 200) falla("/api/cotizacion/actualizar responde sin el token de Cloud Scheduler");
+  } catch (e) {
+    notas.push(`no se pudo probar /api/cotizacion/actualizar: ${String(e).slice(0, 80)}`);
+  }
 }
 
 // ── 2. Las páginas que tienen que estar ──
@@ -318,6 +335,7 @@ const t0 = Date.now();
 registrar("INFO", `Vigilancia de Pintura Pro · ${BASE}`);
 
 await salud();
+await cotizacionCerrada();
 await paginas();
 await legales();
 await derechos();

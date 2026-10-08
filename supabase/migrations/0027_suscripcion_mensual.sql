@@ -47,6 +47,9 @@ create table public.ajustes_de_cobro (
   medios_activos             text[]  not null default array['debito', 'qr', 'transferencia'],
   salto_maximo               numeric(4,3) not null default 0.100 check (salto_maximo > 0),
   diferencia_maxima_fuentes  numeric(4,3) not null default 0.050 check (diferencia_maxima_fuentes > 0),
+  -- Un pago hecho con las credenciales de prueba de Mercado Pago (sandbox) NO da acceso real,
+  -- salvo en una base de pruebas que lo active (seguridad-rls, 8/10/2026).
+  aceptar_pagos_de_prueba    boolean not null default false,
   updated_at                 timestamptz not null default now()
 );
 insert into public.ajustes_de_cobro (id) values (true);
@@ -128,7 +131,7 @@ create table public.suscripciones (
   cancelada_en      timestamptz,
   cancelada_por     text check (cancelada_por in ('pintor', 'admin', 'proveedor', 'baja_de_cuenta', 'sistema')),
   sincronizada_en   timestamptz,
-  nota              text check (char_length(nota) <= 500),
+  nota              text check (char_length(nota) <= 500),   -- la lee el pintor: nada interno del admin
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now(),
   unique (proveedor, proveedor_ref)
@@ -276,7 +279,7 @@ returns int
 language sql stable security definer set search_path = public as $$
   select (ceil(round(p.precio_usd * c.venta * 100) / 10000) * 100)::int
   from public.planes p, public.cotizacion_vigente() c
-  where p.id = plan;
+  where p.id = plan and p.activo;
 $$;
 
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -296,7 +299,7 @@ language sql stable security definer set search_path = public as $$
              when public.es_service_role() then uid
            end as id
   ),
-  aj as (select a.exigir_suscripcion, a.lanzamiento_hasta from public.ajustes_de_cobro a limit 1)
+  aj as (select a.exigir_suscripcion, a.lanzamiento_hasta, a.aceptar_pagos_de_prueba from public.ajustes_de_cobro a limit 1)
   select coalesce((
     select exists (select 1 from public.profiles p where p.id = q.id and p.type in ('painter', 'company'))
        and (
@@ -304,6 +307,7 @@ language sql stable security definer set search_path = public as $$
          or exists (
            select 1 from public.suscripciones s
            where s.pintor_id = q.id
+             and (s.modo = 'produccion' or coalesce((select aj.aceptar_pagos_de_prueba from aj), false))
              and (
                s.acceso_hasta > now()
                or (s.proveedor = 'lanzamiento'
@@ -357,6 +361,15 @@ alter table public.jobs
   add column aceptado_en   timestamptz,
   add column cancelado_en  timestamptz,
   add column cancelado_por text check (cancelado_por in ('cliente', 'pintor', 'sistema'));
+
+-- Los trabajos que ya se aceptaron antes de esta migración: el rastro de abajo no deja escribir
+-- `aceptado_en` nunca más, así que se completa ahora (seguridad-rls, 8/10/2026). La fecha exacta
+-- no se guardaba: se usa la última modificación, que es la mejor aproximación que hay. Sin tocar
+-- `updated_at` (`volumen_mensual` agrupa por esa columna).
+alter table public.jobs disable trigger trg_jobs_updated;
+update public.jobs set aceptado_en = coalesce(updated_at, created_at)
+ where status in ('accepted', 'in_progress', 'completed') and aceptado_en is null;
+alter table public.jobs enable trigger trg_jobs_updated;
 
 -- La policy de cotizar, con TODAS sus condiciones y de dónde viene cada una (la lección de
 -- 0018: una policy reescrita a medias pierde condiciones en silencio).
@@ -525,6 +538,23 @@ begin
   return new;
 end; $$;
 
+-- El tipo de un proyecto no cambia después de creado (seguridad-rls, 8/10/2026): un pintor dueño
+-- de un PEDIDO lo pasaba a "portfolio", y con eso esquivaba H8 (borrarlo con un trabajo aceptado)
+-- y la regla de 0026 (no editar un pedido adjudicado), que miran `type = 'service'`.
+create or replace function public.tipo_de_proyecto_fijo()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.type is distinct from old.type and not public.es_service_role() and auth.uid() is not null then
+    raise exception 'El tipo de una publicación no se cambia' using errcode = 'P0001';
+  end if;
+  return new;
+end; $$;
+revoke execute on function public.tipo_de_proyecto_fijo() from public, anon, authenticated;
+drop trigger if exists trg_tipo_de_proyecto_fijo on public.projects;
+create trigger trg_tipo_de_proyecto_fijo
+  before update of type on public.projects
+  for each row execute function public.tipo_de_proyecto_fijo();
+
 -- H8: un pedido adjudicado no se borra (0026 ya impide editarlo). Las obras de portfolio sí.
 alter policy projects_delete_own on public.projects
   using (
@@ -596,13 +626,22 @@ revoke all on table public.ajustes_de_cobro, public.planes, public.cotizaciones_
   public.eventos_pago
   from public, anon, authenticated, service_role;
 
-grant select on table public.ajustes_de_cobro, public.planes to anon, authenticated;
+-- De los ajustes, sólo lo que la pantalla necesita: los umbrales del control del dólar y la
+-- llave de los pagos de prueba no son públicos.
+grant select (id, lanzamiento_hasta, exigir_suscripcion, medios_activos) on public.ajustes_de_cobro to anon, authenticated;
+grant select on table public.planes to anon, authenticated;
 grant select on table public.suscripciones, public.codigos_de_pago, public.cobros, public.pagos_suscripcion to authenticated;
 
 grant select, insert, update, delete on table public.ajustes_de_cobro, public.planes,
   public.cotizaciones_dolar, public.suscripciones, public.codigos_de_pago, public.cobros,
   public.eventos_pago to service_role;
 grant select, insert on table public.pagos_suscripcion to service_role;
+
+-- Las secuencias de las columnas identity quedaban abiertas a anon y authenticated (el revoke
+-- de arriba es sólo de tablas). La clave de servicio no necesita USAGE para insertar en una
+-- columna identity.
+revoke all on sequence public.cotizaciones_dolar_id_seq, public.codigos_de_pago_numero_seq
+  from public, anon, authenticated;
 
 alter table public.ajustes_de_cobro   enable row level security;
 alter table public.planes             enable row level security;
@@ -614,7 +653,7 @@ alter table public.pagos_suscripcion  enable row level security;
 alter table public.eventos_pago       enable row level security;
 
 create policy ajustes_de_cobro_lectura on public.ajustes_de_cobro for select using (true);
-create policy planes_lectura on public.planes for select using (activo);
+create policy planes_lectura on public.planes for select using (activo and publico);
 create policy suscripciones_propias on public.suscripciones for select using (pintor_id = (select auth.uid()));
 create policy codigos_de_pago_propios on public.codigos_de_pago for select using (pintor_id = (select auth.uid()));
 create policy cobros_propios on public.cobros for select using (pintor_id = (select auth.uid()));

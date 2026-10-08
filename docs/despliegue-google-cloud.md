@@ -107,7 +107,7 @@ API) antes de cargarla acá.
 | Variable | Dónde | Por qué |
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_DATOS_DEMO` | Argumento de compilación (sólo) | Se hornean en el código al compilar: cambiarlas es recompilar la imagen |
-| `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `REPLICATE_API_TOKEN`, `SAM_BACKEND_TOKEN` | Secret Manager | Secretas |
+| `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `REPLICATE_API_TOKEN`, `SAM_BACKEND_TOKEN`, `COTIZACION_TOKEN` | Secret Manager | Secretas |
 | `RESEND_FROM`, `LEADS_NOTIFY_EMAIL`, `REPLICATE_VERSION`, `REPLICATE_DEPLOYMENT`, `REPLICATE_POINTS_PER_SIDE`, `REPLICATE_PRED_IOU_THRESH`, `REPLICATE_STABILITY_THRESH`, `SAM_BACKEND_URL` | Variable de entorno | Configuración, no secreta |
 
 ## 4. Construir y subir la imagen
@@ -193,6 +193,36 @@ Por qué cada número:
 5. **Google, Microsoft y Facebook** (las apps de login social): agregar el dominio nuevo a sus
    direcciones de redirección permitidas. Ver `docs/auth-oauth.md`.
 6. **Resend**: verificar el dominio para poder mandar desde `hola@el-dominio`.
+
+### La tarea del dólar (suscripción del pintor, etapa 2)
+
+La suscripción cuesta US$5 y se cobra en pesos al dólar oficial del Banco Nación del día. La web
+no adivina el dólar: lo lee una tarea que dispara **Cloud Scheduler 3 veces por día hábil**
+llamando a `POST /api/cotizacion/actualizar` con un token propio (ver
+`apps/web/lib/pagos/cotizacion.ts`). Sin token configurado la ruta responde 503 y el precio en
+pesos no aparece.
+
+```bash
+# El token: largo y al azar. Va a Secret Manager (para la web) y al trabajo de Scheduler.
+TOKEN=$(openssl rand -hex 32)
+printf '%s' "$TOKEN" | gcloud secrets create cotizacion-token --data-file=-
+gcloud secrets add-iam-policy-binding cotizacion-token \
+  --member="serviceAccount:pinturapro-web@${PROYECTO}.iam.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+# En el `gcloud run deploy` de la sección 5, sumar: --set-secrets=COTIZACION_TOKEN=cotizacion-token:latest
+
+# 10:30, 13:00 y 16:00, de lunes a viernes, hora argentina.
+for h in "30 10" "0 13" "0 16"; do
+  gcloud scheduler jobs create http "cotizacion-dolar-${h// /-}" --location=${REGION} \
+    --schedule="${h} * * 1-5" --time-zone="America/Argentina/Buenos_Aires" \
+    --http-method=POST --uri="https://el-dominio/api/cotizacion/actualizar" \
+    --headers="Authorization=Bearer ${TOKEN}" --attempt-deadline=60s
+done
+```
+
+Si la lectura salta más de 10 % o las fuentes no coinciden, la tarea escribe un ERROR en el log
+(dispara la alerta por logs) y el salto se confirma a mano en **/admin → Cobro**. El vigilante
+avisa si pasan 48 h sin una lectura nueva.
 
 ## 7. El vigilante 24/7
 

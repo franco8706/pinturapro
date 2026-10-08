@@ -84,8 +84,26 @@ export async function GET() {
       );
     }
 
+    // La suscripción (0027): hace cuánto se leyó el dólar con el que se pasan a pesos los US$5.
+    // Informativo, no cambia el estado: el vigilante avisa si pasan 48 h. `null` si la base
+    // todavía no tiene la 0027 o si nunca se leyó una cotización.
+    let cotizacionLeidaHaceHoras: number | null = null;
+    const cotizacion = await conTimeout(supabase.rpc("cotizacion_vigente"));
+    if (cotizacion !== "timeout" && !cotizacion.error) {
+      const datos: unknown = cotizacion.data;
+      const fila = (Array.isArray(datos) ? datos[0] : datos) as { leida_en?: string } | undefined;
+      if (fila?.leida_en) cotizacionLeidaHaceHoras = Math.round((Date.now() - new Date(fila.leida_en).getTime()) / 36e5);
+    }
+
     return NextResponse.json(
-      { status: "ok", database: "up", checks: resultados.length, servingMockData: false, latencyMs: ms },
+      {
+        status: "ok",
+        database: "up",
+        checks: resultados.length,
+        servingMockData: false,
+        latencyMs: ms,
+        cobro: { cotizacionLeidaHaceHoras },
+      },
       { status: 200, headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {

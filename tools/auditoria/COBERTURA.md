@@ -4,7 +4,7 @@ Generado por `node tools/auditoria/cobertura.mjs` el 2026-10-08. **No se edita a
 
 🟢 lo nombra una prueba de regresión · 🟡 sólo un agente o el vigilante · 🔴 no lo nombra nadie
 
-**Total:** 54 🟢 · 28 🟡 · 23 🔴 — 39 archivos de prueba, 23 agentes.
+**Total:** 59 🟢 · 26 🟡 · 23 🔴 — 40 archivos de prueba, 23 agentes.
 
 Que algo esté 🟢 no quiere decir que esté bien probado: quiere decir que alguien lo nombra. Lo 🔴
 seguro que no lo mira nadie. El agente `retroalimentacion` lee este archivo al cerrar cada ronda.
@@ -19,7 +19,7 @@ Las páginas que ve la gente. 🔴 = ninguna prueba, agente ni vigilante la nomb
 | 🟡 | `/bienvenida` | — | buscadores, sesiones-y-acceso | — |
 | 🟡 | `/dashboard/editar/[slug]` | — | sesiones-y-acceso | — |
 | 🟢 | `/` | accesibilidad, desborde-celular, perfil-guardado, tactil | accesibilidad, buscadores, dependencias, dinero-y-comisiones, escala-y-volumen, formularios-hostiles, rendimiento, seguridad-rls, simulador-color | sí |
-| 🟢 | `/admin` | admin-panel-empresa, moderacion-resenas | abuso-marketplace, buscadores, contenido-confianza, sesiones-y-acceso | sí |
+| 🟢 | `/admin` | admin-panel-empresa, cotizacion-dolar, moderacion-resenas | abuso-marketplace, buscadores, contenido-confianza, sesiones-y-acceso | sí |
 | 🟢 | `/aprender` | titulos | buscadores | — |
 | 🟢 | `/asesoramiento` | titulos | buscadores | — |
 | 🟢 | `/cliente` | accesibilidad, ciclo-de-trabajo, desborde-celular, seguridad-roles | buscadores, dinero-y-comisiones, sesiones-y-acceso | sí |
@@ -49,28 +49,30 @@ Las páginas que ve la gente. 🔴 = ninguna prueba, agente ni vigilante la nomb
 | 🟢 | `/registro` | duplicados-publicar, formularios-de-pasos, titulos | accesibilidad, contenido-confianza, formularios-hostiles | — |
 | 🟢 | `/simulador` | desborde-celular, foto-rechazada, sangrado-moldura, simulador-acciones, simulador-borde, simulador-calidad, simulador-carreras, simulador-celular, simulador-color-fiel, simulador-deshacer, simulador-teclado, tactil, titulos | accesibilidad, buscadores, rendimiento, simulador-color, simulador-fidelidad, simulador-uso-real | sí |
 | 🟢 | `/terminos` | desborde-celular, moderacion-resenas, titulos | buscadores, contenido-confianza, riesgo-legal | sí |
-| 🟢 | `/trabajos` | acciones-hostiles, ciclo-de-trabajo, desborde-celular, seguridad-roles, suscripcion-requerida, tactil, textos-largos, titulos, ya-cotizado | buscadores, dinero-y-comisiones, recorrido-web | sí |
+| 🟢 | `/trabajos` | acciones-hostiles, ciclo-de-trabajo, cotizacion-dolar, desborde-celular, seguridad-roles, suscripcion-requerida, tactil, textos-largos, titulos, ya-cotizado | buscadores, dinero-y-comisiones, recorrido-web | sí |
 
-## Puntos de la API (6)
+## Puntos de la API (7)
 
 Lo que se puede llamar sin pasar por una pantalla.
 
 | | Qué | Pruebas | Agentes | Vigilante |
 |---|---|---|---|---|
-| 🟡 | `/api/health` | — | listo-para-publicar | sí |
 | 🟡 | `/api/sesion` | — | rendimiento, sesiones-y-acceso | — |
 | 🟡 | `/auth/callback` | — | sesiones-y-acceso | — |
 | 🟡 | `/auth/signout` | — | sesiones-y-acceso | — |
+| 🟢 | `/api/cotizacion/actualizar` | cotizacion-dolar | — | sí |
+| 🟢 | `/api/health` | cotizacion-dolar | listo-para-publicar | sí |
 | 🟢 | `/api/mis-datos` | acciones-hostiles, mis-datos | — | sí |
 | 🟢 | `/api/segment` | simulador-carreras | abuso-marketplace, escala-y-volumen, listo-para-publicar, nube-google | — |
 
-## Acciones de servidor (15)
+## Acciones de servidor (16)
 
 Son endpoints aunque se escriban como funciones (REGLAS). Que una prueba recorra la pantalla del formulario no aparece acá: se cuenta sólo si alguien nombra la acción.
 
 | | Qué | Pruebas | Agentes | Vigilante |
 |---|---|---|---|---|
 | 🔴 | `borrarResena` | — | — | — |
+| 🔴 | `confirmarCotizacion` | — | — | — |
 | 🔴 | `createObra` | — | — | — |
 | 🔴 | `enviarConsulta` | — | — | — |
 | 🔴 | `guardarTelefono` | — | — | — |
@@ -93,7 +95,6 @@ Sacadas de `supabase/migrations/`.
 | | Qué | Pruebas | Agentes | Vigilante |
 |---|---|---|---|---|
 | 🔴 | `codigos_de_pago` | — | — | — |
-| 🔴 | `cotizaciones_dolar` | — | — | — |
 | 🔴 | `eventos_pago` | — | — | — |
 | 🔴 | `planes` | — | — | — |
 | 🔴 | `registro_de_pedidos` | — | — | — |
@@ -102,6 +103,7 @@ Sacadas de `supabase/migrations/`.
 | 🟡 | `resources` | — | contenido-confianza | — |
 | 🟢 | `ajustes_de_cobro` | suscripcion-requerida | — | — |
 | 🟢 | `cobros` | dominio/pruebas.ts | — | — |
+| 🟢 | `cotizaciones_dolar` | cotizacion-dolar | — | — |
 | 🟢 | `jobs` | ciclo-de-trabajo, moderacion-resenas, suscripcion-requerida, trabajos-por-api, ya-cotizado | abuso-marketplace, dinero-y-comisiones, integridad-datos | — |
 | 🟢 | `leads` | doble-envio | abuso-marketplace, formularios-hostiles, seguridad-rls | — |
 | 🟢 | `pagos_suscripcion` | suscripcion-requerida | abuso-marketplace, dinero-y-comisiones | — |
@@ -110,14 +112,13 @@ Sacadas de `supabase/migrations/`.
 | 🟢 | `reviews` | autor-de-resenas, ciclo-de-trabajo, moderacion-resenas | abuso-marketplace, integridad-datos | — |
 | 🟢 | `suscripciones` | suscripcion-requerida, trabajos-por-api | abuso-marketplace | — |
 
-## Funciones de la base (32)
+## Funciones de la base (33)
 
 Cada una necesita `revoke ... from public, anon` al crearse (ver REGLAS, trampas de la base).
 
 | | Qué | Pruebas | Agentes | Vigilante |
 |---|---|---|---|---|
 | 🔴 | `cancelaciones_tras_aceptar` | — | — | — |
-| 🔴 | `cotizacion_vigente` | — | — | — |
 | 🔴 | `exigir_suscripcion` | — | — | — |
 | 🔴 | `fecha_de_alta_fija` | — | — | — |
 | 🔴 | `inscribir_al_lanzamiento` | — | — | — |
@@ -126,6 +127,7 @@ Cada una necesita `revoke ... from public, anon` al crearse (ver REGLAS, trampas
 | 🔴 | `metricas_suscripciones` | — | — | — |
 | 🔴 | `rastro_del_trabajo` | — | — | — |
 | 🔴 | `resumen_publico` | — | — | — |
+| 🔴 | `tipo_de_proyecto_fijo` | — | — | — |
 | 🔴 | `tope_de_pedidos` | — | — | — |
 | 🟡 | `actividad_reciente` | — | seguridad-rls | — |
 | 🟡 | `contacto_del_trabajo` | — | seguridad-rls | — |
@@ -141,10 +143,11 @@ Cada una necesita `revoke ... from public, anon` al crearse (ver REGLAS, trampas
 | 🟡 | `on_review_change` | — | seguridad-rls | — |
 | 🟡 | `pedidos_abiertos` | — | abuso-marketplace, escala-y-volumen, seguridad-rls | — |
 | 🟡 | `pintores_geolocalizados` | — | seguridad-rls | — |
-| 🟡 | `precio_ars` | — | dinero-y-comisiones, riesgo-legal | — |
 | 🟡 | `recalc_profile_rating` | — | escala-y-volumen, seguridad-rls | — |
 | 🟡 | `set_updated_at` | — | seguridad-rls | — |
 | 🟡 | `una_sola_adjudicacion` | — | escala-y-volumen, seguridad-rls | — |
 | 🟡 | `volumen_mensual` | — | seguridad-rls | — |
+| 🟢 | `cotizacion_vigente` | cotizacion-dolar | — | — |
 | 🟢 | `es_pintor` | seguridad-roles | abuso-marketplace, app-movil, escala-y-volumen, seguridad-rls | — |
+| 🟢 | `precio_ars` | cotizacion-dolar | dinero-y-comisiones, riesgo-legal | — |
 | 🟢 | `puede_cotizar` | suscripcion-requerida | abuso-marketplace | — |

@@ -447,5 +447,68 @@ begin
   else raise notice '¡FALLÓ! 11d: commission_rate sigue con default o not null'; end if;
 end $$;
 
+-- ── 12. Lo que encontró seguridad-rls (8/10/2026) ──
+select id as martin from public.profiles where full_name = 'Martín Rojas' \gset
+insert into public.projects (id, owner_id, type, title, slug, published)
+values ('00000000-0000-0000-0000-00000000f027', :'martin', 'service', 'ZZAGENT pedido de un pintor', 'zzagent-0027-pintor', true);
+set local role authenticated;
+select pg_temp.como(:'martin');
+do $$
+begin
+  update public.projects set type = 'portfolio' where id = '00000000-0000-0000-0000-00000000f027';
+  raise notice '¡FALLÓ! 12a: un pintor pasó su pedido a portfolio (así esquivaba H8)';
+exception when others then raise notice 'OK 12a: el tipo de una publicación no se cambia -> %', sqlerrm;
+end $$;
+reset role;
+select pg_temp.sin_identidad();
+do $$
+begin
+  if not exists (select 1 from public.jobs where status in ('accepted', 'in_progress', 'completed') and aceptado_en is null)
+     and exists (select 1 from public.jobs where status = 'completed')
+  then raise notice 'OK 12b: los trabajos aceptados antes de la migración tienen su fecha';
+  else raise notice '¡FALLÓ! 12b: quedaron trabajos aceptados sin aceptado_en'; end if;
+end $$;
+insert into public.planes (id, nombre, precio_usd, publico, activo) values ('zz-secreto', 'Secreto', 49.99, false, true), ('zz-apagado', 'Apagado', 9, true, false);
+set local role anon;
+select case when (select count(*) from public.planes where id like 'zz-%') = 0 and public.precio_ars('zz-apagado') is null
+            then 'OK 12c: un plan no público o apagado no se ve ni tiene precio'
+            else '¡FALLÓ! 12c: se ven planes no públicos o apagados' end as resultado \gset
+\echo :resultado
+do $$
+begin
+  perform nextval('public.codigos_de_pago_numero_seq');
+  raise notice '¡FALLÓ! 12d: anon mueve la secuencia de los códigos de pago';
+exception when insufficient_privilege then raise notice 'OK 12d: las secuencias nuevas están cerradas';
+end $$;
+do $$
+begin
+  perform salto_maximo from public.ajustes_de_cobro;
+  raise notice '¡FALLÓ! 12e: anon lee los umbrales del control del dólar';
+exception when insufficient_privilege then raise notice 'OK 12e: los umbrales del dólar no son públicos';
+end $$;
+select case when (select count(*) from public.ajustes_de_cobro where lanzamiento_hasta is not null or exigir_suscripcion) = 1
+            then 'OK 12f: lo que la pantalla necesita de los ajustes se sigue leyendo'
+            else '¡FALLÓ! 12f: la pantalla no puede leer los ajustes' end as resultado \gset
+\echo :resultado
+reset role;
+-- Un pago de PRUEBA (sandbox) no da acceso real.
+update public.ajustes_de_cobro set lanzamiento_hasta = now() - interval '1 day';
+delete from public.suscripciones where pintor_id = :'martin';
+insert into public.suscripciones (pintor_id, proveedor, estado, acceso_hasta, modo)
+values (:'martin', 'mercadopago', 'activa', now() + interval '1 month', 'prueba');
+set local role authenticated;
+select pg_temp.como(:'martin');
+select case when not public.puede_cotizar() then 'OK 12g: un pago de prueba no da acceso real'
+            else '¡FALLÓ! 12g: un pago del sandbox dio acceso real' end as resultado \gset
+\echo :resultado
+reset role;
+update public.ajustes_de_cobro set aceptar_pagos_de_prueba = true;
+set local role authenticated;
+select pg_temp.como(:'martin');
+select case when public.puede_cotizar() then 'OK 12h: en una base de pruebas que lo active, sí'
+            else '¡FALLÓ! 12h: aceptar_pagos_de_prueba no tiene efecto' end as resultado \gset
+\echo :resultado
+reset role;
+
 rollback;
 \echo '— fin: todo deshecho —'

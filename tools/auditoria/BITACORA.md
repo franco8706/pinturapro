@@ -95,6 +95,9 @@ Estos ya no se reportan. `pnpm verificar` los revisa en cada corrida.
 | H5 · aceptar, ver el teléfono y cancelar no dejaba rastro (6/10) | Ahora `aceptado_en`, `cancelado_en` y `cancelado_por` los escribe la base; las perdedoras quedan como "sistema". **0027, sin aplicar** | `trabajos-por-api` |
 | H8 · un pedido adjudicado se podía borrar (6/10) | **0027, sin aplicar**. Ojo: la prueba daba verde sin la regla porque el DELETE pedía la fila de vuelta y `projects` tiene permisos por columna | `trabajos-por-api` |
 | H10 · el cliente borraba al pintor de su trabajo, y el pintor al cliente (6/10) | **0027, sin aplicar** | `trabajos-por-api` |
+| Un pintor dueño de un PEDIDO lo pasaba a "portfolio" y esquivaba H8 y la regla de 0026 (seguridad-rls, 8/10) | Cambiaba el tipo, aceptaba la cotización y borraba el pedido: el trabajo quedaba aceptado sin pedido. Ahora el tipo no cambia. **0027, sin aplicar** | `probar-0027.sql` (12a) |
+| Un pago del sandbox de Mercado Pago daba acceso real (seguridad-rls, 8/10) | Sólo cuentan las filas de producción, salvo `aceptar_pagos_de_prueba` en una base de pruebas. También: planes no públicos, secuencias abiertas, umbrales del dólar públicos, `aceptado_en` de los trabajos viejos. **0027, sin aplicar** | `probar-0027.sql` (12b-12h) |
+| El dólar de la suscripción (etapa 2, 8/10, nuevo) | Un salto de más del 10 % queda "a confirmar" hasta que el dueño lo confirma en /admin → Cobro; fuentes en desacuerdo se descartan; con la fuente caída se sigue con el último valor | `cotizacion-dolar` (con fuentes simuladas y la confirmación desde /admin) |
 ## Corregido, sin prueba todavía
 
 Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arriba.

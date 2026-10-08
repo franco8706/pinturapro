@@ -75,6 +75,11 @@ cat > web.env <<EOF
 NEXT_PUBLIC_SUPABASE_URL=$API_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY
-NEXT_PUBLIC_SITE_URL=http://localhost:3200
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+# La tarea del dólar (etapa 2 de la suscripción): un token de prueba, y las dos fuentes
+# apuntadas al servidor que levanta la prueba \`cotizacion-dolar\` (no se depende del dólar real).
+COTIZACION_TOKEN=prueba-local-cotizacion
+COTIZACION_FUENTE_URL=http://127.0.0.1:54399/bna
+COTIZACION_CONTROL_URL=http://127.0.0.1:54399/bcra
 EOF
 echo "LISTA · base local $DB · API $API_URL · variables para la web en $TRABAJO/web.env"
