@@ -87,3 +87,67 @@ export async function confirmarCotizacion(id: number): Promise<{ error?: string;
   revalidatePath("/admin");
   return { ok: true };
 }
+
+/** Quién llama, si es el admin. La misma verificación que `borrarResena`: `es_admin()` con su sesión. */
+async function adminQueLlama(): Promise<{ id: string } | { error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Tenés que iniciar sesión." };
+  const { data: esAdmin } = await supabase.rpc("es_admin" as never);
+  if (esAdmin !== true) return { error: "Esta acción es sólo para la administración." };
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return { error: "Falta configurar el servidor." };
+  return { id: user.id };
+}
+
+/**
+ * El dueño carga el extracto del banco (CSV) y se confirman solas las transferencias que traen el
+ * código de un pintor y un monto que alcanza (6/10/2026). Cargar el mismo extracto dos veces no
+ * registra nada dos veces.
+ */
+export async function cargarExtracto(
+  formData: FormData,
+): Promise<{ error?: string; resumen?: import("@/lib/pagos/transferencia").ResumenDeExtracto }> {
+  if (!(formData instanceof FormData)) return { error: "No pudimos leer el formulario." };
+  const quien = await adminQueLlama();
+  if ("error" in quien) return { error: quien.error };
+  const archivo = formData.get("extracto");
+  if (!(archivo instanceof File) || archivo.size === 0) return { error: "Elegí el archivo del extracto (CSV)." };
+  if (archivo.size > 2_000_000) return { error: "El archivo es demasiado grande (máximo 2 MB)." };
+  const texto = await archivo.text();
+  const { procesarExtracto } = await import("@/lib/pagos/transferencia");
+  const resumen = await procesarExtracto(texto, quien.id);
+  console.info("[transferencias] extracto cargado", JSON.stringify({ ...resumen, por: quien.id }));
+  revalidatePath("/admin");
+  return { resumen };
+}
+
+/** Confirmar a mano un aviso de transferencia (el dueño vio la plata en el banco). */
+export async function confirmarTransferencia(cobroId: string): Promise<{ error?: string; ok?: boolean }> {
+  if (!esTexto(cobroId) || !ES_UUID.test(cobroId)) return { error: "Falta la transferencia." };
+  const quien = await adminQueLlama();
+  if ("error" in quien) return { error: quien.error };
+  const { confirmarTransferenciaAMano } = await import("@/lib/pagos/transferencia");
+  const r = await confirmarTransferenciaAMano(cobroId, quien.id);
+  if (r === "no_existe") return { error: "Esa transferencia ya no existe." };
+  console.info("[transferencias] confirmada a mano", JSON.stringify({ cobro: cobroId, por: quien.id, resultado: r }));
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+/** Rechazar un aviso de transferencia que nunca llegó (o no corresponde). No toca el libro. */
+export async function rechazarTransferencia(cobroId: string): Promise<{ error?: string; ok?: boolean }> {
+  if (!esTexto(cobroId) || !ES_UUID.test(cobroId)) return { error: "Falta la transferencia." };
+  const quien = await adminQueLlama();
+  if ("error" in quien) return { error: quien.error };
+  const { error } = await createAdminClient()
+    .from("cobros")
+    .update({ estado: "anulado" } as never)
+    .eq("id", cobroId)
+    .in("estado", ["pendiente", "a_revisar"]);
+  if (error) return { error: "No pudimos rechazarla. Probá de nuevo." };
+  console.info("[transferencias] rechazada", JSON.stringify({ cobro: cobroId, por: quien.id }));
+  revalidatePath("/admin");
+  return { ok: true };
+}

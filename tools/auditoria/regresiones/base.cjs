@@ -160,7 +160,7 @@ function abrirBase() {
       return {
         id: sesion.user?.id,
         insertar: (tabla, filas) => pedir("POST", tabla, filas),
-        actualizar: (tabla, filtro, cambios) => pedir("PATCH", `${tabla}?${filtro}`, cambios),
+        actualizar: (tabla, filtro, cambios, extra) => pedir("PATCH", `${tabla}?${filtro}`, cambios, extra),
         // Sin pedir la fila de vuelta, como hace la web: `projects` tiene permisos de lectura por
         // columna (0020) y un `return=representation` hacía fallar el DELETE por eso, no por la
         // regla que se quería probar (pasó con H8, 8/10/2026: la prueba daba bien sin la regla).

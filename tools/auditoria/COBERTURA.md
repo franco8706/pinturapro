@@ -4,7 +4,7 @@ Generado por `node tools/auditoria/cobertura.mjs` el 2026-10-08. **No se edita a
 
 🟢 lo nombra una prueba de regresión · 🟡 sólo un agente o el vigilante · 🔴 no lo nombra nadie
 
-**Total:** 59 🟢 · 26 🟡 · 23 🔴 — 40 archivos de prueba, 23 agentes.
+**Total:** 73 🟢 · 26 🟡 · 13 🔴 — 41 archivos de prueba, 23 agentes.
 
 Que algo esté 🟢 no quiere decir que esté bien probado: quiere decir que alguien lo nombra. Lo 🔴
 seguro que no lo mira nadie. El agente `retroalimentacion` lee este archivo al cerrar cada ronda.
@@ -19,7 +19,7 @@ Las páginas que ve la gente. 🔴 = ninguna prueba, agente ni vigilante la nomb
 | 🟡 | `/bienvenida` | — | buscadores, sesiones-y-acceso | — |
 | 🟡 | `/dashboard/editar/[slug]` | — | sesiones-y-acceso | — |
 | 🟢 | `/` | accesibilidad, desborde-celular, perfil-guardado, tactil | accesibilidad, buscadores, dependencias, dinero-y-comisiones, escala-y-volumen, formularios-hostiles, rendimiento, seguridad-rls, simulador-color | sí |
-| 🟢 | `/admin` | admin-panel-empresa, cotizacion-dolar, moderacion-resenas | abuso-marketplace, buscadores, contenido-confianza, sesiones-y-acceso | sí |
+| 🟢 | `/admin` | admin-panel-empresa, cotizacion-dolar, extracto-transferencias, moderacion-resenas | abuso-marketplace, buscadores, contenido-confianza, sesiones-y-acceso | sí |
 | 🟢 | `/aprender` | titulos | buscadores | — |
 | 🟢 | `/asesoramiento` | titulos | buscadores | — |
 | 🟢 | `/cliente` | accesibilidad, ciclo-de-trabajo, desborde-celular, seguridad-roles | buscadores, dinero-y-comisiones, sesiones-y-acceso | sí |
@@ -30,7 +30,7 @@ Las páginas que ve la gente. 🔴 = ninguna prueba, agente ni vigilante la nomb
 | 🟢 | `/dashboard` | admin-panel-empresa, ciclo-de-trabajo, desborde-celular, foto-reemplazada, moderacion-resenas, perfil-guardado, ya-cotizado | dinero-y-comisiones, sesiones-y-acceso | sí |
 | 🟢 | `/dashboard/nueva-obra` | acciones-hostiles, seguridad-roles | sesiones-y-acceso | — |
 | 🟢 | `/dashboard/perfil` | acciones-hostiles, cache-publico, perfil-guardado | sesiones-y-acceso | — |
-| 🟢 | `/dashboard/plan` | suscripcion-requerida | — | — |
+| 🟢 | `/dashboard/plan` | extracto-transferencias, suscripcion-requerida | — | — |
 | 🟢 | `/ingresar` | mis-datos, titulos | accesibilidad, recorrido-web, sesiones-y-acceso | — |
 | 🟢 | `/mapa` | titulos | buscadores | — |
 | 🟢 | `/mi-cuenta` | acciones-hostiles, desborde-celular, mis-datos | buscadores, riesgo-legal, sesiones-y-acceso | sí |
@@ -65,14 +65,13 @@ Lo que se puede llamar sin pasar por una pantalla.
 | 🟢 | `/api/mis-datos` | acciones-hostiles, mis-datos | — | sí |
 | 🟢 | `/api/segment` | simulador-carreras | abuso-marketplace, escala-y-volumen, listo-para-publicar, nube-google | — |
 
-## Acciones de servidor (16)
+## Acciones de servidor (20)
 
 Son endpoints aunque se escriban como funciones (REGLAS). Que una prueba recorra la pantalla del formulario no aparece acá: se cuenta sólo si alguien nombra la acción.
 
 | | Qué | Pruebas | Agentes | Vigilante |
 |---|---|---|---|---|
 | 🔴 | `borrarResena` | — | — | — |
-| 🔴 | `confirmarCotizacion` | — | — | — |
 | 🔴 | `createObra` | — | — | — |
 | 🔴 | `enviarConsulta` | — | — | — |
 | 🔴 | `guardarTelefono` | — | — | — |
@@ -80,13 +79,18 @@ Son endpoints aunque se escriban como funciones (REGLAS). Que una prueba recorra
 | 🔴 | `updateObra` | — | — | — |
 | 🟢 | `aceptarCotizacion` | ciclo-de-trabajo | dinero-y-comisiones | — |
 | 🟢 | `cancelarTrabajo` | ciclo-de-trabajo | — | — |
-| 🟢 | `cotizar` | accesibilidad, acciones-hostiles, borrador, ciclo-de-trabajo, desborde-celular, reglas-compartidas, seguridad-roles, suscripcion-requerida, trabajos-por-api, ya-cotizado, dominio/pruebas.ts | abuso-marketplace, accesibilidad, app-movil, buscadores, dinero-y-comisiones, formularios-hostiles, recorrido-web, riesgo-legal, seguridad-rls | sí |
+| 🟢 | `cargarExtracto` | extracto-transferencias | — | — |
+| 🟢 | `confirmarCotizacion` | cotizacion-dolar | — | — |
+| 🟢 | `confirmarTransferencia` | extracto-transferencias | — | — |
+| 🟢 | `cotizar` | accesibilidad, acciones-hostiles, borrador, ciclo-de-trabajo, desborde-celular, extracto-transferencias, reglas-compartidas, seguridad-roles, suscripcion-requerida, trabajos-por-api, ya-cotizado, dominio/pruebas.ts | abuso-marketplace, accesibilidad, app-movil, buscadores, dinero-y-comisiones, formularios-hostiles, recorrido-web, riesgo-legal, seguridad-rls | sí |
 | 🟢 | `dejarResena` | ciclo-de-trabajo | — | — |
 | 🟢 | `deleteObra` | foto-reemplazada | — | — |
 | 🟢 | `eliminarMiCuenta` | acciones-hostiles | — | — |
 | 🟢 | `marcarCompletado` | ciclo-de-trabajo | — | — |
 | 🟢 | `publicarTrabajo` | acciones-hostiles | formularios-hostiles | — |
+| 🟢 | `rechazarTransferencia` | extracto-transferencias | — | — |
 | 🟢 | `updateProfile` | perfil-guardado | — | — |
+| 🟢 | `yaTransferi` | extracto-transferencias | — | — |
 
 ## Tablas de la base (17)
 
@@ -94,23 +98,23 @@ Sacadas de `supabase/migrations/`.
 
 | | Qué | Pruebas | Agentes | Vigilante |
 |---|---|---|---|---|
-| 🔴 | `codigos_de_pago` | — | — | — |
 | 🔴 | `eventos_pago` | — | — | — |
-| 🔴 | `planes` | — | — | — |
 | 🔴 | `registro_de_pedidos` | — | — | — |
 | 🟡 | `faqs` | — | contenido-confianza | — |
 | 🟡 | `news` | — | contenido-confianza | — |
 | 🟡 | `resources` | — | contenido-confianza | — |
 | 🟢 | `ajustes_de_cobro` | suscripcion-requerida | — | — |
-| 🟢 | `cobros` | dominio/pruebas.ts | — | — |
-| 🟢 | `cotizaciones_dolar` | cotizacion-dolar | — | — |
+| 🟢 | `cobros` | extracto-transferencias, dominio/pruebas.ts | — | — |
+| 🟢 | `codigos_de_pago` | extracto-transferencias | — | — |
+| 🟢 | `cotizaciones_dolar` | cotizacion-dolar, extracto-transferencias | — | — |
 | 🟢 | `jobs` | ciclo-de-trabajo, moderacion-resenas, suscripcion-requerida, trabajos-por-api, ya-cotizado | abuso-marketplace, dinero-y-comisiones, integridad-datos | — |
 | 🟢 | `leads` | doble-envio | abuso-marketplace, formularios-hostiles, seguridad-rls | — |
-| 🟢 | `pagos_suscripcion` | suscripcion-requerida | abuso-marketplace, dinero-y-comisiones | — |
+| 🟢 | `pagos_suscripcion` | extracto-transferencias, suscripcion-requerida | abuso-marketplace, dinero-y-comisiones | — |
+| 🟢 | `planes` | cotizacion-dolar | — | — |
 | 🟢 | `profiles` | admin-panel-empresa, autor-de-resenas, cache-publico, ciclo-de-trabajo, moderacion-resenas, suscripcion-requerida, tope-por-hora | contenido-confianza, escala-y-volumen, integridad-datos, riesgo-legal | — |
 | 🟢 | `projects` | ciclo-de-trabajo, duplicados-publicar, formularios-de-pasos, foto-reemplazada, suscripcion-requerida, tope-por-hora, trabajos-por-api | integridad-datos | — |
 | 🟢 | `reviews` | autor-de-resenas, ciclo-de-trabajo, moderacion-resenas | abuso-marketplace, integridad-datos | — |
-| 🟢 | `suscripciones` | suscripcion-requerida, trabajos-por-api | abuso-marketplace | — |
+| 🟢 | `suscripciones` | extracto-transferencias, suscripcion-requerida, trabajos-por-api | abuso-marketplace | — |
 
 ## Funciones de la base (33)
 
@@ -118,16 +122,9 @@ Cada una necesita `revoke ... from public, anon` al crearse (ver REGLAS, trampas
 
 | | Qué | Pruebas | Agentes | Vigilante |
 |---|---|---|---|---|
-| 🔴 | `cancelaciones_tras_aceptar` | — | — | — |
-| 🔴 | `exigir_suscripcion` | — | — | — |
 | 🔴 | `fecha_de_alta_fija` | — | — | — |
-| 🔴 | `inscribir_al_lanzamiento` | — | — | — |
-| 🔴 | `libro_solo_agregar` | — | — | — |
 | 🔴 | `limites_de_cotizacion` | — | — | — |
-| 🔴 | `metricas_suscripciones` | — | — | — |
-| 🔴 | `rastro_del_trabajo` | — | — | — |
 | 🔴 | `resumen_publico` | — | — | — |
-| 🔴 | `tipo_de_proyecto_fijo` | — | — | — |
 | 🔴 | `tope_de_pedidos` | — | — | — |
 | 🟡 | `actividad_reciente` | — | seguridad-rls | — |
 | 🟡 | `contacto_del_trabajo` | — | seguridad-rls | — |
@@ -147,7 +144,14 @@ Cada una necesita `revoke ... from public, anon` al crearse (ver REGLAS, trampas
 | 🟡 | `set_updated_at` | — | seguridad-rls | — |
 | 🟡 | `una_sola_adjudicacion` | — | escala-y-volumen, seguridad-rls | — |
 | 🟡 | `volumen_mensual` | — | seguridad-rls | — |
+| 🟢 | `cancelaciones_tras_aceptar` | trabajos-por-api | — | — |
 | 🟢 | `cotizacion_vigente` | cotizacion-dolar | — | — |
 | 🟢 | `es_pintor` | seguridad-roles | abuso-marketplace, app-movil, escala-y-volumen, seguridad-rls | — |
+| 🟢 | `exigir_suscripcion` | suscripcion-requerida | — | — |
+| 🟢 | `inscribir_al_lanzamiento` | suscripcion-requerida | — | — |
+| 🟢 | `libro_solo_agregar` | extracto-transferencias | — | — |
+| 🟢 | `metricas_suscripciones` | extracto-transferencias, suscripcion-requerida | — | — |
 | 🟢 | `precio_ars` | cotizacion-dolar | dinero-y-comisiones, riesgo-legal | — |
-| 🟢 | `puede_cotizar` | suscripcion-requerida | abuso-marketplace | — |
+| 🟢 | `puede_cotizar` | extracto-transferencias, suscripcion-requerida | abuso-marketplace | — |
+| 🟢 | `rastro_del_trabajo` | trabajos-por-api | — | — |
+| 🟢 | `tipo_de_proyecto_fijo` | trabajos-por-api | regresiones | — |

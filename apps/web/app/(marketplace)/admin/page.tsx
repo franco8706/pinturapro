@@ -9,7 +9,8 @@ import {
   getCotizacionesParaAdmin,
   getMetricasSuscripciones,
   getCancelacionesTrasAceptar,
-  getCondicionesDeCobro,
+  getCondicionesDeCobroFrescas,
+  getTransferenciasParaAdmin,
 } from "@/lib/queries";
 import { AdminClient } from "./admin-client";
 
@@ -45,14 +46,15 @@ export default async function AdminPage() {
   // botones "Suspender" que no hacían nada, bajo un cartel de "Acceso restringido".
   // Lo del cobro va DESPUÉS de verificar que es el admin: `getCotizacionesParaAdmin` lee con la
   // clave de servicio.
-  const [leads, painters, resenas, cotizaciones, metricas, cancelaciones, condiciones] = await Promise.all([
+  const [leads, painters, resenas, cotizaciones, metricas, cancelaciones, condiciones, transferencias] = await Promise.all([
     getLeads(),
     getPainters(),
     getResenasParaModerar(),
     getCotizacionesParaAdmin(),
     getMetricasSuscripciones(),
     getCancelacionesTrasAceptar(),
-    getCondicionesDeCobro(),
+    getCondicionesDeCobroFrescas(),
+    getTransferenciasParaAdmin(),
   ]);
 
   return (
@@ -60,7 +62,7 @@ export default async function AdminPage() {
       leads={leads}
       painters={painters}
       resenas={resenas}
-      cobro={{ cotizaciones, metricas, cancelaciones, precioArs: condiciones.precioArs }}
+      cobro={{ cotizaciones, metricas, cancelaciones, transferencias, precioArs: condiciones.precioArs }}
     />
   );
 }

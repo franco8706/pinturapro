@@ -37,14 +37,17 @@ module.exports = {
     const { browser, page } = await k.abrir({ movil: false });
     try {
       pintor = await base.crearUsuario({ email, password, full_name: "ZZAGENT Pintor sin plan", type: "painter" });
-      // Sin la inscripción al lanzamiento: un pintor sin ningún acceso.
+      // Todo pintor nuevo entra al lanzamiento (`inscribir_al_lanzamiento`)...
+      const inscripcion = await base.leer("suscripciones", `pintor_id=eq.${pintor.id}&proveedor=eq.lanzamiento`, "estado");
+      t.igual(inscripcion.length, 1, "un pintor nuevo no quedó inscripto al lanzamiento");
+      // ...y se le saca, para tener un pintor sin ningún acceso.
       await base.borrar("suscripciones", `pintor_id=eq.${pintor.id}`);
       [pedido] = await base.insertar("projects", [
         { owner_id: cliente.id, type: "service", title: "ZZAGENT pedido para el pintor sin plan", slug: marca, published: true },
       ]);
       const cotizacion = { project_id: pedido.id, client_id: cliente.id, painter_id: pintor.id, status: "quoted", amount: 250000 };
 
-      // ── 1. Por la API, con su propia sesión ──
+      // ── 1. Por la API, con su propia sesión (lo frena el trigger `exigir_suscripcion`) ──
       const yo = await base.comoUsuario(email, password);
       const intento = await yo.insertar("jobs", cotizacion);
       t.cierto(intento.status >= 400, `un pintor sin suscripción cotizó por la API (HTTP ${intento.status})`);
@@ -53,6 +56,11 @@ module.exports = {
         `lo frenó, pero no por la suscripción: ${JSON.stringify(intento.cuerpo).slice(0, 160)}`,
       );
       t.igual(await base.contar("jobs", `project_id=eq.${pedido.id}`), 0, "quedó una cotización guardada");
+
+      // Las cuentas del cobro son del admin (`metricas_suscripciones`): una cuenta común no ve
+      // cuántos pagan ni cuánto entra. Que el admin sí las ve lo mira extracto-transferencias.
+      const metricas = await yo.rpc("metricas_suscripciones");
+      t.igual(Array.isArray(metricas.cuerpo) ? metricas.cuerpo.length : 0, 0, "una cuenta común ve las métricas de la suscripción");
 
       // No se puede fabricar el acceso.
       const falsa = await yo.insertar("suscripciones", { pintor_id: pintor.id, proveedor: "manual", estado: "activa", acceso_hasta: "2099-01-01" });

@@ -18,6 +18,20 @@ import {
   fechaAR, sumarMes, codigoDeTransferencia, codigoEnTexto, transferenciaAlcanza, type Movimiento,
 } from "./src/suscripcion.ts";
 
+// `src/extracto.ts` importa a `./suscripcion` sin extensión (como lo resuelve el empaquetador de
+// cada app); node la exige, así que se le enseña a probar con `.ts`, como en packages/color.
+import { registerHooks } from "node:module";
+registerHooks({
+  resolve(especificador, contexto, siguiente) {
+    try {
+      return siguiente(especificador, contexto);
+    } catch (e) {
+      if (especificador.startsWith(".") && !especificador.endsWith(".ts")) return siguiente(`${especificador}.ts`, contexto);
+      throw e;
+    }
+  },
+});
+
 let fallas = 0;
 function igual(obtenido: unknown, esperado: unknown, que: string) {
   if (JSON.stringify(obtenido) !== JSON.stringify(esperado)) {
@@ -274,6 +288,46 @@ igual(mensajeDeError({ code: "P0001", message: "Necesitás una suscripción acti
 igual(mensajeDeError({ code: "P0001", message: "Una cotización enviada no se edita: retirala y mandá otra" }), "Una cotización enviada no se edita: retirala y mandá otra.", "cotización enviada");
 igual(mensajeDeError({ code: "P0001", message: "No se puede cambiar quién es parte del trabajo" }).includes("quién participa"), true, "partes del trabajo");
 igual(mensajeDeError({ code: "P0001", message: "Ese pedido ya no está disponible" }), "Ese pedido ya no está disponible.", "pedido borrado");
+
+// ── El mes pago no arranca antes del fin del lanzamiento ──
+igual(
+  fechaAR(vigenteHasta([cobro("2026-11-10T12:00:00-03:00", "a")], { desde: "2026-12-01T00:00:00-03:00" })!),
+  "1/1/2027",
+  "pagar durante el lanzamiento no gasta el mes en días que ya eran gratis",
+);
+igual(
+  fechaAR(vigenteHasta([cobro("2026-12-10T12:00:00-03:00", "a")], { desde: "2026-12-01T00:00:00-03:00" })!),
+  "10/1/2027",
+  "después del lanzamiento, el mes cuenta desde el pago",
+);
+
+// ── El extracto del banco ──
+const { leerExtracto, montoDeExtracto } = await import("./src/extracto.ts");
+igual(montoDeExtracto("7.700,00"), 7700, "monto argentino con decimales");
+igual(montoDeExtracto("7700,50"), 7700.5, "coma decimal sin miles");
+igual(montoDeExtracto("$ 1.234"), 1234, "signo pesos y punto de miles");
+igual(montoDeExtracto("1,234.56"), 1234.56, "formato inglés de un banco que exporta así");
+igual(montoDeExtracto("-500,00"), -500, "un débito negativo");
+igual(montoDeExtracto("abc"), null, "no es un monto");
+igual(montoDeExtracto(""), null, "vacío");
+
+const csvPuntoYComa = [
+  "Banco de Prueba - Movimientos",
+  "Fecha;Concepto;Débito;Crédito;Saldo",
+  "06/10/2026;TRANSF RECIBIDA PP-0037 JUAN PEREZ;;7.700,00;107.700,00",
+  "06/10/2026;COMISION MANTENIMIENTO;1.500,00;;106.200,00",
+  "07/10/2026;\"TRANSF RECIBIDA pp37; octubre\";;7.547,00;113.747,00",
+  "07/10/2026;TRANSF RECIBIDA SIN CODIGO;;5.000,00;118.747,00",
+].join("\n");
+const lineas = leerExtracto(csvPuntoYComa);
+igual(lineas.length, 3, "del extracto con ; salen sólo los créditos (no la comisión del banco)");
+igual(lineas.map((l) => [l.codigo, l.monto]), [["PP-0037", 7700], ["PP-0037", 7547], [null, 5000]], "códigos y montos del extracto con ;");
+igual(lineas[0].fecha, "06/10/2026", "la fecha de la línea");
+
+const csvComa = ["Fecha,Descripcion,Importe", "2026-10-06,Transferencia de PP-0102,\"7,700.00\"", "2026-10-06,Pago tarjeta,-3000"].join("\r\n");
+igual(leerExtracto(csvComa).map((l) => [l.codigo, l.monto]), [["PP-0102", 7700]], "extracto con coma e importe con signo: los débitos negativos no cuentan");
+igual(leerExtracto("sin,encabezados\n1,2"), [], "sin columna de monto no se inventa nada");
+igual(leerExtracto(undefined), [], "sin archivo");
 
 // El resumen va AL FINAL: estuvo en el medio y las pruebas de imágenes que se agregaron
 // debajo no corrían nunca — el archivo decía "todo en verde" y salía antes de llegar.

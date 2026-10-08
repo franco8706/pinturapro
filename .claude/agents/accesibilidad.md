@@ -79,3 +79,8 @@ mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
 - 2/10: medí `concrete`/`plaster` con `getComputedStyle` y dio 4,68:1 (no 4,47:1 como el hex
   nominal de `globals.css`) — medí siempre el color REALMENTE renderizado, nunca el hex de la
   hoja de estilos.
+- 8/10: un fondo translúcido no es su color: `bg-concrete/10` detrás de `text-concrete` se ve
+  4,9:1, y la prueba vieja lo medía 1,00:1 porque ignoraba la transparencia. Mezclá cada capa con
+  lo que tiene debajo (también el texto con `/30`, `/60`) antes de calcular el contraste. La
+  insignia "Silver" sólo aparece con un pintor sin reseñas o con menos de 4,5: con los datos
+  demo no se veía, con el primer pintor real sí.

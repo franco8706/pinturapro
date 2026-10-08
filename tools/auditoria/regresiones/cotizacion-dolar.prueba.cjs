@@ -64,7 +64,7 @@ module.exports = {
     const vigente = async () => (await base.rpc("cotizacion_vigente"))?.[0]?.venta ?? null;
 
     try {
-      // 1. Una lectura normal queda vigente, y el precio en pesos sale de ella.
+      // 1. Una lectura normal queda vigente, y el precio en pesos sale de ella (US$5 de `planes`).
       let r = await correr();
       t.igual([r.status, r.cuerpo?.estado], [200, "vigente"], `una lectura normal no quedó vigente: ${JSON.stringify(r.cuerpo)}`);
       t.igual(Number(await vigente()), 1540, "la cotización vigente no es la que se leyó");
@@ -95,7 +95,7 @@ module.exports = {
       t.igual(await base.contar("cotizaciones_dolar", `leida_en=gte.${encodeURIComponent(desde)}`), antes, "con la fuente caída cambió la tabla");
       t.igual(Number(await vigente()), 1540, "con la fuente caída cambió el precio");
 
-      // 5. El admin confirma el salto desde /admin → Cobro, y recién ahí cambia el precio.
+      // 5. El admin confirma el salto desde /admin → Cobro (`confirmarCotizacion`), y recién ahí cambia el precio.
       const { browser, page } = await k.abrir({ movil: false });
       try {
         await k.ingresar(page, "admin");

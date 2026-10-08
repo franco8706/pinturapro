@@ -157,21 +157,34 @@ module.exports = {
         for (const ruta of ["/", "/pintores", "/nosotros", "/contacto"]) {
           await k.ir(page, ruta);
           const malos = await page.evaluate((PISO) => {
-            const lum = (c) => {
+            const rgba = (c) => {
               const m = c.match(/[\d.]+/g);
-              if (!m) return 0;
-              const [r, g, b] = m.slice(0, 3).map(Number).map((v) => {
+              if (!m) return [0, 0, 0, 0];
+              return [Number(m[0]), Number(m[1]), Number(m[2]), m[3] === undefined ? 1 : Number(m[3])];
+            };
+            const sobre = ([r, g, b, a], [fr, fg, fb]) => [r * a + fr * (1 - a), g * a + fg * (1 - a), b * a + fb * (1 - a)];
+            const lum = ([r, g, b]) => {
+              const [lr, lg, lb] = [r, g, b].map((v) => {
                 v /= 255;
                 return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
               });
-              return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+              return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
             };
+            // El fondo que se VE detrás del texto: una capa translúcida se mezcla con lo que
+            // tiene debajo. Antes se tomaba la primera capa con color sin su transparencia, y la
+            // insignia "Silver" (gris al 10 % sobre blanco: 4,9:1 de verdad) daba 1,00:1 —
+            // aparece con cualquier pintor sin reseñas (8/10/2026).
             const fondoDe = (el) => {
+              const capas = [];
               for (let n = el; n; n = n.parentElement) {
-                const bg = getComputedStyle(n).backgroundColor;
-                if (bg && !/rgba\(0, 0, 0, 0\)/.test(bg)) return bg;
+                const c = rgba(getComputedStyle(n).backgroundColor);
+                if (c[3] === 0) continue;
+                capas.push(c);
+                if (c[3] >= 1) break;
               }
-              return "rgb(255,255,255)";
+              let fondo = capas.length && capas[capas.length - 1][3] >= 1 ? capas.pop() : [255, 255, 255];
+              for (const capa of capas.reverse()) fondo = sobre(capa, fondo);
+              return fondo;
             };
             const fuera = [];
             for (const el of document.querySelectorAll("p, span, h1, h2, h3, h4, a, button, li, dd, dt")) {
@@ -182,8 +195,10 @@ module.exports = {
               if (r.width === 0 || r.height === 0) continue;
               const cs = getComputedStyle(el);
               if (cs.visibility === "hidden" || cs.opacity === "0") continue;
-              const l1 = lum(cs.color);
-              const l2 = lum(fondoDe(el));
+              const fondo = fondoDe(el);
+              // El texto translúcido (text-ink/60) también se mezcla con su fondo.
+              const l1 = lum(sobre(rgba(cs.color), fondo));
+              const l2 = lum(fondo);
               const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
               if (ratio < PISO) fuera.push(`"${texto.slice(0, 22)}" ${ratio.toFixed(2)}:1`);
             }

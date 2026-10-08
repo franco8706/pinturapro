@@ -196,13 +196,32 @@ Todas pasaron en este proyecto. Si escribís una prueba, revisá que no caiga en
 - **Leer el DOM en el mismo instante del clic.** React todavía no repintó: `aria-pressed` se
   lee viejo. Clic, esperar, y leer en OTRA llamada a `page.evaluate`.
 - **Un filtro de `--solo` que no coincide con el archivo.** `--solo cotizar` no corre
-  `ya-cotizado`: "0 filas quedaron" no probaba nada. Mirá que la línea ✓ aparezca.
+  `ya-cotizado`: "0 filas quedaron" no probaba nada. Mirá que la línea ✓ aparezca. Y va con
+  `--solo`: `correr.cjs accesibilidad`, sin la bandera, corre las 40 (8/10/2026).
 - **Esperar "un error" en vez de EL error.** Pasó dos veces el 6-8/10/2026. Los ensayos de 0024
   y 0026 daban "OK: se rechaza" mientras la 0024 rompía TODAS las cotizaciones ("infinite
   recursion detected in policy for relation jobs"): el rechazo era por otra cosa. Y la prueba
   de H8 daba verde sin la regla, porque el `DELETE` pedía la fila de vuelta y `projects` tiene
   permisos por columna. Una prueba de rechazo mira el MOTIVO o cómo quedó la fila, y tiene al
   lado un caso que TIENE que entrar (la contraprueba).
+- **Probar una regla con quien ya frena OTRA.** `tipo_de_proyecto_fijo` (0027) se probaba con el
+  cliente, y la policy de `projects` ya no le deja tener obras: con el trigger apagado daba verde
+  igual (8/10/2026). El agujero era del PINTOR dueño de un pedido. Atacá con la cuenta que sólo
+  esa regla frena, y en la base local apagala (`alter table … disable trigger …`, o la función
+  reescrita y después restaurada con `pg_get_functiondef`) para ver el rojo.
+- **Medir contraste sin mezclar las capas.** La prueba tomaba el primer fondo con color e
+  ignoraba su transparencia: la insignia "Silver" (`bg-concrete/10` y `text-concrete`, 4,9:1 de
+  verdad) daba 1,00:1 en cuanto aparecía un pintor sin reseñas, y un `text-ink/30` se medía
+  como sólido. Cada capa translúcida se mezcla con lo que tiene debajo (`sobre()` en
+  `accesibilidad.prueba.cjs`).
+- **Lo que el libro de pagos referencia no se borra.** El dólar de mentira que inserta una
+  prueba queda atado a `pagos_suscripcion` (sólo agregar), y su `borrar(...).catch(() => {})`
+  fallaba en silencio: quedaban cinco dólares "ZZAGENT" vigentes en la base local. Lo que no se
+  puede borrar se deja inofensivo (`estado: "descartada"`). Por eso esas pruebas corren sólo
+  contra la base local.
+- **`has-text` es "contiene", sin importar mayúsculas.** `button:has-text('Llegó')` encuentra también
+  "No llegó" (8/10/2026, /admin → Cobro). Para un botón cuyo texto está contenido en otro, usá
+  `button:text-is('Llegó')`. Es la misma trampa que el `aria-pressed` del simulador.
 - **La clave de servicio se saltea las reglas.** Hasta el 6/10 ninguna prueba hablaba con la base
   como un usuario común. Para probar una policy o un trigger, `base.comoUsuario(email, pass)`
   (`regresiones/base.cjs`), que pasa por las mismas reglas que la web y que un `curl`.
@@ -231,6 +250,10 @@ Todas pasaron en este proyecto. Si escribís una prueba, revisá que no caiga en
   ella (`set -a; . tools/auditoria/.salida/base-local/web.env; set +a` antes de `pnpm dev` y de
   `correr.cjs`). Una migración que trae `begin`/`commit` adentro de un ensayo con `\i` se
   COMMITEA: el ensayo carga una copia sin ellos (ver `probar-0027.sql`).
+- **En una página de servidor, Next memoriza los GET idénticos del mismo render.** Leer, insertar
+  y volver a leer con la MISMA consulta devuelve la primera lectura (vacía): el pintor nuevo nunca
+  veía su código de transferencia (8/10/2026). Que el alta devuelva la fila (`.insert(...).select()`),
+  o releer con otra consulta.
 - **Envolver `auth.uid()` en `(select …)` en la policy de lectura de `jobs` rompe cotizar.**
   Una policy con subconsulta hace que Postgres revise recursión al expandirla adentro de otra
   policy que ya mira `jobs` (la de cotizar, y la de `projects`). `jobs_select_participant` queda

@@ -86,3 +86,9 @@ mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
   (`formularios-de-pasos`, `tope-por-hora`, `moderacion-resenas`, `simulador-deshacer`) — detalle
   en `tools/auditoria/rondas/2026-09-28-escala/cierre.md`. Correla de nuevo la próxima ronda para
   tener un número propio de referencia.
+- 8/10: suite completa contra la base local (`tools/auditoria/base-local/`): 39/40, y la falla
+  era de la prueba (contraste sin transparencia), no del producto. Para ver el rojo de una regla
+  de la base, apagala SÓLO a ella en la base local (`disable trigger`, o la función reescrita y
+  restaurada desde `pg_get_functiondef`) y atacá con la cuenta que sólo esa regla frena: con el
+  cliente, `tipo_de_proyecto_fijo` daba verde aunque estuviera apagada. Lo que el libro de pagos
+  referencia no se borra: se deja `descartada`. Y el filtro es `--solo <nombre>`.

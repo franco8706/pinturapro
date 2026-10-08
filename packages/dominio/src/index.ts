@@ -48,3 +48,4 @@ export {
   type Movimiento,
   type TipoMovimiento,
 } from "./suscripcion";
+export { leerExtracto, montoDeExtracto, type LineaDeExtracto } from "./extracto";

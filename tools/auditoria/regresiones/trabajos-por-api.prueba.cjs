@@ -46,6 +46,18 @@ module.exports = {
       const jobB = b.cuerpo?.[0]?.id;
       if (!jobA || !jobB) return;
 
+      // ── El tipo no cambia (`tipo_de_proyecto_fijo`): un PINTOR dueño de un pedido (cualquiera
+      // publica pedidos) lo pasaba a "portfolio" antes de adjudicarlo —la policy le deja tener
+      // obras— y así salía de las reglas que miran `type = 'service'` (H8 y la de 0026). Al
+      // cliente ya lo frena la policy: sin esta regla, la prueba con el cliente daba verde igual.
+      // Sin pedir la fila de vuelta: con `return=representation` frenan los permisos de columna.
+      const [suyo] = await base.insertar("projects", [
+        { owner_id: pintor2.id, type: "service", title: "ZZAGENT pedido de un pintor", slug: `${marca}-pintor`, published: true },
+      ]);
+      const disfraz = await pintor2.actualizar("projects", `id=eq.${suyo.id}`, { type: "portfolio" }, { Prefer: "return=minimal" });
+      const [tipo] = await base.leer("projects", `id=eq.${suyo.id}`, "type");
+      t.igual(tipo?.type, "service", `un pintor pasó su pedido a obra (HTTP ${disfraz.status})`);
+
       // ── H1: lo enviado no se edita ──
       const monto = await pintor.actualizar("jobs", `id=eq.${jobA}`, { amount: 1500 });
       t.cierto(monto.status >= 400, `el pintor cambió el monto de una cotización enviada (HTTP ${monto.status})`);
@@ -63,7 +75,7 @@ module.exports = {
       const [partes] = await base.leer("jobs", `id=eq.${jobA}`, "client_id,painter_id");
       t.igual([partes?.client_id, partes?.painter_id], [cliente.id, pintor.id], "las partes del trabajo cambiaron");
 
-      // ── H5: aceptar y cancelar dejan rastro, y las perdedoras las cancela el sistema ──
+      // ── H5: aceptar y cancelar dejan rastro (`rastro_del_trabajo`), y las perdedoras las cancela el sistema ──
       const acepta = await cliente.actualizar("jobs", `id=eq.${jobA}`, { status: "accepted" });
       t.igual(acepta.status, 200, `el cliente no pudo aceptar: ${JSON.stringify(acepta.cuerpo).slice(0, 160)}`);
       const [aceptado] = await base.leer("jobs", `id=eq.${jobA}`, "status,aceptado_en");
@@ -85,11 +97,20 @@ module.exports = {
         ["cancelled", "cliente", true, true],
         "cancelar después de aceptar no dejó (o dejó pisar) el rastro",
       );
+
+      // Lo ve el admin y nadie más (`cancelaciones_tras_aceptar`): son teléfonos que se cruzaron.
+      const admin = await base.comoUsuario(CUENTAS.admin, PASS);
+      const paraAdmin = await admin.rpc("cancelaciones_tras_aceptar", { limite: 50 });
+      const paraCliente = await cliente.rpc("cancelaciones_tras_aceptar", { limite: 50 });
+      t.cierto(Array.isArray(paraAdmin.cuerpo) && paraAdmin.cuerpo.some((c) => c.job_id === jobA),
+        `el admin no ve la cancelación después de aceptar (HTTP ${paraAdmin.status})`);
+      t.igual(Array.isArray(paraCliente.cuerpo) ? paraCliente.cuerpo.length : 0, 0, "una cuenta común ve las cancelaciones después de aceptar");
     } finally {
       if (pedido) {
         await base.borrar("jobs", `project_id=eq.${pedido.id}`).catch(() => {});
         await base.borrar("projects", `id=eq.${pedido.id}`).catch(() => {});
       }
+      await base.borrar("projects", `slug=eq.${marca}-pintor`).catch(() => {});
       for (const s of accesos ?? []) await base.borrar("suscripciones", `id=eq.${s.id}`).catch(() => {});
     }
   },

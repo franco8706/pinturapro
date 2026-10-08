@@ -120,13 +120,16 @@ export type Movimiento = {
  * hace perder días, y pagar tarde no regala los días en que no estaba pago. Un cobro devuelto o
  * contracargado no cuenta. Sin cobros, `null`.
  */
-export function vigenteHasta(movimientos: Movimiento[]): Date | null {
+export function vigenteHasta(movimientos: Movimiento[], { desde }: { desde?: Date | string | null } = {}): Date | null {
   const anulados = new Set(
     movimientos.filter((m) => (m.tipo === "devolucion" || m.tipo === "contracargo") && m.anula).map((m) => m.anula as string),
   );
+  // `desde`: el fin del lanzamiento. Un pago hecho mientras cotizar es gratis no "gasta" su mes
+  // en días que ya eran gratis: cuenta desde que termina el lanzamiento.
+  const piso = desde ? new Date(desde).getTime() : null;
   const cobros = movimientos
     .filter((m) => m.tipo === "cobro" && !anulados.has(m.eventoId))
-    .map((m) => new Date(m.fecha))
+    .map((m) => new Date(piso !== null ? Math.max(new Date(m.fecha).getTime(), piso) : new Date(m.fecha).getTime()))
     .sort((a, b) => a.getTime() - b.getTime());
   let hasta: Date | null = null;
   for (const fecha of cobros) {

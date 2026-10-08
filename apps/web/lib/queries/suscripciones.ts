@@ -35,6 +35,8 @@ export interface CondicionesDeCobro {
   /** ISO. `null` = el lanzamiento todavía no tiene fecha de fin. */
   lanzamientoHasta: string | null;
   exigir: boolean;
+  /** Los medios de pago encendidos (el admin apaga uno si falla): debito, qr, transferencia. */
+  medios: string[];
   plan: { id: string; nombre: string; precioUsd: number; beneficios: string[] } | null;
   /** El precio en pesos con la cotización vigente; `null` si todavía no hay cotización. */
   precioArs: number | null;
@@ -46,6 +48,7 @@ const SIN_COBRO: CondicionesDeCobro = {
   disponible: false,
   lanzamientoHasta: null,
   exigir: false,
+  medios: [],
   plan: null,
   precioArs: null,
   cotizacion: null,
@@ -57,7 +60,7 @@ async function leer_getCondicionesDeCobro(): Promise<CondicionesDeCobro> {
   try {
     const supabase = createPublicClient();
     const [ajustes, planes, cotizacion, precio] = await Promise.all([
-      supabase.from("ajustes_de_cobro").select("lanzamiento_hasta, exigir_suscripcion").maybeSingle(),
+      supabase.from("ajustes_de_cobro").select("lanzamiento_hasta, exigir_suscripcion, medios_activos").maybeSingle(),
       supabase.from("planes").select("id, nombre, precio_usd, beneficios").eq("id", "pintor").maybeSingle(),
       supabase.rpc("cotizacion_vigente"),
       // Las funciones de la base no están en los tipos generados: se leen como `unknown`.
@@ -67,7 +70,7 @@ async function leer_getCondicionesDeCobro(): Promise<CondicionesDeCobro> {
     for (const [nombre, r] of [["ajustes", ajustes], ["planes", planes], ["cotizacion", cotizacion], ["precio", precio]] as const) {
       if (r.error) dbError(`getCondicionesDeCobro:${nombre}`, r.error);
     }
-    const a = ajustes.data as { lanzamiento_hasta: string | null; exigir_suscripcion: boolean } | null;
+    const a = ajustes.data as { lanzamiento_hasta: string | null; exigir_suscripcion: boolean; medios_activos: string[] | null } | null;
     const p = planes.data as { id: string; nombre: string; precio_usd: number | string; beneficios: string[] | null } | null;
     const filaCotizacion: unknown = cotizacion.data;
     const c = (Array.isArray(filaCotizacion) ? filaCotizacion[0] : filaCotizacion) as
@@ -78,6 +81,7 @@ async function leer_getCondicionesDeCobro(): Promise<CondicionesDeCobro> {
       disponible: true,
       lanzamientoHasta: a?.lanzamiento_hasta ?? null,
       exigir: a?.exigir_suscripcion ?? true,
+      medios: a?.medios_activos ?? [],
       plan: p ? { id: p.id, nombre: p.nombre, precioUsd: Number(p.precio_usd), beneficios: p.beneficios ?? [] } : null,
       precioArs: typeof (precio.data as unknown) === "number" ? (precio.data as unknown as number) : null,
       cotizacion: c ? { venta: Number(c.venta), leidaEn: c.leida_en } : null,
@@ -88,6 +92,11 @@ async function leer_getCondicionesDeCobro(): Promise<CondicionesDeCobro> {
   }
 }
 export const getCondicionesDeCobro = publico(leer_getCondicionesDeCobro, "getCondicionesDeCobro", [ETIQUETAS.cobro]);
+/**
+ * Lo mismo, sin la caché de un minuto: para las pantallas privadas donde se paga ("Mi plan") y
+ * para el admin. Ahí el precio en pesos tiene que ser el de este momento, no el de hace un minuto.
+ */
+export const getCondicionesDeCobroFrescas = leer_getCondicionesDeCobro;
 
 export interface MiAcceso {
   /** La base ya tiene el modelo de cobro (0027). */
@@ -272,6 +281,103 @@ export async function getCancelacionesTrasAceptar(limite = 30): Promise<Cancelac
     }));
   } catch (e) {
     dbError("getCancelacionesTrasAceptar", e);
+    return [];
+  }
+}
+
+export interface MisPagos {
+  /** El aviso de transferencia que espera confirmación, si hay uno vigente. */
+  transferenciaPendiente: { montoArs: number; codigo: string | null; venceEn: string; estado: string } | null;
+  /** Los últimos pagos registrados (de cualquier medio), del más nuevo al más viejo. */
+  historial: { fecha: string; montoArs: number; medio: string; tipo: string }[];
+}
+
+/** Lo que el pintor pagó y lo que tiene pendiente. Con su sesión: la base sólo le devuelve lo suyo. */
+export async function getMisPagos(userId: string): Promise<MisPagos> {
+  const vacio: MisPagos = { transferenciaPendiente: null, historial: [] };
+  if (!SUPA) return vacio;
+  try {
+    const supabase = await createClient();
+    const [cobros, pagos] = await Promise.all([
+      supabase
+        .from("cobros")
+        .select("monto_ars, codigo, vence_en, estado")
+        .eq("pintor_id", userId)
+        .eq("medio", "transferencia")
+        .in("estado", ["pendiente", "a_revisar"])
+        .order("created_at", { ascending: false })
+        .limit(1),
+      supabase
+        .from("pagos_suscripcion")
+        .select("fecha, monto_ars, proveedor, tipo")
+        .eq("pintor_id", userId)
+        .order("fecha", { ascending: false })
+        .limit(12),
+    ]);
+    if (faltaLaMigracion(cobros.error)) return vacio;
+    const c = ((cobros.data ?? []) as unknown as { monto_ars: number; codigo: string | null; vence_en: string; estado: string }[])[0];
+    return {
+      transferenciaPendiente: c ? { montoArs: c.monto_ars, codigo: c.codigo, venceEn: c.vence_en, estado: c.estado } : null,
+      historial: ((pagos.data ?? []) as unknown as { fecha: string; monto_ars: number | string; proveedor: string; tipo: string }[]).map((p) => ({
+        fecha: p.fecha,
+        montoArs: Number(p.monto_ars),
+        medio: p.proveedor === "transferencia" ? "Transferencia" : p.proveedor === "mercadopago" ? "Mercado Pago" : p.proveedor,
+        tipo: p.tipo,
+      })),
+    };
+  } catch (e) {
+    dbError("getMisPagos", e);
+    return vacio;
+  }
+}
+
+export interface TransferenciaParaAdmin {
+  id: string;
+  pintor: string;
+  codigo: string | null;
+  montoArs: number;
+  estado: string;
+  creado: string;
+  venceEn: string;
+}
+
+/** Los avisos de transferencia que esperan al dueño. Lee con la clave de servicio: sólo desde una página que ya verificó al admin. */
+export async function getTransferenciasParaAdmin(): Promise<TransferenciaParaAdmin[]> {
+  if (!SUPA || !process.env.SUPABASE_SERVICE_ROLE_KEY) return [];
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("cobros")
+      .select("id, pintor_id, codigo, monto_ars, estado, created_at, vence_en")
+      .eq("medio", "transferencia")
+      .in("estado", ["pendiente", "a_revisar"])
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) {
+      if (!faltaLaMigracion(error)) dbError("getTransferenciasParaAdmin", error);
+      return [];
+    }
+    const filas = (data ?? []) as unknown as {
+      id: string; pintor_id: string | null; codigo: string | null; monto_ars: number; estado: string; created_at: string; vence_en: string;
+    }[];
+    const ids = [...new Set(filas.map((f) => f.pintor_id).filter(Boolean))] as string[];
+    const nombres = new Map<string, string>();
+    if (ids.length) {
+      const { data: perfiles } = await admin.from("profiles").select("id, full_name").in("id", ids);
+      for (const p of (perfiles ?? []) as unknown as { id: string; full_name: string | null }[]) nombres.set(p.id, p.full_name ?? "Pintor");
+    }
+    return filas.map((f) => ({
+      id: f.id,
+      pintor: f.pintor_id ? nombres.get(f.pintor_id) ?? "Pintor" : "Cuenta dada de baja",
+      codigo: f.codigo,
+      montoArs: f.monto_ars,
+      estado: f.estado,
+      creado: f.created_at,
+      venceEn: f.vence_en,
+    }));
+  } catch (e) {
+    dbError("getTransferenciasParaAdmin", e);
     return [];
   }
 }

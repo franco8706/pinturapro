@@ -81,5 +81,10 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 COTIZACION_TOKEN=prueba-local-cotizacion
 COTIZACION_FUENTE_URL=http://127.0.0.1:54399/bna
 COTIZACION_CONTROL_URL=http://127.0.0.1:54399/bcra
+# La cuenta para las transferencias de la suscripción (de mentira: es la base local).
+TRANSFERENCIA_ALIAS=pinturapro.prueba
+TRANSFERENCIA_CBU=0000003100000000000001
+TRANSFERENCIA_TITULAR="Pintura Pro (cuenta de prueba)"
+PINTURAPRO_BASE_LOCAL=1
 EOF
 echo "LISTA · base local $DB · API $API_URL · variables para la web en $TRABAJO/web.env"

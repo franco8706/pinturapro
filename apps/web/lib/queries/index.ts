@@ -20,10 +20,13 @@ export type { ClientJobView, JobView, ServiceRequest, QuoteView, PedidoPropio, C
 export { getFaqs, getResources, getNews } from "./contenido";
 export {
   getCondicionesDeCobro,
+  getCondicionesDeCobroFrescas,
   getMiAcceso,
   getMetricasSuscripciones,
   getCotizacionesParaAdmin,
   getCancelacionesTrasAceptar,
+  getMisPagos,
+  getTransferenciasParaAdmin,
 } from "./suscripciones";
 export type {
   CondicionesDeCobro,
@@ -31,6 +34,8 @@ export type {
   MetricasSuscripciones,
   CotizacionAdmin,
   CancelacionTrasAceptar,
+  MisPagos,
+  TransferenciaParaAdmin,
 } from "./suscripciones";
 export type { Faq, ResourceKind, Resource, NewsItem } from "./contenido";
 export {

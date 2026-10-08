@@ -12,8 +12,15 @@ import type {
   CotizacionAdmin,
   MetricasSuscripciones,
   CancelacionTrasAceptar,
+  TransferenciaParaAdmin,
 } from "@/lib/queries";
-import { borrarResena, confirmarCotizacion } from "./actions";
+import {
+  borrarResena,
+  confirmarCotizacion,
+  cargarExtracto,
+  confirmarTransferencia,
+  rechazarTransferencia,
+} from "./actions";
 import { fechaAR } from "@pinturapro/dominio";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +31,7 @@ export interface DatosDeCobro {
   cotizaciones: CotizacionAdmin[];
   metricas: MetricasSuscripciones | null;
   cancelaciones: CancelacionTrasAceptar[];
+  transferencias: TransferenciaParaAdmin[];
   precioArs: number | null;
 }
 
@@ -219,6 +227,8 @@ function Cobro({ datos }: { datos: DatosDeCobro }) {
         </Table>
       )}
 
+      <Transferencias lista={datos.transferencias} />
+
       <div>
         <h2 className="font-display text-display-md mb-3">Suscripciones</h2>
         {m ? (
@@ -255,6 +265,124 @@ function Cobro({ datos }: { datos: DatosDeCobro }) {
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Las transferencias: los avisos de los pintores ("Ya transferí"), el extracto del banco que los
+ * confirma solo, y confirmar o rechazar a mano lo que no encaja.
+ */
+function Transferencias({ lista }: { lista: TransferenciaParaAdmin[] }) {
+  const router = useRouter();
+  const [resultado, setResultado] = useState("");
+  const [error, setError] = useState("");
+  const [pendiente, empezar] = useTransition();
+  return (
+    <div>
+      <h2 className="font-display text-display-md mb-3">Transferencias</h2>
+      <p className="font-body text-body-sm text-concrete max-w-2xl mb-4">
+        Cargá el extracto del banco en CSV (desde el home banking). Cada línea que trae el código de un pintor
+        (PP-0037) y al menos el 97 % del monto pedido se confirma sola y le suma un mes. Cargar el mismo extracto
+        dos veces no registra nada dos veces.
+      </p>
+      <form
+        className="flex flex-wrap items-center gap-3 mb-6"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const fd = new FormData(e.currentTarget);
+          setError("");
+          setResultado("");
+          empezar(async () => {
+            const r = await cargarExtracto(fd);
+            if (r.error) setError(r.error);
+            else if (r.resumen) {
+              const s = r.resumen;
+              setResultado(
+                `${s.lineas} créditos leídos: ${s.confirmadas} confirmadas, ${s.aRevisar} para revisar, ${s.yaCargadas} ya cargadas antes, ${s.sinCodigo} sin código, ${s.codigoDesconocido} con un código que no es de nadie.`,
+              );
+              router.refresh();
+            }
+          });
+        }}
+      >
+        <label className="font-body text-body-sm">
+          <span className="sr-only">Extracto del banco (CSV)</span>
+          <input type="file" name="extracto" accept=".csv,text/csv,text/plain" className="font-body text-body-sm" />
+        </label>
+        <button
+          type="submit"
+          disabled={pendiente}
+          className="px-5 py-2.5 bg-ink text-bone font-body text-body-sm hover:bg-ink/90 transition-colors disabled:opacity-50"
+        >
+          {pendiente ? "Leyendo…" : "Cargar extracto"}
+        </button>
+      </form>
+      <p role="status" aria-live="polite" className="font-body text-body-sm text-ink mb-4">
+        {resultado}
+      </p>
+      {error && (
+        <p role="alert" className="font-body text-body-sm text-[#C41E3A] mb-4">
+          {error}
+        </p>
+      )}
+      {lista.length === 0 ? (
+        <p className="font-body text-body-md text-concrete">No hay transferencias esperando.</p>
+      ) : (
+        <Table headers={["Avisó", "Pintor", "Código", "Monto pedido", "Estado", ""]}>
+          {lista.map((x) => (
+            <tr key={x.id} className="border-b border-concrete/10 align-top">
+              <Td className="text-concrete whitespace-nowrap">{fechaAR(x.creado)}</Td>
+              <Td>{x.pintor}</Td>
+              <Td className="font-mono">{x.codigo ?? "—"}</Td>
+              <Td className="tabular-nums">{ars(x.montoArs)}</Td>
+              <Td>{x.estado === "a_revisar" ? "Para revisar (no alcanza)" : "Esperando"}</Td>
+              <Td>
+                <AccionTransferencia id={x.id} />
+              </Td>
+            </tr>
+          ))}
+        </Table>
+      )}
+    </div>
+  );
+}
+
+function AccionTransferencia({ id }: { id: string }) {
+  const router = useRouter();
+  const [error, setError] = useState("");
+  const [pendiente, empezar] = useTransition();
+  const hacer = (accion: (id: string) => Promise<{ error?: string; ok?: boolean }>) =>
+    empezar(async () => {
+      const r = await accion(id);
+      if (r.error) setError(r.error);
+      else router.refresh();
+    });
+  return (
+    <span className="flex flex-col gap-1">
+      <span className="flex gap-3 whitespace-nowrap">
+        <button
+          type="button"
+          disabled={pendiente}
+          onClick={() => hacer(confirmarTransferencia)}
+          className="py-1 font-body text-body-sm text-ink underline underline-offset-4"
+        >
+          Llegó
+        </button>
+        <button
+          type="button"
+          disabled={pendiente}
+          onClick={() => hacer(rechazarTransferencia)}
+          className="py-1 font-body text-body-sm text-concrete underline underline-offset-4"
+        >
+          No llegó
+        </button>
+      </span>
+      {error && (
+        <span role="alert" className="font-body text-body-sm text-[#C41E3A]">
+          {error}
+        </span>
+      )}
+    </span>
   );
 }
 
