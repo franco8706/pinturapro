@@ -18,6 +18,8 @@ export type { ReviewView, Testimonial } from "./resenas";
 export { getJobsForClient, getJobsForPainter, getOpenServiceRequests, getPedidosYaCotizados, getQuotesForClient, getPedidosDelCliente, getContactoDelTrabajo, getMiTelefono } from "./pedidos";
 export type { ClientJobView, JobView, ServiceRequest, QuoteView, PedidoPropio, ContactoContraparte } from "./pedidos";
 export { getFaqs, getResources, getNews } from "./contenido";
+export { getCondicionesDeCobro, getMiAcceso, getMetricasSuscripciones } from "./suscripciones";
+export type { CondicionesDeCobro, MiAcceso, MetricasSuscripciones } from "./suscripciones";
 export type { Faq, ResourceKind, Resource, NewsItem } from "./contenido";
 export {
   getLeads,

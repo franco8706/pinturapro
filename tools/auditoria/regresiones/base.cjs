@@ -89,6 +89,86 @@ function abrirBase() {
       if (!r.ok) throw new Error(`actualizar ${tabla}: HTTP ${r.status} ${await r.text()}`);
       return r.json();
     },
+    /** Llama a una función de la base con la clave de servicio. Devuelve el resultado o lanza. */
+    async rpc(nombre, args = {}) {
+      const r = await fetch(`${url.replace(/\/+$/, "")}/rest/v1/rpc/${nombre}`, {
+        method: "POST",
+        headers: { ...cabeceras, "Content-Type": "application/json" },
+        body: JSON.stringify(args),
+      });
+      if (!r.ok) throw new Error(`rpc ${nombre}: HTTP ${r.status} ${await r.text()}`);
+      return r.json();
+    },
+    /**
+     * Crea una cuenta descartable (para pruebas que necesitan un pintor SIN acceso, sin tocar
+     * las cuentas demo). Con `email_confirm`, no sale ningún mail. Se borra con `borrarUsuario`.
+     */
+    async crearUsuario({ email, password, full_name, type }) {
+      const r = await fetch(`${url.replace(/\/+$/, "")}/auth/v1/admin/users`, {
+        method: "POST",
+        headers: { ...cabeceras, "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { full_name, type } }),
+      });
+      if (!r.ok) throw new Error(`crearUsuario: HTTP ${r.status} ${await r.text()}`);
+      const u = await r.json();
+      // El perfil lo crea el trigger de alta; se asegura el tipo y el nombre.
+      await this.actualizar("profiles", `id=eq.${u.id}`, { type, full_name, onboarded: true });
+      return u;
+    },
+    async borrarUsuario(id) {
+      const r = await fetch(`${url.replace(/\/+$/, "")}/auth/v1/admin/users/${id}`, {
+        method: "DELETE",
+        headers: cabeceras,
+      });
+      if (!r.ok && r.status !== 404) throw new Error(`borrarUsuario: HTTP ${r.status}`);
+    },
+    /**
+     * Habla con la API COMO esa cuenta, con la clave anon y su sesión: pasa por las policies y
+     * los triggers, como la web, la app móvil o cualquiera con un `curl`. Hasta el 6/10/2026
+     * ninguna prueba lo hacía —todas usaban la clave de servicio, que se las saltea— y la 0024
+     * rompía TODAS las cotizaciones sin que nada lo marcara.
+     *
+     * Devuelve `{ status, cuerpo }` en vez de lanzar: lo que se prueba muchas veces es el rechazo.
+     */
+    async comoUsuario(email, password) {
+      const anon = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (!anon) throw new Error("comoUsuario: falta NEXT_PUBLIC_SUPABASE_ANON_KEY");
+      const raiz = url.replace(/\/+$/, "");
+      const r = await fetch(`${raiz}/auth/v1/token?grant_type=password`, {
+        method: "POST",
+        headers: { apikey: anon, "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!r.ok) throw new Error(`comoUsuario(${email}): HTTP ${r.status}`);
+      const sesion = await r.json();
+      const suyas = { apikey: anon, Authorization: `Bearer ${sesion.access_token}`, "Content-Type": "application/json" };
+      const pedir = async (metodo, ruta, cuerpo, extra = {}) => {
+        const res = await fetch(`${raiz}/rest/v1/${ruta}`, {
+          method: metodo,
+          headers: { ...suyas, Prefer: "return=representation", ...extra },
+          body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
+        });
+        const texto = await res.text();
+        let json = null;
+        try {
+          json = texto ? JSON.parse(texto) : null;
+        } catch {
+          json = texto;
+        }
+        return { status: res.status, cuerpo: json };
+      };
+      return {
+        id: sesion.user?.id,
+        insertar: (tabla, filas) => pedir("POST", tabla, filas),
+        actualizar: (tabla, filtro, cambios) => pedir("PATCH", `${tabla}?${filtro}`, cambios),
+        // Sin pedir la fila de vuelta, como hace la web: `projects` tiene permisos de lectura por
+        // columna (0020) y un `return=representation` hacía fallar el DELETE por eso, no por la
+        // regla que se quería probar (pasó con H8, 8/10/2026: la prueba daba bien sin la regla).
+        borrar: (tabla, filtro) => pedir("DELETE", `${tabla}?${filtro}`, undefined, { Prefer: "return=minimal" }),
+        leer: (tabla, filtro, columnas = "*") => pedir("GET", `${tabla}?${filtro}&select=${columnas}`),
+        rpc: (nombre, args = {}) => pedir("POST", `rpc/${nombre}`, args),
+      };
+    },
   };
 }
 

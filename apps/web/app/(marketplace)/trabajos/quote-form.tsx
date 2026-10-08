@@ -2,13 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cotizar } from "../actions";
-import { montoDesdeTexto, motivoCotizacionInvalida, comisionDe } from "@pinturapro/dominio";
+import Link from "next/link";
+import { montoDesdeTexto, motivoCotizacionInvalida } from "@pinturapro/dominio";
 
 /** Formulario inline para que un pintor cotice un pedido de trabajo. */
 export function QuoteForm({ projectId, clientId }: { projectId: string; clientId: string }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // La base no deja cotizar sin suscripción (0027): además del motivo, el camino para resolverlo.
+  const [sinSuscripcion, setSinSuscripcion] = useState(false);
   const [sent, setSent] = useState(false);
   /**
    * Lo que se escribió en el campo, para devolverlo interpretado.
@@ -17,8 +20,8 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
    * celular, no filtra nada— y hasta acá nadie le mostraba al pintor el número que iba a
    * salir. Con el parser viejo, pegar un monto copiado de una planilla en inglés
    * ("1,500,000") mandaba una cotización por UN PESO sin ningún aviso. El parser ahora
-   * rechaza eso, pero la defensa de verdad es esta: que el número se vea escrito en pesos,
-   * con su comisión, antes de apretar enviar. Un cero de más se descubre mirando, no
+   * rechaza eso, pero la defensa de verdad es esta: que el número se vea escrito en pesos
+   * antes de apretar enviar. Un cero de más se descubre mirando, no
    * validando.
    */
   const [monto, setMonto] = useState("");
@@ -42,7 +45,7 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
       setAnuncio(
         n === null || motivoCotizacionInvalida(monto)
           ? motivoCotizacionInvalida(monto) ?? ""
-          : `Vas a cotizar ${n.toLocaleString("es-AR")} pesos. La comisión del 10% son ${comisionDe(n).toLocaleString("es-AR")} pesos.`,
+          : `Vas a cotizar ${n.toLocaleString("es-AR")} pesos.`,
       );
     }, 700);
     return () => clearTimeout(t);
@@ -60,6 +63,7 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
     if (enviando.current) return;
     enviando.current = true;
     setError("");
+    setSinSuscripcion(false);
     setLoading(true);
     const fd = new FormData(e.currentTarget);
     fd.set("project_id", projectId);
@@ -74,6 +78,7 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
       const res = await cotizar(fd);
       if (res?.error) {
         setError(res.error);
+        setSinSuscripcion(res.codigo === "sin_suscripcion");
         return;
       }
       setSent(true);
@@ -113,7 +118,7 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
             inputMode="numeric"
             required
             placeholder="320000"
-            aria-describedby="aviso-comision"
+            aria-describedby="aviso-precio"
             value={monto}
             onChange={(e) => setMonto(e.target.value)}
             className="mt-1 w-full sm:w-44 border border-concrete/30 bg-plaster px-3 py-2 font-body text-body-md text-ink focus:border-ink outline-none transition-colors"
@@ -133,8 +138,7 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
           ) : (
             <span className="text-concrete">
               Vas a cotizar{" "}
-              <strong className="text-ink">${montoLeido.toLocaleString("es-AR")}</strong>. La
-              comisión del 10% son ${comisionDe(montoLeido).toLocaleString("es-AR")}.
+              <strong className="text-ink">${montoLeido.toLocaleString("es-AR")}</strong>.
               {/* Los montos se guardan en pesos enteros (`amount` es int4) y el parser descarta
                   los centavos. El número de arriba ya era el entero, pero no decía que algo
                   se había dejado afuera: "234.567,89" mostraba $234.567 sin explicación. Lo
@@ -146,15 +150,12 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
           )}
         </p>
       )}
-      {/* La plataforma calcula y guarda un 10% de comisión sobre este monto
-          (`commissionFor`, y la policy de la base lo exige), y la web no lo decía en NINGÚN
-          lado: ni acá, ni en el alta de pintor, ni en los términos. El único lugar donde
-          aparecía era el panel del administrador, que el pintor no ve. La app móvil sí lo
-          avisa en esta misma pantalla. Cobrarle a alguien un porcentaje que nunca se le dijo
-          no se arregla después. */}
-      <p id="aviso-comision" className="font-body text-body-sm text-concrete">
-        Poné el precio final para el cliente, con materiales y mano de obra. Pintura Pro cobra
-        una comisión del <strong className="text-ink">10%</strong> sobre el trabajo adjudicado.
+      {/* Hasta el 6/10/2026 acá se avisaba un 10 % de comisión sobre el trabajo adjudicado, que
+          nunca se cobró. Desde entonces el pintor paga una suscripción fija y la plataforma no
+          toca el precio del trabajo: el cliente le paga todo al pintor. */}
+      <p id="aviso-precio" className="font-body text-body-sm text-concrete">
+        Poné el precio final para el cliente, con materiales y mano de obra. El cliente te paga a
+        vos el total: Pintura Pro no cobra comisión sobre tus trabajos.
       </p>
       <label className="block">
         <span className="font-mono text-mono-sm uppercase tracking-widest text-concrete">Mensaje</span>
@@ -171,7 +172,19 @@ export function QuoteForm({ projectId, clientId }: { projectId: string; clientId
           Sin teléfono ni mail: tu contacto se le comparte al cliente cuando acepta tu cotización.
         </span>
       </label>
-      {error && <p role="alert" className="font-body text-body-sm text-[#C41E3A]">{error}</p>}
+      {error && (
+        <p role="alert" className="font-body text-body-sm text-[#C41E3A]">
+          {error}
+          {sinSuscripcion && (
+            <>
+              {" "}
+              <Link href="/dashboard/plan" className="underline underline-offset-4 text-ink">
+                Ir a Mi plan
+              </Link>
+            </>
+          )}
+        </p>
+      )}
       <div className="flex gap-3">
         <button
           type="submit"

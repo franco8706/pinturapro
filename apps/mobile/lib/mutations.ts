@@ -4,7 +4,6 @@ import {
   mensajeDeError,
   motivoCotizacionInvalida,
   contactoEnTexto,
-  comisionDe,
   revisarLargos,
   puedeCotizar,
   MOTIVO_NO_PUEDE_COTIZAR,
@@ -135,7 +134,8 @@ export async function cotizar(input: {
     painter_id: user.id,
     status: "quoted",
     amount,
-    commission_amount: comisionDe(amount),
+    // Sin comisión (6/10/2026): el pintor paga una suscripción y el precio es todo suyo. La
+    // base además anula cualquier comisión que llegue (0027).
     note: input.note.trim() || null,
   };
 

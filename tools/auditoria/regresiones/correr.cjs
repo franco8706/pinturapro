@@ -81,6 +81,24 @@ async function main() {
   console.log(`\nRegresiones de Pintura Pro · ${archivos.length} pruebas · ${k.BASE}`);
   console.log(base ? "Con acceso a la base: corren también las pruebas que cuentan filas.\n" : "Sin clave de servicio en apps/web/.env.local: se saltean las pruebas que cuentan filas.\n");
 
+  // La suscripción (0027): cuando termine el lanzamiento, los pintores demo dejan de poder
+  // cotizar, y todas las pruebas que cotizan fallarían por eso y no por lo que miran. Se les da
+  // un acceso manual de 3 horas mientras corre la tanda, y se borra al final; si la corrida se
+  // cae a la mitad, el acceso vence solo. Sin la 0027 en la base, no hay nada que dar.
+  const ACCESO_PRUEBAS = "ZZAGENT regresiones";
+  if (base) {
+    try {
+      const pintores = await base.leer("profiles", "type=in.(painter,company)&full_name=not.like.ZZAGENT*", "id");
+      const hasta = new Date(Date.now() + 3 * 3600e3).toISOString();
+      await base.insertar(
+        "suscripciones",
+        pintores.map((p) => ({ pintor_id: p.id, proveedor: "manual", estado: "activa", acceso_hasta: hasta, vigente_hasta: hasta, nota: ACCESO_PRUEBAS })),
+      );
+    } catch {
+      /* la base sin la 0027 */
+    }
+  }
+
   let fallaron = 0;
   let salteadas = 0;
   const detalle = [];
@@ -110,6 +128,8 @@ async function main() {
     }
     for (const n of ctx.notas) console.log(`      · ${n}`);
   }
+
+  if (base) await base.borrar("suscripciones", `nota=eq.${encodeURIComponent(ACCESO_PRUEBAS)}`).catch(() => {});
 
   const total = archivos.length - salteadas;
   console.log(`\n${total - fallaron}/${total} en verde${salteadas ? ` · ${salteadas} salteadas` : ""}\n`);

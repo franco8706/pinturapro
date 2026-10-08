@@ -129,10 +129,3 @@ export function motivoCotizacionInvalida(v: unknown): string | null {
   }
   return null;
 }
-
-/** Comisión de la plataforma sobre el monto del trabajo. */
-export const COMISION = 0.1;
-
-export function comisionDe(monto: number): number {
-  return Math.round(monto * COMISION);
-}

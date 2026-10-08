@@ -89,3 +89,14 @@ cerrar cada ronda.
   /admin; la reseña-amenaza ahora SÍ se puede denunciar y dar de baja desde /admin (d780bef). Lo
   que falta: una pestaña de reseñas recientes en /admin para que un humano note patrones de
   autorreseña — no hay forma de detectarlo hoy, ni con poco tráfico.
+
+- **6-8/10/2026 — la comisión se fue; el incentivo a esconder el precio también.** El pintor paga
+  una suscripción fija (migración 0027, sin aplicar todavía en vivo). El juego del pintor
+  tramposo ahora es **cotizar sin pagar**: por la API con su sesión (la base lo frena con
+  `puede_cotizar()` en la policy y un trigger que da el motivo; prueba `suscripcion-requerida`),
+  con el cuerpo de una app vieja, fabricándose una fila en `suscripciones` o `pagos_suscripcion`
+  (no tiene permiso), estirando la gracia, o —cuando haya cobro— reusando el código de
+  transferencia o el QR de otro pintor, transfiriendo menos del 97 % o mandando un comprobante
+  falso. También quedaron cerrados en 0027 H1 (cotización enviada no se edita), H5 (rastro de quién
+  canceló después de ver el teléfono), H8 (pedido adjudicado no se borra) y H10 (no se borra a la
+  otra parte), con prueba `trabajos-por-api` que habla como usuario común.

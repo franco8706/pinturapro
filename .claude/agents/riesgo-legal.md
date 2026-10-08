@@ -99,3 +99,14 @@ mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
   queda como duda para el abogado porque Pintura Pro no vende el trabajo de pintura (lo hace el
   pintor), así que no está claro si el deber recae sobre la plataforma, el pintor, los dos o
   ninguno.
+
+- **6-8/10/2026 — suscripción del pintor.** Sin comisión: el pintor paga US$5 por mes en pesos al
+  dólar oficial del día (Mercado Pago, QR o transferencia); gratis en el lanzamiento. /terminos
+  tiene una sección "Suscripción para pintores" escrita para coincidir con el código (precio y
+  dólar con `precio_ars()`, gracia de 10 días sólo en débito, un mes por pago, baja con botón y
+  acceso hasta lo pagado, arrepentimiento de 10 días si es consumidor, aviso de 30 días por cambio
+  de precio, "no garantiza pedidos ni ingresos"). Para el abogado: precio en dólares cobrado en
+  pesos, Disposición 945/2025 (botón de baja), Res. 424/2020 y art. 34 de la Ley 24.240, si el
+  pintor cuenta como consumidor, y cuánto se guarda el libro de pagos. La app móvil NO vende la
+  suscripción (reglas de las tiendas): si aparece un precio o un link de pago en la app, es un
+  hallazgo.

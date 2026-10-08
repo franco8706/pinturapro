@@ -1,7 +1,8 @@
 import { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
-import { getOpenServiceRequests, formatARS } from "@/lib/queries";
+import { getOpenServiceRequests, getMiAcceso, formatARS } from "@/lib/queries";
+import { MOTIVO_SIN_SUSCRIPCION } from "@pinturapro/dominio";
 import type { ServiceRequest } from "@/lib/types";
 import { SUPABASE_READY } from "@/lib/supabase";
 import { useAuth } from "@/context/auth";
@@ -24,7 +25,18 @@ export default function TrabajosScreen() {
   const isClient = role === "client";
   const isPainter = role === "painter" || role === "company";
 
-  const load = useCallback(async () => setItems(await getOpenServiceRequests()), []);
+  // Si el pintor puede cotizar (0027). Sin acceso, en lugar del botón va el motivo: sin precio ni
+  // enlace, porque la app no vende la suscripción (reglas de las tiendas).
+  const [puedeCotizar, setPuedeCotizar] = useState(true);
+  const uid = session?.user?.id;
+  const load = useCallback(async () => {
+    const [pedidos, acceso] = await Promise.all([
+      getOpenServiceRequests(),
+      uid && isPainter ? getMiAcceso(uid) : Promise.resolve(null),
+    ]);
+    setItems(pedidos);
+    setPuedeCotizar(acceso?.puedeCotizar ?? true);
+  }, [uid, isPainter]);
 
   useFocusEffect(
     useCallback(() => {
@@ -90,7 +102,10 @@ export default function TrabajosScreen() {
               <Text style={[type.bodySm, { color: colors.concrete }]}>💰 {budgetLabel(item.budgetMin, item.budgetMax)}</Text>
               <Text style={[type.bodySm, { color: colors.concrete }]}>Cliente: {item.ownerName}</Text>
             </View>
-            {isPainter && !mine && (
+            {isPainter && !mine && !puedeCotizar && (
+              <Text style={[type.bodySm, { color: colors.concrete }]}>{MOTIVO_SIN_SUSCRIPCION}</Text>
+            )}
+            {isPainter && !mine && puedeCotizar && (
               <Button
                 label="Cotizar este trabajo"
                 onPress={() =>

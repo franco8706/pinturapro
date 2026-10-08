@@ -21,14 +21,18 @@ export const metadata: Metadata = {
  * trabajo ni lo garantiza. Sin esa aclaración, un cliente insatisfecho puede razonablemente
  * entender que le reclama a Pintura Pro, no al pintor.
  *
- * PENDIENTE DEL DUEÑO: definir cómo se cobra la comisión (hoy se calcula y se guarda en
- * `jobs.commission_amount` pero NO se cobra: no hay pasarela de pago), completar los datos
- * de la razón social y hacerlo revisar por un abogado antes de publicar.
+ * Desde el 6/10/2026 la plataforma no cobra comisión por trabajo: el pintor paga una
+ * suscripción mensual (decisión del dueño). Mientras dure el lanzamiento no se cobra nada.
+ *
+ * PENDIENTE DEL DUEÑO: completar los datos de la razón social y hacerlo revisar por un abogado
+ * antes de publicar —en especial la sección de la suscripción: precio en dólares cobrado en
+ * pesos, renovación, baja (Disposición 945/2025) y arrepentimiento (Res. 424/2020, Ley 24.240
+ * art. 34), y si el pintor cuenta como consumidor—.
  */
 
 // Si cambiás el TEXTO de esta página, cambiá esta fecha: estuvo en "10 de septiembre" mientras
 // el contenido se reescribía tres veces (marketplace puro, cancelaciones, qué es público).
-const ULTIMA_ACTUALIZACION = "2 de octubre de 2026";
+const ULTIMA_ACTUALIZACION = "8 de octubre de 2026";
 const CONTACTO = "hola@pinturapro.ar";
 
 function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
@@ -101,17 +105,12 @@ export default function TerminosPage() {
               plataforma y por el medio que acuerden. Pintura Pro no cobra el trabajo, no lo retiene
               en garantía y no interviene si hay un desacuerdo sobre el pago.
             </p>
-            {/* Faltaba decirlo. Sobre cada cotización se calcula y se guarda un 10% de
-                comisión, y el texto anterior —"Pintura Pro no cobra el trabajo"— dejaba a un
-                pintor con la idea de que no se le cobra nada. Hoy es cierto que no se cobra,
-                porque todavía no hay medio de pago conectado, pero el porcentaje ya se
-                registra y se va a cobrar cuando lo haya. Se dice ahora, no después. */}
+            {/* Hasta el 6/10/2026 acá decía "Comisión de la plataforma: 10%", que se calculaba
+                y nunca se cobró. Ahora no hay comisión: el pintor paga una suscripción (abajo). */}
             <p>
-              <strong>Comisión de la plataforma: 10%</strong> sobre el monto del trabajo
-              adjudicado, a cargo del pintor. Hoy ese porcentaje se calcula y queda registrado
-              en cada cotización, pero <strong>todavía no se cobra</strong>: no hay medio de
-              pago conectado. Cuando empiece a cobrarse te lo vamos a avisar antes, y va a
-              estar publicado acá.
+              <strong>Pintura Pro no cobra comisión sobre los trabajos.</strong> El precio que
+              acuerdan es todo del pintor, y el cliente no le paga nada a la plataforma: publicar un
+              pedido y recibir cotizaciones es gratis.
             </p>
             {/* Faltaba la otra mitad: qué pasa cuando algo sale mal. Los términos decían quién
                 contrata a quién y que la plataforma no responde por el resultado, pero no
@@ -133,10 +132,53 @@ export default function TerminosPage() {
             </p>
             <p>
               Cancelar <strong>no tiene ninguna penalidad dentro de la plataforma</strong>, ni
-              para el cliente ni para el pintor: Pintura Pro no cobra, no retiene y no arbitra.
+              para el cliente ni para el pintor: Pintura Pro no cobra el trabajo, no retiene y no
+              arbitra. Sí queda registrado quién canceló y cuándo.
               Es la única herramienta que ofrecemos ante un incumplimiento. Lo que se haya
               acordado entre ustedes por fuera —una seña, materiales comprados, días de
               trabajo— se resuelve entre ustedes, y si hace falta, por la vía que corresponda.
+            </p>
+          </Seccion>
+
+          {/* La suscripción (decisión del dueño, 6/10/2026). Cada afirmación de esta sección
+              tiene que coincidir con el código: el precio y el dólar con `precio_ars()` y
+              `cotizaciones_dolar` (migración 0027), la gracia con DIAS_DE_GRACIA y la regla de
+              "un mes por pago" con `vigenteHasta` (packages/dominio/src/suscripcion.ts), y el
+              corte con `puede_cotizar()`. */}
+          <Seccion titulo="Suscripción para pintores">
+            <p>
+              Para enviar cotizaciones, un pintor o una empresa necesita una{" "}
+              <strong>suscripción mensual de US$5</strong>. Se cobra <strong>en pesos</strong>, al
+              dólar oficial vendedor del Banco Nación del día en que se genera el cobro, y el
+              precio en pesos se muestra siempre antes de pagar. Es el precio final.
+            </p>
+            <p>
+              <strong>Durante el lanzamiento, cotizar es gratis.</strong> Antes de que empiece el
+              cobro, la fecha se publica en esta página y en el panel de cada pintor con al menos
+              30 días de anticipación.
+            </p>
+            <p>
+              Se puede pagar con <strong>débito automático de Mercado Pago</strong> (se renueva
+              solo cada mes), con el <strong>QR del mes</strong> o por{" "}
+              <strong>transferencia</strong> con el código de cada pintor. Pintura Pro no guarda
+              datos de tarjetas: los maneja Mercado Pago. Cada pago aprobado suma un mes de acceso,
+              contado desde el vencimiento anterior, así que pagar antes no hace perder días.
+            </p>
+            <p>
+              Si un débito automático no entra, Mercado Pago lo reintenta y seguís cotizando{" "}
+              <strong>10 días</strong> más. Después, y también si no pagás el mes por QR o
+              transferencia, <strong>no podés enviar cotizaciones nuevas</strong>; las que ya
+              enviaste y los trabajos en curso siguen igual.
+            </p>
+            <p>
+              <strong>Te das de baja cuando quieras</strong>, desde tu panel: no se cobra más y
+              seguís cotizando hasta el final de lo que pagaste. Si sos consumidor, podés
+              arrepentirte dentro de los 10 días corridos desde que te suscribiste y te devolvemos
+              lo pagado. Un cambio de precio se avisa con al menos 30 días de anticipación.
+            </p>
+            <p>
+              La suscripción es por usar la plataforma: <strong>no garantiza pedidos</strong>, que
+              un cliente te elija ni ningún ingreso.
             </p>
           </Seccion>
 

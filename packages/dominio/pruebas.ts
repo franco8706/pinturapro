@@ -6,7 +6,7 @@
  * importaciones llevan la extensión `.ts` porque node la exige; el `index.ts` del paquete no,
  * porque ahí resuelve el empaquetador de cada app.
  */
-import { montoDesdeTexto, motivoMontoInvalido, motivoCotizacionInvalida, comisionDe } from "./src/montos.ts";
+import { montoDesdeTexto, motivoMontoInvalido, motivoCotizacionInvalida } from "./src/montos.ts";
 import { contactoEnTexto } from "./src/contacto.ts";
 import { dimensionesDeImagen, motivoImagenDesmedida } from "./src/imagen.ts";
 import { revisarLargos, TOPES } from "./src/topes.ts";
@@ -70,7 +70,6 @@ dice("-5000", "negativo", "negativo");
 dice("99999999999", "mil millones", "tope");
 dice("0", "mayor que cero", "cero");
 dice("", "Escribí un monto", "vacío");
-igual(comisionDe(500000), 50000, "la comisión es el 10%");
 
 // ── Topes de largo ──
 igual(revisarLargos({ titulo: "corto" }), null, "un título corto pasa");
@@ -269,6 +268,12 @@ igual(transferenciaAlcanza(7547, 7700), true, "el 98 % alcanza: el dólar se mov
 igual(transferenciaAlcanza(7469, 7700), true, "el 97 % justo alcanza");
 igual(transferenciaAlcanza(6930, 7700), false, "el 90 % no alcanza: queda para revisar a mano");
 igual(transferenciaAlcanza(Number.NaN, 7700), false, "un monto ilegible no alcanza");
+
+// Los mensajes de la migración 0027 llegan traducidos.
+igual(mensajeDeError({ code: "P0001", message: "Necesitás una suscripción activa para cotizar" }).includes("Mi plan"), true, "sin suscripción: dice dónde activarla");
+igual(mensajeDeError({ code: "P0001", message: "Una cotización enviada no se edita: retirala y mandá otra" }), "Una cotización enviada no se edita: retirala y mandá otra.", "cotización enviada");
+igual(mensajeDeError({ code: "P0001", message: "No se puede cambiar quién es parte del trabajo" }).includes("quién participa"), true, "partes del trabajo");
+igual(mensajeDeError({ code: "P0001", message: "Ese pedido ya no está disponible" }), "Ese pedido ya no está disponible.", "pedido borrado");
 
 // El resumen va AL FINAL: estuvo en el medio y las pruebas de imágenes que se agregaron
 // debajo no corrían nunca — el archivo decía "todo en verde" y salía antes de llegar.

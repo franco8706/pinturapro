@@ -8,7 +8,12 @@ import type { ProfileType } from "@/lib/supabase/types";
 
 const ROLES: { value: ProfileType; title: string; desc: string }[] = [
   { value: "client", title: "Soy cliente", desc: "Quiero pintar mi casa u obra y contratar profesionales." },
-  { value: "painter", title: "Soy pintor", desc: "Ofrezco mis servicios y quiero mostrar mi portfolio." },
+  {
+    value: "painter",
+    title: "Soy pintor",
+    // La suscripción se dice antes de elegir, no después (6/10/2026).
+    desc: "Ofrezco mis servicios y quiero mostrar mi portfolio. Cotizar es gratis durante el lanzamiento; después, US$5 por mes.",
+  },
   { value: "company", title: "Somos una empresa", desc: "Constructora o estudio que gestiona obras y equipos." },
 ];
 

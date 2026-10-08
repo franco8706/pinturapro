@@ -61,6 +61,15 @@ export async function GET() {
         : admin.from("leads").select("*").eq("user_id", yo),
     ]);
 
+    // ── La suscripción (0027) ──
+    // Lo que pagó y cómo, con la cotización del dólar de cada pago. Si la base todavía no tiene
+    // la 0027, no hay nada que mostrar (y no es un error).
+    const [suscripciones, cobros, pagos] = await Promise.all([
+      admin.from("suscripciones").select("*").eq("pintor_id", yo),
+      admin.from("cobros").select("*").eq("pintor_id", yo),
+      admin.from("pagos_suscripcion").select("*").eq("pintor_id", yo),
+    ]);
+
     // ── Las fotos ──
     // Faltaban, y son el dato más personal que hay acá: la foto de perfil es la cara de la
     // persona, y las de las obras son el interior de casas —la suya o la de sus clientes—.
@@ -110,6 +119,11 @@ export async function GET() {
       resenasQueEscribiste: resenasEscritas.data ?? [],
       resenasQueRecibiste: resenasRecibidas.data ?? [],
       consultasYFormularios: consultas.data ?? [],
+      suscripcion: {
+        accesos: suscripciones.error ? [] : suscripciones.data ?? [],
+        cobrosPedidos: cobros.error ? [] : cobros.data ?? [],
+        pagos: pagos.error ? [] : pagos.data ?? [],
+      },
       fotosQueSubiste: fotos,
     };
 

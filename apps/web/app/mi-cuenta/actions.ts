@@ -93,12 +93,22 @@ export async function eliminarMiCuenta(confirmacion: string): Promise<{ error?: 
   //  · Si se va el pintor, al cliente le queda una cotización de "Cuenta dada de baja" que
   //    todavía puede aceptar, y aceptarla crearía un trabajo sin pintor.
   //
-  // Se borran las suyas en estado 'quoted' y 'cancelled'. Las completadas quedan.
-  const { error: errorCotizaciones } = await admin
+  // Se borran las suyas en estado 'quoted', y las canceladas que NUNCA se aceptaron. Las
+  // completadas quedan, y desde 0027 también las canceladas después de aceptar: son el rastro
+  // de "aceptó, vio el teléfono y canceló" (H5), que no se puede borrar dándose de baja.
+  let { error: errorCotizaciones } = await admin
     .from("jobs")
     .delete()
     .or(`client_id.eq.${yo},painter_id.eq.${yo}`)
-    .in("status", ["quoted", "cancelled"]);
+    .or("status.eq.quoted,and(status.eq.cancelled,aceptado_en.is.null)");
+  if (errorCotizaciones && /aceptado_en/.test(errorCotizaciones.message ?? "")) {
+    // La base todavía sin la 0027: no hay rastro que cuidar.
+    ({ error: errorCotizaciones } = await admin
+      .from("jobs")
+      .delete()
+      .or(`client_id.eq.${yo},painter_id.eq.${yo}`)
+      .in("status", ["quoted", "cancelled"]));
+  }
   if (errorCotizaciones) {
     console.error("[eliminar-cuenta] cotizaciones a medio camino:", errorCotizaciones.message);
   }

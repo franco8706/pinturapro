@@ -8,19 +8,33 @@
  */
 const isDev = process.env.NODE_ENV !== 'production'
 
+// La base local de pruebas (tools/auditoria/base-local) habla por http://127.0.0.1:54321. Sin
+// esto el navegador no podía ni ingresar ("Failed to fetch": la CSP sólo permitía
+// *.supabase.co). En producción la URL es siempre https://<ref>.supabase.co y esto queda vacío.
+const supabaseLocal = (() => {
+  try {
+    const origen = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').origin
+    return /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origen) ? origen : ''
+  } catch {
+    return ''
+  }
+})()
+const local = supabaseLocal ? ` ${supabaseLocal} ${supabaseLocal.replace('http:', 'ws:')}` : ''
+
 const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://*.supabase.co https://*.tile.openstreetmap.org https://replicate.delivery https://images.unsplash.com",
+  `img-src 'self' data: blob: https://*.supabase.co https://*.tile.openstreetmap.org https://replicate.delivery https://images.unsplash.com${local}`,
   "font-src 'self' data:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+  `connect-src 'self' https://*.supabase.co wss://*.supabase.co${local}`,
   "media-src 'self' blob: data:",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
-  'upgrade-insecure-requests',
+  // Con la base local (http) no se fuerza https: rompería cada pedido a ella.
+  ...(supabaseLocal ? [] : ['upgrade-insecure-requests']),
 ].join('; ')
 
 const securityHeaders = [

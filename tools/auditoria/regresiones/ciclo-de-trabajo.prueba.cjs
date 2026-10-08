@@ -111,7 +111,7 @@ module.exports = {
         { owner_id: cliente.id, type: "service", title: tituloRetiro, slug: `zzagent-ciclo-retiro-${Date.now()}`, published: true },
       ]);
       await base.insertar("jobs", [
-        { project_id: pedidoRetiro.id, client_id: cliente.id, painter_id: pintor.id, status: "quoted", amount: 180000, commission_rate: 0.1, commission_amount: 18000, note: marca },
+        { project_id: pedidoRetiro.id, client_id: cliente.id, painter_id: pintor.id, status: "quoted", amount: 180000, note: marca },
       ]);
 
       // ── 2. El pintor cotiza ──
@@ -127,7 +127,8 @@ module.exports = {
       const cotizado = await estadoDe(`project_id=eq.${pedido.id}`, "quoted");
       t.cierto(cotizado?.status === "quoted", "la cotización no quedó guardada");
       if (!cotizado) return;
-      t.igual([cotizado.amount, cotizado.commission_amount], [250000, 25000], "el monto o la comisión guardados no son los que se cotizaron");
+      // Sin comisión desde el 6/10/2026: el monto es el cotizado y la comisión no se guarda.
+      t.igual([cotizado.amount, cotizado.commission_amount], [250000, null], "el monto guardado no es el cotizado, o se guardó una comisión");
 
       // ── 2 bis. El pintor retira la OTRA cotización ──
       await k.ir(page, "/dashboard");
@@ -149,7 +150,7 @@ module.exports = {
       // ── 4. El pintor completa ──
       await k.ingresar(page, "pintor3");
       await k.ir(page, "/dashboard");
-      t.contiene(await page.evaluate(() => document.querySelector("main").innerText), "Comisión 10", "el panel del pintor no muestra la comisión del trabajo");
+      t.cierto(!/Comisi[oó]n/.test(await page.evaluate(() => document.querySelector("main").innerText)), "el panel del pintor sigue mostrando una comisión que no existe");
       t.cierto(await apretarYConfirmar(titulo, "Marcar completado"), "el trabajo aceptado no aparece en el panel del pintor con 'Marcar completado'");
       const completado = await estadoDe(`id=eq.${cotizado.id}`, "completed");
       t.igual(completado?.status, "completed", "marcar completado no cambió el estado del trabajo");

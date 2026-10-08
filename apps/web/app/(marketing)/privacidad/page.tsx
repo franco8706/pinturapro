@@ -211,6 +211,16 @@ export default function PrivacidadPage() {
                 <strong>Google, Microsoft y Facebook</strong> — únicamente si elegís entrar con
                 alguna de esas cuentas.
               </li>
+              <li>
+                {/* La suscripción de los pintores (6/10/2026). Mercado Pago recibe lo que hace
+                    falta para cobrar; los datos de la tarjeta los carga la persona en Mercado
+                    Pago y nunca pasan por este sitio. */}
+                <strong>Mercado Pago</strong> — sólo si sos pintor y pagás la suscripción con
+                Mercado Pago o con el QR: le pasamos tu email y el monto. Los datos de tu tarjeta
+                los cargás directamente en Mercado Pago y nunca pasan por Pintura Pro. Si pagás por
+                transferencia, guardamos la línea del extracto que la identifica (monto, fecha y,
+                si el banco la informa, la cuenta de origen).
+              </li>
             </ul>
             <p>
               Esto implica que tus datos se procesan fuera de Argentina. Al usar el sitio, prestás
@@ -221,7 +231,8 @@ export default function PrivacidadPage() {
           <Seccion titulo="Cuánto tiempo los guardamos">
             <p>
               Mientras tengas la cuenta abierta. Si la cerrás, borramos tu perfil y tus datos de
-              contacto. Las reseñas y el historial de trabajos se conservan de forma{" "}
+              contacto. El registro de los pagos de la suscripción se conserva sin tu nombre,
+              porque es parte de la contabilidad que la ley nos obliga a guardar. Las reseñas y el historial de trabajos se conservan de forma{" "}
               <strong>anonimizada</strong>: son parte de la reputación de la otra parte, que no
               tiene por qué perderla porque vos te vayas.
             </p>

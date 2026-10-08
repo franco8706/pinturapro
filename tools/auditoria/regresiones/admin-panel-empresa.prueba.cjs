@@ -56,7 +56,7 @@ module.exports = {
           // la ruta que pidió.
           t.cierto(info.url !== ruta, `una cuenta 'empresa' sin is_admin entró a ${ruta} (terminó en ${info.url})`);
           t.cierto(
-            !/Comisión generada|Volumen transado|Consultas y pintores/i.test(info.texto),
+            !/Suscripciones: ingreso del mes|Valor de trabajos completados|Consultas y pintores/i.test(info.texto),
             `${ruta} le mostró cifras o consultas del negocio a una cuenta 'empresa' sin is_admin`,
           );
         }
@@ -71,7 +71,7 @@ module.exports = {
         await k.ir(page2, "/panel");
         const info = await page2.evaluate(() => ({ url: location.pathname, texto: document.body.innerText }));
         t.igual(info.url, "/panel", "la cuenta admin de verdad ya no puede entrar a /panel (el arreglo se pasó de largo)");
-        t.contiene(info.texto, "Comisión generada", "a la cuenta admin no le aparecen las cifras del negocio en /panel");
+        t.contiene(info.texto, "Suscripciones: ingreso del mes", "a la cuenta admin no le aparecen las cifras del negocio en /panel");
       } finally {
         await browser2.close();
       }

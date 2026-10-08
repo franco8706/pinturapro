@@ -28,6 +28,8 @@ export const ETIQUETAS = {
   resenas: "publico:resenas",
   trabajos: "publico:trabajos",
   contenido: "publico:contenido",
+  /** El lanzamiento, los planes y el precio en pesos al dólar del día (0027). */
+  cobro: "publico:cobro",
 } as const;
 
 type Etiqueta = (typeof ETIQUETAS)[keyof typeof ETIQUETAS];

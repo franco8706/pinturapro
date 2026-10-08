@@ -197,6 +197,15 @@ Todas pasaron en este proyecto. Si escribís una prueba, revisá que no caiga en
   lee viejo. Clic, esperar, y leer en OTRA llamada a `page.evaluate`.
 - **Un filtro de `--solo` que no coincide con el archivo.** `--solo cotizar` no corre
   `ya-cotizado`: "0 filas quedaron" no probaba nada. Mirá que la línea ✓ aparezca.
+- **Esperar "un error" en vez de EL error.** Pasó dos veces el 6-8/10/2026. Los ensayos de 0024
+  y 0026 daban "OK: se rechaza" mientras la 0024 rompía TODAS las cotizaciones ("infinite
+  recursion detected in policy for relation jobs"): el rechazo era por otra cosa. Y la prueba
+  de H8 daba verde sin la regla, porque el `DELETE` pedía la fila de vuelta y `projects` tiene
+  permisos por columna. Una prueba de rechazo mira el MOTIVO o cómo quedó la fila, y tiene al
+  lado un caso que TIENE que entrar (la contraprueba).
+- **La clave de servicio se saltea las reglas.** Hasta el 6/10 ninguna prueba hablaba con la base
+  como un usuario común. Para probar una policy o un trigger, `base.comoUsuario(email, pass)`
+  (`regresiones/base.cjs`), que pasa por las mismas reglas que la web y que un `curl`.
 
 ### Trampas de la base
 
@@ -216,6 +225,16 @@ Todas pasaron en este proyecto. Si escribís una prueba, revisá que no caiga en
 - **Los scripts SQL de prueba van siempre entre `begin` y `rollback`**, y los corre el
   orquestador (`tools/auditoria/escala/volumen.sql` es el modelo). Aplicar una migración a la
   base real lo autoriza el dueño: el sistema de permisos lo frena, y no se le busca la vuelta.
+- **Una migración se prueba primero en la base LOCAL** (`tools/auditoria/base-local/`: Supabase
+  en Docker con las migraciones del repo y la semilla, sin contraseña de nadie). Ahí se puede
+  aplicar, ver fallar las pruebas nuevas contra el estado anterior y correr la web entera contra
+  ella (`set -a; . tools/auditoria/.salida/base-local/web.env; set +a` antes de `pnpm dev` y de
+  `correr.cjs`). Una migración que trae `begin`/`commit` adentro de un ensayo con `\i` se
+  COMMITEA: el ensayo carga una copia sin ellos (ver `probar-0027.sql`).
+- **Envolver `auth.uid()` en `(select …)` en la policy de lectura de `jobs` rompe cotizar.**
+  Una policy con subconsulta hace que Postgres revise recursión al expandirla adentro de otra
+  policy que ya mira `jobs` (la de cotizar, y la de `projects`). `jobs_select_participant` queda
+  sin envolver a propósito (0024 corregida el 8/10/2026).
 
 ### El simulador se mide con fotos REALES
 

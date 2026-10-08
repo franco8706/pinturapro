@@ -63,6 +63,11 @@ done
 echo "datos demo..."
 SUPABASE_URL="$API_URL" SUPABASE_SECRET="$SERVICE_ROLE_KEY" python3 "$PROYECTO/scripts/seed_supabase.py" > semilla.log 2>&1 \
   || { echo "FALLO: semilla"; tail -20 semilla.log; exit 1; }
+# La actividad del marketplace (pedidos abiertos, cotizaciones, un trabajo en curso y uno
+# terminado sin reseñar), como en la base en vivo: varias pruebas la necesitan.
+( cd "$PROYECTO/apps/web" && NEXT_PUBLIC_SUPABASE_URL="$API_URL" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
+    node scripts/seed-marketplace-activity.mjs ) > actividad.log 2>&1 \
+  || { echo "FALLO: actividad del marketplace"; tail -20 actividad.log; exit 1; }
 # El admin de la demo (en vivo se marcó a mano).
 psql "$DB" -q -c "update public.profiles set is_admin = true where id = (select id from auth.users where email = 'empresa@pinturapro.demo');" 2>/dev/null
 

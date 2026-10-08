@@ -117,7 +117,9 @@ const SENALES_LEGALES = {
   // porque desde que los derechos de acceso y supresión se ejercen solos, el link a esa
   // pantalla ES el modo de ejercerlos: si se cae, la política promete algo que no existe.
   "/privacidad": ["responsable", "datos personales", "25.326", "mi-cuenta"],
-  "/terminos": ["comisión", "reseñas", "cuenta"],
+  // "suscripción" y no "comisión": desde el 6/10/2026 la plataforma no cobra comisión, y lo que
+  // los términos TIENEN que decir es cuánto y cómo paga el pintor.
+  "/terminos": ["suscripción", "reseñas", "cuenta"],
 };
 
 async function legales() {

@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { olvidar, ETIQUETAS } from "@/lib/cache-publico";
 import { notifyUser, emailLayout, html } from "@/lib/email";
-import { commissionFor } from "@/lib/utils";
 import { mensajeDeError } from "@/lib/errores-db";
 import { getOwnProfile } from "@/lib/queries";
 import {
@@ -147,7 +146,9 @@ export async function publicarTrabajo(formData: FormData): Promise<{ error?: str
  * RLS valida que painter_id = auth.uid(), que sea pintor (0016) y que el pedido
  * exista y sea del client_id declarado.
  */
-export async function cotizar(formData: FormData): Promise<{ error?: string; ok?: boolean }> {
+export async function cotizar(
+  formData: FormData,
+): Promise<{ error?: string; ok?: boolean; codigo?: "sin_suscripcion" }> {
   // Una Server Action es un endpoint: llega lo que el que llama quiera mandar, no lo que dice
   // el tipo. Sin esta línea, un cuerpo que no sea un formulario rompe en el primer `.get()` y
   // devuelve 500 (medido en /contacto: los siete cuerpos de la auditoría, uno por uno).
@@ -193,14 +194,26 @@ export async function cotizar(formData: FormData): Promise<{ error?: string; ok?
     return { error: MOTIVO_NO_PUEDE_COTIZAR };
   }
 
-  const commission_amount = commissionFor(amount);
+  // La suscripción (0027): cotizar es de quien tiene acceso pago o del lanzamiento. La barrera
+  // es la base (`puede_cotizar()` en la policy); esto es para devolver el motivo con el camino
+  // para resolverlo, en lugar del error genérico. Si la función no existe (la base sin la
+  // 0027) o falla, no se bloquea: decide la base.
+  const { data: puede, error: errorPuede } = await supabase.rpc("puede_cotizar");
+  if (!errorPuede && puede === false) {
+    return {
+      error: "Necesitás una suscripción activa para enviar cotizaciones.",
+      codigo: "sin_suscripcion",
+    };
+  }
+
+  // Sin comisión: la plataforma no cobra un porcentaje del trabajo (6/10/2026). El pintor
+  // paga una suscripción fija, y el precio del trabajo es todo suyo.
   const payload = {
     project_id: projectId,
     client_id: clientId,
     painter_id: user.id,
     status: "quoted",
     amount,
-    commission_amount,
     note: note || null,
   };
 
@@ -209,7 +222,10 @@ export async function cotizar(formData: FormData): Promise<{ error?: string; ok?
   }
 
   const { error } = await supabase.from("jobs").insert(payload as never);
-  if (error) return { error: mensajeDeError(error) };
+  if (error) {
+    const mensaje = mensajeDeError(error);
+    return /suscripción/.test(mensaje) ? { error: mensaje, codigo: "sin_suscripcion" } : { error: mensaje };
+  }
 
   // Avisar al cliente que recibió una cotización (no-op si Resend no está configurado).
   // `note` la escribe el pintor: va por `html` para que se escape y no pueda inyectar markup.

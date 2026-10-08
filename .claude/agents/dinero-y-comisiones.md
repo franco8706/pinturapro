@@ -95,3 +95,16 @@ mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
   sobre el recorte de 50 trabajos más recientes de `getJobsForPainter`/`getJobsForClient` — a
   partir del trabajo 51 esas cifras propias quedan por debajo de la realidad (no toca plata de
   terceros ni el nivel del pintor, sólo el propio panel).
+
+- **6-8/10/2026 — YA NO HAY COMISIÓN.** Decisión del dueño: el pintor paga una suscripción de
+  US$5 por mes, en pesos al dólar oficial vendedor del Banco Nación del día, por débito de Mercado
+  Pago, QR o transferencia; el cliente no paga nada. Plan por etapas en
+  `tools/auditoria/rondas/2026-10-06-suscripcion/plan.md`. Lo que se audita de acá en adelante:
+  el precio mostrado ("US$5, hoy $X") contra `precio_ars()` contra lo cobrado en el libro
+  (`pagos_suscripcion`, cada fila con su `cotizacion_id`); el redondeo (hacia arriba a la centena,
+  en centavos enteros: `precioEnPesos` de dominio y `precio_ars()` de 0027 tienen que dar lo
+  mismo); los controles del dólar (salto > 10 % "a confirmar", fuentes en desacuerdo
+  descartadas); que un pago dé exactamente un mes sin perder días (`vigenteHasta`); y la
+  tolerancia de la transferencia (97 %). `jobs.commission_*` quedan sólo como historia: una
+  comisión que vuelva a aparecer en código o pantalla es un hallazgo (`reglas-compartidas` lo
+  vigila).

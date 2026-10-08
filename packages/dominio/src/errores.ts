@@ -64,7 +64,21 @@ export function mensajeDeError(error: { message?: string; code?: string }): stri
   if (/monto mínimo de una cotización/i.test(m)) {
     return "El monto mínimo de una cotización es $1.000.";
   }
-  if (/monto|comisión/i.test(m) && /no puede|no corresponde|fuera de rango/i.test(m)) {
+  // Migración 0027: la suscripción y las reglas de un trabajo ya enviado. Los raise están
+  // escritos para el usuario; acá se los reconoce para no caer en el mensaje genérico.
+  if (/suscripción activa/i.test(m)) {
+    return "Necesitás una suscripción activa para enviar cotizaciones. La activás desde Mi plan.";
+  }
+  if (/cotización enviada no se edita/i.test(m)) {
+    return "Una cotización enviada no se edita: retirala y mandá otra.";
+  }
+  if (/quién es parte del trabajo|pedido de un trabajo/i.test(m)) {
+    return "No podés cambiar quién participa de este trabajo.";
+  }
+  if (/pedido ya no está disponible/i.test(m)) {
+    return "Ese pedido ya no está disponible.";
+  }
+  if (/monto/i.test(m) && /no puede|no corresponde|fuera de rango/i.test(m)) {
     return m; // los raise del trigger ya están escritos para el usuario
   }
   if (/fetch failed|network|ENOTFOUND/i.test(m)) {

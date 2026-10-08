@@ -1,4 +1,5 @@
 import { supabase, SUPABASE_READY } from "./supabase";
+import { estadoDeAcceso, textoDeAcceso } from "@pinturapro/dominio";
 import type {
   Painter,
   PainterDetail,
@@ -281,4 +282,44 @@ export async function getMyProfile(id: string): Promise<MyProfile | null> {
     cons: p.cons ?? [],
     avatarUrl: p.avatar_url ?? "",
   };
+}
+
+/**
+ * Si el pintor puede cotizar, y el estado de su suscripción en palabras (migración 0027).
+ *
+ * La app NO vende ni enlaza la suscripción: las tiendas exigen su propio sistema de cobro para
+ * lo que se compra dentro de una app, y el pago vive en la web. Acá sólo se muestra el estado,
+ * con el mismo texto que la web (`textoDeAcceso`, de dominio), sin precio ni enlace. Si la base
+ * todavía no tiene la 0027, devuelve `null` y la pantalla no muestra nada (cotizar es libre).
+ */
+export async function getMiAcceso(uid: string): Promise<{ puedeCotizar: boolean; texto: string } | null> {
+  if (!SUPABASE_READY) return null;
+  const [filas, puede, ajustes] = await Promise.all([
+    supabase.from("suscripciones").select("proveedor, estado, acceso_hasta, vigente_hasta").eq("pintor_id", uid),
+    supabase.rpc("puede_cotizar"),
+    supabase.from("ajustes_de_cobro").select("lanzamiento_hasta").maybeSingle(),
+  ]);
+  if (filas.error || ajustes.error) return null;
+  const rows = (filas.data ?? []) as any[];
+  const max = (xs: (string | null)[]) => xs.filter((x): x is string => !!x).sort().at(-1) ?? null;
+  const vigente = max(rows.map((r) => r.vigente_hasta));
+  const acceso = max(rows.map((r) => r.acceso_hasta));
+  const finLanzamiento: string | null = (ajustes.data as any)?.lanzamiento_hasta ?? null;
+  const inscripto = rows.some((r) => r.proveedor === "lanzamiento" && r.estado !== "cancelada");
+  const lanzamientoVivo = inscripto && (!finLanzamiento || new Date(finLanzamiento).getTime() > Date.now());
+  const estado = estadoDeAcceso({
+    vigente: vigente ? new Date(vigente) : null,
+    acceso: acceso ? new Date(acceso) : null,
+    lanzamientoHasta: lanzamientoVivo ? new Date(finLanzamiento ?? "9999-12-31T00:00:00Z") : null,
+  });
+  const texto = textoDeAcceso(estado, {
+    vigente: vigente ? new Date(vigente) : null,
+    acceso: acceso ? new Date(acceso) : null,
+    lanzamientoHasta: finLanzamiento ? new Date(finLanzamiento) : null,
+  });
+  const puedeCotizar =
+    !puede.error && typeof puede.data === "boolean"
+      ? (puede.data as boolean)
+      : estado === "lanzamiento" || estado === "activa" || estado === "en_gracia";
+  return { puedeCotizar, texto };
 }

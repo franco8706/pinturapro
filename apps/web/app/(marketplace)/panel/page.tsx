@@ -10,6 +10,7 @@ import {
   getMetricasPlataforma,
   getVolumenMensual,
   getActividadReciente,
+  getMetricasSuscripciones,
   formatARS,
 } from "@/lib/queries";
 
@@ -22,8 +23,8 @@ export const metadata: Metadata = {
 };
 
 /**
- * Panel analítico del marketplace: información de negocio de la plataforma (volumen
- * transado, comisión generada), así que sólo lo ve un administrador.
+ * Panel analítico del marketplace: información de negocio de la plataforma (pedidos, valor de
+ * los trabajos, suscripciones de los pintores), así que sólo lo ve un administrador.
  *
  * Los números salían de constantes escritas a mano ("1.284 trabajos publicados",
  * "$48.2M transados", una serie inventada para el gráfico y `mockJobs` en la columna de
@@ -43,18 +44,24 @@ export default async function MarketplacePanelPage() {
   // público de alta, así que gatear por él era una cerradura con la llave en el sobre.
   if (!profile || !profile.isAdmin) redirect("/mi-panel");
 
-  const [metricas, meses, actividad] = await Promise.all([
+  const [metricas, meses, actividad, cobro] = await Promise.all([
     getMetricasPlataforma(),
     getVolumenMensual(),
     getActividadReciente(6),
+    getMetricasSuscripciones(),
   ]);
 
   const kpis = metricas
     ? [
         { label: "Pedidos publicados", value: metricas.pedidosPublicados.toLocaleString("es-AR") },
         { label: "Cotizaciones enviadas", value: metricas.cotizaciones.toLocaleString("es-AR") },
-        { label: "Volumen transado", value: formatARS(metricas.volumen) },
-        { label: "Comisión generada", value: formatARS(metricas.comision) },
+        // La plataforma no toca la plata de los trabajos (6/10/2026): es lo que cobraron los
+        // pintores, no lo que entró a la plataforma. "Comisión generada" se fue con la comisión.
+        { label: "Valor de trabajos completados", value: formatARS(metricas.volumen) },
+        {
+          label: "Suscripciones: ingreso del mes",
+          value: cobro ? formatARS(cobro.ingresoMesArs) : "—",
+        },
       ]
     : [];
 

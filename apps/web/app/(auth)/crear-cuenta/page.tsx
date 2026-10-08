@@ -11,7 +11,8 @@ const READY = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 const ROLES: { value: ProfileType; label: string; hint: string }[] = [
   { value: "client", label: "Cliente", hint: "Quiero pintar mi casa / obra" },
-  { value: "painter", label: "Pintor", hint: "Ofrezco mis servicios" },
+  // La suscripción se dice antes de crear la cuenta, no después (6/10/2026).
+  { value: "painter", label: "Pintor", hint: "Ofrezco mis servicios · gratis en el lanzamiento" },
   { value: "company", label: "Empresa", hint: "Constructora / estudio" },
 ];
 

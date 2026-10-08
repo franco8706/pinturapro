@@ -21,6 +21,7 @@ import {
   getJobsForPainter,
   getContactoDelTrabajo,
   getMiTelefono,
+  getMiAcceso,
   formatARS,
 } from "@/lib/queries";
 
@@ -56,11 +57,12 @@ export default async function PainterDashboardPage({
   const roleLabel = isCompany ? "Panel de empresa" : "Panel de pintor";
   const painter = profile;
 
-  const [projects, reviews, jobs, miTelefono] = await Promise.all([
+  const [projects, reviews, jobs, miTelefono, acceso] = await Promise.all([
     getProjectsByOwner(user.id),
     getReviewsForPainter(user.id).then(conNombresDeAutores),
     getJobsForPainter(user.id),
     getMiTelefono(),
+    getMiAcceso(user.id),
   ]);
 
   // El contacto se pide sólo para los trabajos en marcha, y en paralelo: en serie, un pintor
@@ -146,6 +148,9 @@ export default async function PainterDashboardPage({
               <MagneticButton href="/mi-cuenta" variant="ghost">
                 Mis datos
               </MagneticButton>
+              <MagneticButton href="/dashboard/plan" variant="ghost">
+                Mi plan
+              </MagneticButton>
               {!isCompany && (
                 <MagneticButton href={`/pintor/${painter.id}`} variant="ghost">
                   Ver mi perfil
@@ -156,6 +161,15 @@ export default async function PainterDashboardPage({
               </MagneticButton>
             </div>
           </div>
+
+          {/* La suscripción (0027): el estado en palabras, siempre a la vista. En rojo cuando ya no
+              puede cotizar, que es cuando tiene que hacer algo. */}
+          <p className={`mb-8 font-body text-body-sm ${acceso.puedeCotizar ? "text-concrete" : "text-[#C41E3A]"}`}>
+            {acceso.texto}{" "}
+            <Link href="/dashboard/plan" className="text-ink underline underline-offset-2">
+              Ver mi plan
+            </Link>
+          </p>
 
           {/* Métricas reales */}
           <div className="grid grid-cols-2 lg:grid-cols-4 border border-concrete/15 mb-12">
@@ -194,15 +208,10 @@ export default async function PainterDashboardPage({
                       <span className="font-mono text-mono-sm text-concrete uppercase tracking-widest">
                         {job.statusLabel}
                       </span>
-                      {/* El pintor veía el 10 % una sola vez, en el formulario, antes de cotizar;
-                          después, en ningún lado (dinero-y-comisiones y recorrido-web, 29/9). */}
-                      <span className="text-right">
-                        <span className="block font-body text-body-md text-ink tabular-nums">{formatARS(job.amount)}</span>
-                        {job.commission != null && job.amount != null && (
-                          <span className="block font-body text-body-sm text-concrete tabular-nums">
-                            Comisión 10 %: {formatARS(job.commission)}
-                          </span>
-                        )}
+                      {/* Hasta el 6/10/2026 acá se mostraba "Comisión 10 %", que nunca se cobró. Desde
+                          entonces el pintor paga una suscripción fija y el monto es todo suyo. */}
+                      <span className="block font-body text-body-md text-ink tabular-nums text-right">
+                        {formatARS(job.amount)}
                       </span>
                     </div>
                   </div>

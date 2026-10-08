@@ -89,6 +89,12 @@ Estos ya no se reportan. `pnpm verificar` los revisa en cada corrida.
 | La IA colgada dejaba todo apagado 70 s y después nada (4/10) | Ahora "Cancelar" y aviso si se corta por tiempo | `simulador-carreras` (reloj simulado) |
 | En el celular la Intensidad quedaba lejos de la foto (4/10) | 1.000 px más abajo: se movía sin ver la pared. Ahora 94 px | `simulador-celular` |
 | Los oscuros saturados cambiaban de tono al recortar la gama (3/10) | El margen de "entra en pantalla" estaba en luz lineal: cerca del negro eran 6,5 niveles. A L=0,15 el tono se corría 43,5° (ahora 2,7°) | `pruebas-color` (Gama) |
+| **La 0024 (sin aplicar) rompía TODAS las cotizaciones** (8/10) | "infinite recursion detected in policy for relation jobs" al cotizar como pintor: envolver `auth.uid()` en la policy de lectura de `jobs`. Los ensayos de 0024/0026 lo daban por bueno porque esperaban "un error" y nunca probaban una cotización que tenía que entrar. Encontrado en la base local; corregido antes de aplicar | `probar-orden.sql` (ahora cotiza y acepta) |
+| Un pintor sin suscripción cotiza (6/10, nuevo con 0027) | La base lo frena con el motivo ("Necesitás una suscripción activa"); la pantalla muestra el camino a Mi plan. **En la 0027, sin aplicar** | `suscripcion-requerida` (por la API y por la pantalla, con contraprueba) |
+| H1 · una cotización enviada se editaba por la API (6/10) | El pintor cambiaba el monto o la nota con un PATCH y el cliente aceptaba un precio que no vio. **0027, sin aplicar** | `trabajos-por-api` |
+| H5 · aceptar, ver el teléfono y cancelar no dejaba rastro (6/10) | Ahora `aceptado_en`, `cancelado_en` y `cancelado_por` los escribe la base; las perdedoras quedan como "sistema". **0027, sin aplicar** | `trabajos-por-api` |
+| H8 · un pedido adjudicado se podía borrar (6/10) | **0027, sin aplicar**. Ojo: la prueba daba verde sin la regla porque el DELETE pedía la fila de vuelta y `projects` tiene permisos por columna | `trabajos-por-api` |
+| H10 · el cliente borraba al pintor de su trabajo, y el pintor al cliente (6/10) | **0027, sin aplicar** | `trabajos-por-api` |
 ## Corregido, sin prueba todavía
 
 Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arriba.
@@ -236,8 +242,9 @@ Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arri
   publicar con otros datos. El monto del trabajo no se mueve. Misma migración.
 - **Nada detecta a un pintor que se reseña con otra cuenta** (ciclo completo en menos de un
   minuto, medido). Desde el 2/10 el dueño al menos puede leer las últimas reseñas en /admin.
-- **Aceptar una cotización, quedarse con el teléfono del pintor y cancelar** no cuesta nada ni
-  deja rastro visible (el trabajo queda `cancelled` en la base). Y **retirar y recotizar** el
+- **Aceptar una cotización, quedarse con el teléfono del pintor y cancelar** no cuesta nada.
+  Desde la 0027 (sin aplicar) queda el rastro (`cancelado_por`, `cancelado_en`) y el admin lo
+  lee con `cancelaciones_tras_aceptar()`; falta mostrarlo en /admin. Y **retirar y recotizar** el
   mismo pedido no tiene límite. Con 3 pintores no es urgente; con tráfico, un contador por
   cuenta en /admin.
 - **Un toque en una pared gris o blanca sigue pintando el techo en 2 de 13 fotos reales** (r07,
@@ -322,11 +329,14 @@ No los vuelvas a levantar sin evidencia nueva.
 - **Preguntarle al abogado** por el botón de arrepentimiento (Res. 424/2020) aplicado a un
   intermediario que no vende.
 
-- **Aplicar las migraciones 0024, 0025 y 0026, en ese orden.** Desde el Codespace, con la
-  contraseña de la base:
+- **Aplicar las migraciones 0024, 0025, 0026 y 0027, en ese orden, ANTES de publicar la web
+  nueva** (la web del 8/10 ya no manda comisión y la policy de 0024 la exige). Desde el
+  Codespace, con la contraseña de la base:
   `psql "postgresql://postgres.ojdtixmysrfywgvowqie@aws-1-us-east-1.pooler.supabase.com:5432/postgres" --single-transaction -v ON_ERROR_STOP=1 -f supabase/migrations/0024_escala.sql`
-  y lo mismo con 0025 y 0026. O pegando cada archivo en Supabase → SQL Editor. Antes conviene
-  correr `tools/auditoria/escala/probar-orden.sql` (no cambia nada: termina en rollback).
+  y lo mismo con 0025, 0026 y 0027. O pegando cada archivo en Supabase → SQL Editor. Las cuatro
+  están probadas en la base local (`tools/auditoria/base-local/`, 8/10): `probar-orden.sql` y
+  `probar-0027.sql` dan todo OK, y la batería completa corre contra ellas. La 0024 se corrigió
+  el 8/10: la versión anterior rompía todas las cotizaciones.
   Después: borrar el encabezado "ESTADO … SIN APLICAR" de cada archivo, commitearlos, y conectar
   la paginación de /trabajos (`pedidos_abiertos(limite, antes_de)`).
 
@@ -337,9 +347,12 @@ No los vuelvas a levantar sin evidencia nueva.
 - No hay `RESEND_API_KEY`: no salen emails.
 - `/publicar` no tiene descripción libre ni presupuesto numérico: se arma solo y se elige de una
   lista.
-- **Cómo se cobra la comisión** (29/9, dinero-y-comisiones): la base guarda el 10 % de cada
-  trabajo pero no hay cobro, ni estado "pagada", ni deuda por pintor, ni aviso al completar. El
-  mínimo para empezar está en `tools/auditoria/rondas/2026-09-28-escala/dinero-y-comisiones.md`.
+- **Cómo se cobra** — RESUELTO el 6/10/2026: **no hay comisión**. El pintor paga una suscripción
+  mensual de US$5, en pesos al dólar oficial vendedor del Banco Nación del día, por débito de
+  Mercado Pago, QR o transferencia; gratis durante el lanzamiento (sin fecha de fin todavía).
+  El cliente no le paga nada a la plataforma. Plan aprobado en etapas (base y textos → dólar →
+  Mercado Pago y transferencia → admin → cobro real); detalle en
+  `tools/auditoria/rondas/2026-10-06-suscripcion/plan.md`.
 - **¿El nombre del autor de una reseña se le muestra a quien no tiene cuenta?** Hoy no (0013):
   el anónimo ve "Cliente". Mostrar el nombre de pila daría más confianza y expone más.
 - **¿El tablero /trabajos va a Google?** Hoy no (`noindex`, 29/9): son pedidos de personas.

@@ -40,7 +40,7 @@ if (!url || !key) {
 const db = createClient(url, key, { auth: { persistSession: false } });
 
 const TAG = "demo-activo"; // marca de lo sembrado acá (para poder limpiarlo)
-const COMMISSION = 0.1;
+// Sin comisión desde el 6/10/2026: el pintor paga una suscripción (migración 0027).
 
 const fail = (label, error) => {
   if (error) {
@@ -143,7 +143,6 @@ const job = (projectId, painterId, status, amount, note) => ({
   painter_id: painterId,
   status,
   amount,
-  commission_amount: Math.round(amount * COMMISSION),
   note: note ?? null,
 });
 

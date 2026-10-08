@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, Linking, RefreshControl, ScrollView, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { useAuth } from "@/context/auth";
-import { getQuotesForClient, getJobsForPainter, formatARS } from "@/lib/queries";
+import { getQuotesForClient, getJobsForPainter, getMiAcceso, formatARS } from "@/lib/queries";
 import { aceptarCotizacion, cancelarTrabajo, marcarCompletado } from "@/lib/mutations";
 import type { Quote, PainterJob } from "@/lib/types";
 import { Avatar, Badge, Button, Card, Mono, Stars, Note } from "@/components/ui";
@@ -21,6 +21,7 @@ export default function CuentaScreen() {
   const { session, role, loading, signOut } = useAuth();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [jobs, setJobs] = useState<PainterJob[]>([]);
+  const [acceso, setAcceso] = useState<{ puedeCotizar: boolean; texto: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [actingId, setActingId] = useState<string | null>(null);
@@ -29,7 +30,11 @@ export default function CuentaScreen() {
     const uid = session?.user?.id;
     if (!uid) return;
     if (role === "client") setQuotes(await getQuotesForClient(uid));
-    else if (role === "painter" || role === "company") setJobs(await getJobsForPainter(uid));
+    else if (role === "painter" || role === "company") {
+      const [trabajos, miAcceso] = await Promise.all([getJobsForPainter(uid), getMiAcceso(uid)]);
+      setJobs(trabajos);
+      setAcceso(miAcceso);
+    }
   }, [session?.user?.id, role]);
 
   useFocusEffect(
@@ -139,6 +144,12 @@ export default function CuentaScreen() {
       {isPainter && (
         <Button label="Editar mi perfil" variant="ghost" onPress={() => router.push("/perfil")} />
       )}
+      {/* El estado de la suscripción, en palabras y sin precio ni enlace: la app no la vende. */}
+      {isPainter && acceso ? (
+        <Text style={[type.bodySm, { color: acceso.puedeCotizar ? colors.concrete : colors.danger }]}>
+          {acceso.texto}
+        </Text>
+      ) : null}
 
       <View style={{ marginTop: space.sm }}>
         <Text style={[type.displayMd, { color: colors.ink }]}>

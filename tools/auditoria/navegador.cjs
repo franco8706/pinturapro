@@ -84,12 +84,14 @@ async function ir(page, ruta) {
   return r ? r.status() : null;
 }
 
+/** Entra con una cuenta demo (por rol) o con cualquier cuenta: `ingresar(page, { email, password })`. */
 async function ingresar(page, rol) {
-  const email = CUENTAS[rol];
+  const email = typeof rol === "object" ? rol.email : CUENTAS[rol];
+  const password = typeof rol === "object" ? rol.password : PASS;
   if (!email) throw new Error("rol desconocido: " + rol);
   await ir(page, "/ingresar");
   await page.fill("input[type=email]", email);
-  await page.fill("input[type=password]", PASS);
+  await page.fill("input[type=password]", password);
   await Promise.all([
     page.waitForURL((u) => !/\/(ingresar|mi-panel)/.test(u.pathname), { timeout: 30000 }).catch(() => {}),
     page.click("button[type=submit]"),

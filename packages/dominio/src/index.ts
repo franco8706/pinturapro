@@ -13,8 +13,6 @@ export {
   montoDesdeTexto,
   motivoMontoInvalido,
   motivoCotizacionInvalida,
-  comisionDe,
-  COMISION,
   MONTO_MAXIMO,
   COTIZACION_MINIMA,
 } from "./montos";
@@ -25,3 +23,28 @@ export { puedeCotizar, puedePublicarObra, MOTIVO_NO_PUEDE_COTIZAR, type TipoDePe
 export { esTexto, textoRecibido, esFormulario } from "./entrada";
 export { dimensionesDeImagen, motivoImagenDesmedida, MAXIMO_MEGAPIXELES, MAXIMO_LADO } from "./imagen";
 export { superficieDesdeTexto, aniosDesdeTexto, SUPERFICIE_MAXIMA, TOPE_POR_HORA } from "./medidas";
+// La plataforma no cobra comisión por trabajo (6/10/2026): el pintor paga una suscripción.
+export {
+  precioEnPesos,
+  evaluarCotizacion,
+  vigenteHasta,
+  accesoHasta,
+  estadoDeAcceso,
+  textoDeAcceso,
+  fechaAR,
+  sumarMes,
+  sumarDias,
+  codigoDeTransferencia,
+  codigoEnTexto,
+  transferenciaAlcanza,
+  MOTIVO_SIN_SUSCRIPCION,
+  DIAS_DE_GRACIA,
+  VALIDEZ_DEL_COBRO_DIAS,
+  AVISO_DIAS_ANTES,
+  TOLERANCIA_TRANSFERENCIA,
+  type EstadoAcceso,
+  type EstadoCotizacion,
+  type Modalidad,
+  type Movimiento,
+  type TipoMovimiento,
+} from "./suscripcion";

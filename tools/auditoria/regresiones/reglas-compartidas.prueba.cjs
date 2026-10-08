@@ -121,28 +121,49 @@ module.exports = {
       t.cierto(false, "@pinturapro/dominio no se resuelve desde apps/mobile: falta `pnpm install` o el enlace se rompió");
     }
 
-    // ── La comisión: una sola fórmula ──
-    // La web tenía DOS: `comisionDe` (del paquete) para lo que ve el pintor y `commissionFor`
-    // (en lib/utils.ts) para lo que se guarda. Daban lo mismo, pero nada las ataba, y este
-    // proyecto ya mostró 8% mientras guardaba 10%. Lo marcó el agente `dinero-y-comisiones`.
-    const utils = fs.readFileSync(path.join(RAIZ, "apps/web/lib/utils.ts"), "utf8");
-    t.cierto(
-      /from "@pinturapro\/dominio"/.test(utils) && !/Math\.round\(\s*amount/.test(utils),
-      "apps/web/lib/utils.ts volvió a calcular la comisión por su cuenta en vez de tomarla de @pinturapro/dominio",
-    );
-    // Y el móvil tampoco la calcula por su cuenta: escribía `amount * 0.1` a mano en dos
-    // lugares, sin constante. Ahora usa `comisionDe`, como la web.
-    const COMISION = 0.1; // espejo de packages/dominio/src/montos.ts; si cambia allá, cambia acá
-    const movil = ["apps/mobile/lib/mutations.ts", "apps/mobile/app/cotizar/[id].tsx"]
-      .map((r) => fs.readFileSync(path.join(RAIZ, r), "utf8"))
+    // ── No hay comisión (6/10/2026) ──
+    // La plataforma cobraba —en el papel— un 10 % por trabajo que nunca se cobró. Ahora el pintor
+    // paga una suscripción. Que la comisión no vuelva por la ventana en ningún lado: ni una
+    // fórmula, ni un `commission_amount` que se mande a la base, ni un "10%" en pantalla.
+    const leer = (r) => fs.readFileSync(path.join(RAIZ, r), "utf8");
+    // Sin los comentarios: la historia ("acá se mostraba Comisión 10 %") se puede contar; lo que
+    // no puede volver es el código.
+    const sinComentarios = (s) =>
+      s.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    const conComision = [
+      "apps/web/lib/utils.ts",
+      "apps/web/app/(marketplace)/actions.ts",
+      "apps/web/app/(marketplace)/trabajos/quote-form.tsx",
+      "apps/web/app/(pro)/dashboard/page.tsx",
+      "packages/dominio/src/montos.ts",
+      "packages/dominio/src/index.ts",
+      "apps/mobile/lib/mutations.ts",
+      "apps/mobile/app/cotizar/[id].tsx",
+    ].filter((r) => /comisionDe|commissionFor|COMISION\s*=|commission_amount\s*:|comisi[oó]n del 10|Comisi[oó]n 10/i.test(sinComentarios(leer(r))));
+    t.cierto(conComision.length === 0, `la comisión volvió en: ${conComision.join(", ")}`);
+
+    // El móvil dice lo mismo que la web sobre la suscripción: el texto sale del paquete.
+    const movil = ["apps/mobile/lib/queries.ts", "apps/mobile/app/(tabs)/trabajos.tsx", "apps/mobile/app/(tabs)/cuenta.tsx"]
+      .map(leer)
       .join("\n");
-    const tasas = [...movil.matchAll(/\*\s*0\.\d+/g)].map((m) => m[0]);
-    t.cierto(tasas.length === 0, `el móvil volvió a calcular la comisión a mano (${tasas.join(", ")}) en vez de usar comisionDe`);
-    t.cierto(/comisionDe\(/.test(movil), "no encontré comisionDe en el móvil: ¿dónde calcula ahora la comisión?");
-    const montos = fs.readFileSync(path.join(RAIZ, "packages/dominio/src/montos.ts"), "utf8");
-    t.cierto(
-      new RegExp(`COMISION\\s*=\\s*${COMISION}\\b`).test(montos),
-      "la comisión del paquete cambió y esta prueba (y el móvil) no se enteraron",
-    );
+    t.cierto(/textoDeAcceso/.test(movil) && /MOTIVO_SIN_SUSCRIPCION/.test(movil),
+      "el móvil no usa textoDeAcceso / MOTIVO_SIN_SUSCRIPCION de @pinturapro/dominio: va a decir otra cosa que la web");
+
+    // Y la app NO vende la suscripción: las tiendas exigen su propio cobro para lo que se compra
+    // dentro de una app. Ni Mercado Pago, ni el link de pago, ni el botón, ni la pantalla de la web.
+    const todoElMovil = [];
+    const recorrer = (dir) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (e.name === "node_modules" || e.name.startsWith(".")) continue;
+        const ruta = path.join(dir, e.name);
+        if (e.isDirectory()) recorrer(ruta);
+        else if (/\.(ts|tsx)$/.test(e.name)) todoElMovil.push([ruta, fs.readFileSync(ruta, "utf8")]);
+      }
+    };
+    recorrer(path.join(RAIZ, "apps/mobile"));
+    const vende = todoElMovil
+      .filter(([, codigo]) => /mercadopago|init_point|Suscribirme|dashboard\/plan/i.test(codigo))
+      .map(([ruta]) => path.relative(RAIZ, ruta));
+    t.cierto(vende.length === 0, `la app móvil vende o enlaza la suscripción (reglas de las tiendas): ${vende.join(", ")}`);
   },
 };

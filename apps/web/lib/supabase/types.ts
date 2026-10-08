@@ -64,8 +64,12 @@ export interface Job {
   painter_id: string | null;
   status: JobStatus;
   amount: number | null;
-  commission_rate: number;
+  /** Sin uso desde 0027 (6/10/2026): la plataforma no cobra comisión. Queda la historia. */
+  commission_rate: number | null;
   commission_amount: number | null;
+  aceptado_en: string | null;
+  cancelado_en: string | null;
+  cancelado_por: "cliente" | "pintor" | "sistema" | null;
   scheduled_for: string | null;
   created_at: string;
   updated_at: string;
@@ -117,7 +121,7 @@ export interface Database {
       };
       jobs: {
         Row: Row<Job>;
-        Insert: Insert<Job, "id" | "created_at" | "updated_at" | "status" | "commission_rate">;
+        Insert: Insert<Job, "id" | "created_at" | "updated_at" | "status" | "commission_rate" | "commission_amount" | "aceptado_en" | "cancelado_en" | "cancelado_por">;
         Update: Partial<Job>;
       };
       reviews: {

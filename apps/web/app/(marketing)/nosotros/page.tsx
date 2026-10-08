@@ -31,7 +31,8 @@ export const metadata: Metadata = {
  * cierto, esta página tiene que cambiar con él:
  *  · "Vos elegís": el cliente acepta una cotización; nadie le asigna un pintor.
  *  · "Reseñas de verdad": `dejarResena` exige un trabajo completado de quien la escribe.
- *  · "Lo que cobramos": 10% al pintor, dicho en el formulario antes de cotizar.
+ *  · "Lo que cobramos": una suscripción mensual al pintor, sin comisión (desde el 6/10/2026;
+ *    antes decía 10 % sobre el trabajo, que nunca se cobró).
  *  · "Tus datos": /mi-cuenta descarga y elimina sin intervención de nadie.
  *
  * No hay sección de equipo: no hay datos reales para mostrar, y la regla del proyecto (ver
@@ -51,7 +52,7 @@ const principios = [
   {
     title: "Lo que cobramos, dicho antes",
     description:
-      "Publicar un pedido es gratis. La plataforma se sostiene con una comisión del 10% sobre el trabajo adjudicado, a cargo del pintor, que la ve antes de cotizar.",
+      "Publicar un pedido es gratis. La plataforma se sostiene con una suscripción mensual fija que pagan los pintores para cotizar: no hay comisión, y el pago del trabajo va directo del cliente al pintor. Durante el lanzamiento, cotizar también es gratis.",
   },
   {
     title: "Tus datos son tuyos",

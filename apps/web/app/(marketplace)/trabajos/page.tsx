@@ -3,7 +3,16 @@ import { Navbar } from "@/components/features/navbar";
 import { Footer } from "@/components/features/footer";
 import { SectionLabel, EmptyState } from "@/components/features/states";
 import { createClient } from "@/lib/supabase/server";
-import { getOpenServiceRequests, getOwnProfile, getPedidosYaCotizados, formatARS } from "@/lib/queries";
+import {
+  getOpenServiceRequests,
+  getOwnProfile,
+  getPedidosYaCotizados,
+  getMiAcceso,
+  getCondicionesDeCobro,
+  formatARS,
+  type MiAcceso,
+} from "@/lib/queries";
+import { fechaAR } from "@pinturapro/dominio";
 import { QuoteForm } from "./quote-form";
 
 import type { Metadata } from "next";
@@ -33,7 +42,7 @@ export default async function TrabajosPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const requests = await getOpenServiceRequests();
+  const [requests, condiciones] = await Promise.all([getOpenServiceRequests(), getCondicionesDeCobro()]);
 
   // Esta página es el lado de la oferta. A una cuenta de cliente se le mostraba el
   // formulario de cotización sobre los pedidos ajenos, y la cotización se creaba de
@@ -41,14 +50,31 @@ export default async function TrabajosPage() {
   // al que no es pintor (policy jobs_insert_painter_quote, migración 0016).
   let esCliente = false;
   let yaCotizados = new Set<string>();
+  // La suscripción (0027): se pide una sola vez por página, no por tarjeta.
+  let acceso: MiAcceso | null = null;
   if (user) {
     try {
       esCliente = (await getOwnProfile(user.id))?.type === "client";
     } catch {
       esCliente = false;
     }
-    if (!esCliente) yaCotizados = await getPedidosYaCotizados(user.id, requests.map((r) => r.id));
+    if (!esCliente) {
+      [yaCotizados, acceso] = await Promise.all([
+        getPedidosYaCotizados(user.id, requests.map((r) => r.id)),
+        getMiAcceso(user.id),
+      ]);
+    }
   }
+  // El aviso del precio, para quien cotiza o puede llegar a cotizar (no para clientes).
+  const precioHoy =
+    condiciones.precioArs != null ? ` (hoy ${formatARS(condiciones.precioArs)})` : "";
+  const avisoPintores = !condiciones.disponible
+    ? null
+    : acceso && !acceso.puedeCotizar
+      ? null
+      : `Para pintores: cotizar es gratis durante el lanzamiento${
+          condiciones.lanzamientoHasta ? `, hasta el ${fechaAR(condiciones.lanzamientoHasta)}` : ""
+        }. Después, una suscripción de US$${(condiciones.plan?.precioUsd ?? 5).toLocaleString("es-AR")} por mes${precioHoy}, sin comisión sobre tus trabajos.`;
 
   return (
     <main>
@@ -63,6 +89,17 @@ export default async function TrabajosPage() {
             <p className="font-body text-body-lg text-concrete max-w-xl">
               Clientes reales buscando pintores. Enviá tu cotización y ganá el trabajo.
             </p>
+            {!esCliente && avisoPintores && (
+              <p className="font-body text-body-sm text-concrete max-w-xl mt-4">{avisoPintores}</p>
+            )}
+            {acceso && !acceso.puedeCotizar && (
+              <p role="status" className="font-body text-body-md text-[#C41E3A] max-w-xl mt-4">
+                {acceso.texto}{" "}
+                <Link href="/dashboard/plan" className="text-ink underline underline-offset-2">
+                  Ver mi plan
+                </Link>
+              </p>
+            )}
           </div>
 
           {requests.length === 0 ? (
@@ -109,6 +146,15 @@ export default async function TrabajosPage() {
                         Las cotizaciones las envían los pintores.{" "}
                         <Link href="/cliente" className="text-ink underline underline-offset-2">
                           Volver a mi panel
+                        </Link>
+                      </p>
+                    ) : acceso && !acceso.puedeCotizar ? (
+                      /* La base no le deja cotizar (0027): en lugar de un formulario que va a
+                         rebotar al enviar, el motivo y el camino. */
+                      <p className="mt-4 font-body text-body-sm text-concrete">
+                        Para cotizar necesitás una suscripción activa.{" "}
+                        <Link href="/dashboard/plan" className="text-ink underline underline-offset-2">
+                          Ver mi plan
                         </Link>
                       </p>
                     ) : (

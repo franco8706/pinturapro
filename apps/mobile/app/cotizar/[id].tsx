@@ -2,7 +2,6 @@ import { useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { cotizar, toInt } from "@/lib/mutations";
-import { comisionDe } from "@pinturapro/dominio";
 import { formatARS } from "@/lib/queries";
 import { useAuth } from "@/context/auth";
 import { Button, Field, Mono, Note } from "@/components/ui";
@@ -53,7 +52,7 @@ export default function CotizarScreen() {
           onChangeText={setAmount}
           placeholder="$"
           keyboardType="numeric"
-          hint="Incluí mano de obra y materiales. Se aplica 10% de comisión."
+          hint="Incluí mano de obra y materiales. El cliente te paga el total: no hay comisión."
         />
         {/* El número, de vuelta y en criollo, como en la web. Antes el pintor escribía y
             recién al enviar se enteraba de "Ingresá un monto válido", sin saber qué estaba
@@ -66,8 +65,7 @@ export default function CotizarScreen() {
             </Text>
           ) : (
             <Text accessibilityLiveRegion="polite" style={[type.bodySm, { color: colors.concrete }]}>
-              Vas a cotizar {formatARS(toInt(amount) as number)}. La comisión del 10% son{" "}
-              {formatARS(comisionDe(toInt(amount) as number))}.
+              Vas a cotizar {formatARS(toInt(amount) as number)}.
             </Text>
           )
         ) : null}

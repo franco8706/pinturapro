@@ -16,11 +16,12 @@
     "typescript": "^5.4.0"
   },
   "packageManager": "pnpm@9.0.0",
-  "overridesReason": "Parches de seguridad sobre transitivas que el paquete padre todavía trae vulnerables (sharp/postcss llegan por next).",
+  "overridesReason": "Parches de seguridad sobre transitivas que el paquete padre todavía trae vulnerables (sharp/postcss/source-map-js llegan por next). 8/10/2026: sharp 0.35.5 (librsvg) y source-map-js 1.2.2 (denegación de servicio).",
   "pnpm": {
     "overrides": {
-      "sharp": "^0.35.4",
+      "sharp": "^0.35.5",
       "postcss": "^8.5.25",
+      "source-map-js": "^1.2.2",
       "nanoid@<3.3.18": "^3.3.19"
     }
   }

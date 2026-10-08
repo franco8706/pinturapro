@@ -2,7 +2,8 @@
 
 Marketplace que conecta a quien tiene algo para pintar con pintores independientes: el
 cliente publica su pedido, los pintores cotizan, el cliente elige. Pintura Pro no pinta ni
-contrata: cobra un 10 % de comisión al pintor.
+contrata, y no cobra comisión: el pintor paga una suscripción mensual (US$5 en pesos al dólar
+del día) para cotizar, y el cliente no paga nada.
 
 ## Dónde está cada cosa
 
@@ -11,7 +12,7 @@ apps/
   web/              el sitio (Next.js 15). Se publica en Google Cloud Run (apps/web/Dockerfile)
   mobile/           la app para celulares (Expo / React Native)
 packages/
-  dominio/          las reglas del negocio, compartidas por la web y la app: montos, comisión,
+  dominio/          las reglas del negocio, compartidas por la web y la app: montos, suscripción,
                     topes, quién puede hacer qué, mensajes de error
   color/            el motor del simulador de color (varita mágica y mezcla de colores)
   ui/               reservado; todavía no lo usa nadie
