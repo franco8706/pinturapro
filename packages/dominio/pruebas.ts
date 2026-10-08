@@ -13,6 +13,10 @@ import { revisarLargos, TOPES } from "./src/topes.ts";
 import { mensajeDeError } from "./src/errores.ts";
 import { puedeCotizar } from "./src/roles.ts";
 import { superficieDesdeTexto, aniosDesdeTexto } from "./src/medidas.ts";
+import {
+  precioEnPesos, evaluarCotizacion, vigenteHasta, accesoHasta, estadoDeAcceso, textoDeAcceso,
+  fechaAR, sumarMes, codigoDeTransferencia, codigoEnTexto, transferenciaAlcanza, type Movimiento,
+} from "./src/suscripcion.ts";
 
 let fallas = 0;
 function igual(obtenido: unknown, esperado: unknown, que: string) {
@@ -173,6 +177,98 @@ igual(contactoEnTexto(null), null, "contacto: null no rompe");
 igual(mensajeDeError({ code: "P0001", message: "Publicaste muchos pedidos en poco tiempo" }).includes("muchos pedidos"), true, "tope de pedidos de la base");
 igual(mensajeDeError({ code: "P0001", message: "Enviaste muchas cotizaciones en poco tiempo" }).includes("muchas cotizaciones"), true, "tope de cotizaciones de la base");
 igual(mensajeDeError({ code: "P0001", message: "El monto mínimo de una cotización es $1.000" }).includes("$1.000"), true, "piso de la cotización de la base");
+
+// ── La suscripción: el precio al dólar del día ──
+igual(precioEnPesos(5, 1540), 7700, "US$5 al 1540 son $7.700 justos, sin subir a $7.800 por un decimal");
+igual(precioEnPesos(5, 1540.5), 7800, "si sobra un peso, se redondea hacia arriba a la centena");
+igual(precioEnPesos(5, 1520.2), 7700, "7.601 → 7.700");
+igual(precioEnPesos(5, 1500), 7500, "múltiplo exacto");
+
+// Qué hacer con una lectura del dólar: ante la duda, no se usa.
+igual(evaluarCotizacion(1540, 1520, 1535)?.estado, "vigente", "una lectura normal queda vigente");
+igual(evaluarCotizacion(1540, null, 1535)?.estado, "vigente", "sin fuente de control, igual vale si no salta");
+igual(evaluarCotizacion(1540, 1300, 1535)?.estado, "descartada", "las fuentes difieren más del 5 %: no se usa");
+igual(evaluarCotizacion(1725, 1720, 1540)?.estado, "a_confirmar", "salta 12 %: lo confirma el dueño");
+igual(evaluarCotizacion(1540, 1520, null)?.estado, "vigente", "la primera lectura, sin anterior");
+igual(evaluarCotizacion(null, 1520, 1540), null, "fuente principal caída: no hay nada que guardar");
+igual(evaluarCotizacion(0, 1520, 1540), null, "un cero no es una cotización");
+igual(evaluarCotizacion(Number.NaN, 1520, 1540), null, "NaN tampoco");
+
+// Fechas en hora argentina (UTC−3), aunque el servidor esté en UTC.
+igual(fechaAR("2026-11-01T02:30:00Z"), "31/10/2026", "las 23:30 del 31 en Argentina no se muestran como el 1");
+igual(fechaAR("2026-11-01T03:00:00Z"), "1/11/2026", "medianoche argentina ya es el 1");
+igual(fechaAR(sumarMes("2027-01-31T15:00:00-03:00")), "28/2/2027", "31 de enero + 1 mes = 28 de febrero, no 3 de marzo");
+igual(fechaAR(sumarMes("2028-01-31T15:00:00-03:00")), "29/2/2028", "en bisiesto, 29");
+igual(fechaAR(sumarMes("2026-10-31T23:30:00-03:00")), "30/11/2026", "el 31 a la noche (ya 1 en UTC) sigue siendo fin de mes");
+
+// Hasta cuándo está pago: un mes por cobro, sin perder días.
+const cobro = (fecha: string, id: string): Movimiento => ({ tipo: "cobro", fecha, eventoId: id });
+igual(vigenteHasta([]), null, "sin cobros, no está pago");
+igual(fechaAR(vigenteHasta([cobro("2026-10-06T12:00:00-03:00", "a")])!), "6/11/2026", "un cobro da un mes");
+igual(
+  fechaAR(vigenteHasta([cobro("2026-10-06T12:00:00-03:00", "a"), cobro("2026-10-20T12:00:00-03:00", "b")])!),
+  "6/12/2026",
+  "pagar antes de vencer suma desde el vencimiento: no se pierden días",
+);
+igual(
+  fechaAR(vigenteHasta([cobro("2026-10-06T12:00:00-03:00", "a"), cobro("2027-01-10T12:00:00-03:00", "b")])!),
+  "10/2/2027",
+  "pagar después de vencido cuenta desde el pago: no se regalan los días sin pagar",
+);
+igual(
+  fechaAR(vigenteHasta([cobro("2026-10-20T12:00:00-03:00", "b"), cobro("2026-10-06T12:00:00-03:00", "a")])!),
+  "6/12/2026",
+  "el orden en que llegan los avisos no cambia el resultado",
+);
+igual(
+  vigenteHasta([cobro("2026-10-06T12:00:00-03:00", "a"), { tipo: "devolucion", fecha: "2026-10-08", eventoId: "r1", anula: "a" }]),
+  null,
+  "un cobro devuelto no da acceso",
+);
+igual(
+  fechaAR(vigenteHasta([
+    cobro("2026-10-06T12:00:00-03:00", "a"),
+    cobro("2026-11-06T12:00:00-03:00", "b"),
+    { tipo: "contracargo", fecha: "2026-11-20", eventoId: "c1", anula: "b" },
+  ])!),
+  "6/11/2026",
+  "un contracargo saca el mes de ese cobro",
+);
+igual(vigenteHasta([{ tipo: "rechazo", fecha: "2026-10-06", eventoId: "x" }]), null, "un rechazo no da acceso");
+
+// La gracia: sólo el débito automático vivo.
+const v = new Date("2026-11-06T12:00:00-03:00");
+igual(fechaAR(accesoHasta(v, "debito", false)!), "16/11/2026", "débito vivo: 10 días de gracia");
+igual(fechaAR(accesoHasta(v, "debito", true)!), "6/11/2026", "débito cancelado: hasta lo pagado");
+igual(fechaAR(accesoHasta(v, "pago_mensual", false)!), "6/11/2026", "QR o transferencia: sin gracia (se avisa 7 días antes)");
+igual(accesoHasta(null, "debito", false), null, "sin pagos no hay gracia");
+
+const ahora = new Date("2026-11-10T12:00:00-03:00");
+igual(estadoDeAcceso({ ahora, vigente: new Date("2026-12-01"), acceso: new Date("2026-12-11"), lanzamientoHasta: null }), "activa", "al día");
+igual(estadoDeAcceso({ ahora, vigente: new Date("2026-11-06"), acceso: new Date("2026-11-16"), lanzamientoHasta: null }), "en_gracia", "venció el pago pero corre la gracia");
+igual(estadoDeAcceso({ ahora, vigente: new Date("2026-11-06"), acceso: new Date("2026-11-06"), lanzamientoHasta: null }), "vencida", "vencida");
+igual(estadoDeAcceso({ ahora, vigente: null, acceso: null, lanzamientoHasta: new Date("2026-12-31") }), "lanzamiento", "nunca pagó, pero corre el lanzamiento");
+igual(estadoDeAcceso({ ahora, vigente: null, acceso: null, lanzamientoHasta: new Date("2026-10-31") }), "sin_suscripcion", "terminó el lanzamiento y nunca pagó");
+igual(
+  textoDeAcceso("lanzamiento", { lanzamientoHasta: new Date("2026-12-31T12:00:00-03:00") }),
+  "Cotizar es gratis durante el lanzamiento, hasta el 31/12/2026.",
+  "el texto del lanzamiento dice hasta cuándo",
+);
+igual(textoDeAcceso("sin_suscripcion").includes("suscripción activa"), true, "sin suscripción: el motivo, sin precio ni enlace");
+
+// Transferencias: el código del concepto y la tolerancia del dólar.
+igual(codigoDeTransferencia(37), "PP-0037", "el código tiene 4 cifras como mínimo");
+for (const concepto of ["PP-0037", "pago pp0037 octubre", "Transf. PP 37", "VARIOS PP_0037", "pp-37"]) {
+  igual(codigoEnTexto(concepto), "PP-0037", `el código se encuentra en ${JSON.stringify(concepto)}`);
+}
+igual(codigoEnTexto("APP-0037"), null, "no lo confunde dentro de otra palabra");
+igual(codigoEnTexto("sin código"), null, "sin código");
+igual(codigoEnTexto(undefined), null, "sin concepto");
+igual(transferenciaAlcanza(7700, 7700), true, "el monto exacto alcanza");
+igual(transferenciaAlcanza(7547, 7700), true, "el 98 % alcanza: el dólar se movió");
+igual(transferenciaAlcanza(7469, 7700), true, "el 97 % justo alcanza");
+igual(transferenciaAlcanza(6930, 7700), false, "el 90 % no alcanza: queda para revisar a mano");
+igual(transferenciaAlcanza(Number.NaN, 7700), false, "un monto ilegible no alcanza");
 
 // El resumen va AL FINAL: estuvo en el medio y las pruebas de imágenes que se agregaron
 // debajo no corrían nunca — el archivo decía "todo en verde" y salía antes de llegar.
