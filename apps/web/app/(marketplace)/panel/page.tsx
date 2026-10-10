@@ -83,7 +83,7 @@ export default async function MarketplacePanelPage() {
               <p className="font-display text-body-lg text-ink mb-2">Todavía no hay actividad para medir</p>
               <p className="font-body text-body-md text-concrete max-w-md">
                 Cuando se publiquen pedidos y los pintores empiecen a cotizar, acá vas a ver el
-                volumen, la comisión y la evolución mes a mes.
+                volumen de los trabajos, las suscripciones y la evolución mes a mes.
               </p>
             </div>
           ) : (

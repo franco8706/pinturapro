@@ -95,9 +95,11 @@ export default async function PlanPage() {
                 siempre con la cotización y la fecha que lo explican. */}
             {condiciones.precioArs != null && condiciones.cotizacion ? (
               <p className="font-body text-body-md text-concrete mt-2">
-                Hoy son <strong className="text-ink">{formatARS(condiciones.precioArs)}</strong>, al dólar
-                oficial del Banco Nación del {fechaAR(condiciones.cotizacion.leidaEn)} (
-                {formatARS(condiciones.cotizacion.venta)}). Se cobra en pesos, con la cotización del día del cobro.
+                Hoy son <strong className="text-ink">{formatARS(condiciones.precioArs)}</strong>: US$
+                {(plan?.precioUsd ?? 5).toLocaleString("es-AR")} al dólar oficial vendedor del Banco Nación del{" "}
+                {fechaAR(condiciones.cotizacion.leidaEn)} ($
+                {condiciones.cotizacion.venta.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}),
+                redondeado hacia arriba a la centena de pesos. Se cobra en pesos, con la cotización del día del cobro.
               </p>
             ) : (
               <p className="font-body text-body-md text-concrete mt-2">
@@ -154,11 +156,21 @@ export default async function PlanPage() {
                       ? ` Si pagás durante el lanzamiento, tu mes empieza a contar el ${fechaAR(condiciones.lanzamientoHasta)}.`
                       : ""}
                   </p>
+                  {pagos.enRevision && (
+                    <p role="status" className="mt-4 font-body text-body-sm text-ink">
+                      {pagos.enRevision.recibido != null
+                        ? `Recibimos ${formatARS(pagos.enRevision.recibido)} con tu código y lo estamos revisando.`
+                        : "Recibimos una transferencia con tu código y la estamos revisando."}{" "}
+                      Si no la hiciste vos, avisanos.
+                    </p>
+                  )}
+                  {/* Sólo el aviso VIGENTE: uno vencido mostraba "Esperamos" con el precio viejo y
+                      escondía el botón (dinero-y-comisiones, 8/10/2026). */}
                   {pagos.transferenciaPendiente ? (
                     <p role="status" className="mt-4 font-body text-body-sm text-ink">
-                      {pagos.transferenciaPendiente.estado === "a_revisar"
-                        ? `Recibimos una transferencia con tu código, pero el monto no alcanza para los ${formatARS(pagos.transferenciaPendiente.montoArs)} pedidos: la estamos revisando.`
-                        : `Esperamos ${formatARS(pagos.transferenciaPendiente.montoArs)} con el código ${pagos.transferenciaPendiente.codigo}. Lo confirmamos cuando llega a la cuenta (hasta un día hábil).`}
+                      Esperamos {formatARS(pagos.transferenciaPendiente.montoArs)} con el código{" "}
+                      {pagos.transferenciaPendiente.codigo}. Lo confirmamos cuando llega a la cuenta (hasta un día hábil).
+                      Este monto vale hasta el {fechaAR(pagos.transferenciaPendiente.venceEn)}.
                     </p>
                   ) : (
                     <YaTransferi />

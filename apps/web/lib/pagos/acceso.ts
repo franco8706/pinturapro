@@ -18,20 +18,27 @@ import { vigenteHasta, accesoHasta, type Movimiento, type Modalidad } from "@pin
 export async function recalcularAcceso(pintorId: string): Promise<{ vigente: string | null }> {
   const admin = createAdminClient();
   const [pagos, ajustes, filas] = await Promise.all([
-    admin.from("pagos_suscripcion").select("tipo, proveedor_evento_id, anula, fecha").eq("pintor_id", pintorId),
-    admin.from("ajustes_de_cobro").select("lanzamiento_hasta").maybeSingle(),
+    admin.from("pagos_suscripcion").select("tipo, proveedor_evento_id, anula, fecha, modo").eq("pintor_id", pintorId),
+    admin.from("ajustes_de_cobro").select("lanzamiento_hasta, aceptar_pagos_de_prueba").maybeSingle(),
     admin.from("suscripciones").select("id, proveedor, modalidad, estado").eq("pintor_id", pintorId),
   ]);
   if (pagos.error) throw new Error(`recalcularAcceso: ${pagos.error.message}`);
   if (filas.error) throw new Error(`recalcularAcceso: ${filas.error.message}`);
 
+  const aj = ajustes.data as { lanzamiento_hasta: string | null; aceptar_pagos_de_prueba: boolean | null } | null;
+  // Un pago de prueba (sandbox) no da acceso real, salvo en una base de pruebas que lo pide: la
+  // fila que se escribe abajo es de producción, y `puede_cotizar()` la creía (dinero-y-comisiones, 8/10/2026).
+  const valenPruebas = aj?.aceptar_pagos_de_prueba === true;
   const movimientos: Movimiento[] = ((pagos.data ?? []) as unknown as {
     tipo: Movimiento["tipo"];
     proveedor_evento_id: string;
     anula: string | null;
     fecha: string;
-  }[]).map((p) => ({ tipo: p.tipo, fecha: p.fecha, eventoId: p.proveedor_evento_id, anula: p.anula }));
-  const finLanzamiento = (ajustes.data as { lanzamiento_hasta: string | null } | null)?.lanzamiento_hasta ?? null;
+    modo: string;
+  }[])
+    .filter((p) => p.modo === "produccion" || valenPruebas)
+    .map((p) => ({ tipo: p.tipo, fecha: p.fecha, eventoId: p.proveedor_evento_id, anula: p.anula }));
+  const finLanzamiento = aj?.lanzamiento_hasta ?? null;
   const vigente = vigenteHasta(movimientos, { desde: finLanzamiento });
 
   type Fila = { id: string; proveedor: string; modalidad: Modalidad | null; estado: string };

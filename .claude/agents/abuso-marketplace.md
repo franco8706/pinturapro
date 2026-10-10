@@ -100,3 +100,11 @@ cerrar cada ronda.
   falso. También quedaron cerrados en 0027 H1 (cotización enviada no se edita), H5 (rastro de quién
   canceló después de ver el teléfono), H8 (pedido adjudicado no se borra) y H10 (no se borra a la
   otra parte), con prueba `trabajos-por-api` que habla como usuario común.
+- 8/10 (etapa 3, transferencia): la puerta de la base aguantó todo (cotizar sin acceso por REST,
+  escribir en las 8 tablas del cobro, el libro). Lo que se rompió fue la puerta del PAGO: el
+  concepto de la transferencia lo escribe el pintor y termina adentro del CSV del banco ($1 leído
+  como $7.700, la "coma-bomba", una línea envenenada que cortaba la carga), "Llegó" + extracto =
+  dos meses, y el aviso que no vencía. Todo corregido con prueba (BITÁCORA, 8/10). Lo que queda
+  para la próxima: H6 (la cotización enviada sobrevive a la suscripción) es decisión del dueño;
+  cuando entre Mercado Pago, mirar lo mismo en los avisos de MP (llave del aviso vs. del pago).
+  Un extracto REAL del banco del dueño todavía no se probó: pedirlo antes de cobrar.

@@ -166,6 +166,9 @@ create table public.cobros (
   medio           text not null check (medio in ('qr', 'link', 'transferencia')),
   monto_usd       numeric(8,2) not null check (monto_usd > 0),
   monto_ars       int not null check (monto_ars > 0),
+  -- Lo que llegó de verdad, cuando se vio en el extracto. "Llegó" registra esto y no lo pedido
+  -- (dinero-y-comisiones, 8/10/2026: $7.000 transferidos quedaban como $7.700 en el libro).
+  monto_recibido  numeric(12,2) check (monto_recibido > 0),
   cotizacion_id   bigint references public.cotizaciones_dolar(id),
   codigo          text,
   estado          public.estado_cobro not null default 'pendiente',
@@ -181,6 +184,11 @@ create trigger trg_cobros_updated before update on public.cobros
   for each row execute function public.set_updated_at();
 create index idx_cobros_pintor on public.cobros (pintor_id, created_at desc);
 create index idx_cobros_pendientes on public.cobros (estado, vence_en);
+-- Un solo aviso de transferencia vivo por pintor: "Ya transferí" apretado en paralelo dejaba 1 a
+-- 4 avisos, y cada uno era otro mes si el admin apretaba "Llegó" en todos (abuso-marketplace,
+-- 8/10/2026). Los vencidos pasan a `vencido` antes de crear uno nuevo.
+create unique index un_aviso_vivo_por_pintor on public.cobros (pintor_id)
+  where medio = 'transferencia' and estado = 'pendiente';
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- 6 · Libro de pagos: sólo se agrega
@@ -204,6 +212,9 @@ create table public.pagos_suscripcion (
   neto_ars             numeric(12,2),
   cotizacion_id        bigint references public.cotizaciones_dolar(id),
   fecha                timestamptz not null,
+  -- El día en que la plata llegó según el banco (la línea del extracto). `fecha` es cuando se
+  -- confirmó: de ahí cuenta el mes si había vencido, así el pintor no pierde los días de espera.
+  fecha_banco          date,
   detalle              text,            -- status_detail del proveedor; nunca datos de tarjeta
   confirmado_por       uuid references public.profiles(id) on delete set null,  -- transferencias
   linea_extracto       text,
@@ -227,11 +238,11 @@ begin
      or (new.pintor_id is not null and new.pintor_id is distinct from old.pintor_id)
      or (new.confirmado_por is not null and new.confirmado_por is distinct from old.confirmado_por)
      or row(new.id, new.proveedor, new.tipo, new.proveedor_evento_id, new.anula, new.monto_ars,
-            new.neto_ars, new.cotizacion_id, new.fecha, new.detalle, new.linea_extracto,
+            new.neto_ars, new.cotizacion_id, new.fecha, new.fecha_banco, new.detalle, new.linea_extracto,
             new.modo, new.registrado_en)
         is distinct from
         row(old.id, old.proveedor, old.tipo, old.proveedor_evento_id, old.anula, old.monto_ars,
-            old.neto_ars, old.cotizacion_id, old.fecha, old.detalle, old.linea_extracto,
+            old.neto_ars, old.cotizacion_id, old.fecha, old.fecha_banco, old.detalle, old.linea_extracto,
             old.modo, old.registrado_en)
   then
     raise exception 'El libro de pagos no se edita' using errcode = 'P0001';
@@ -630,7 +641,19 @@ revoke all on table public.ajustes_de_cobro, public.planes, public.cotizaciones_
 -- llave de los pagos de prueba no son públicos.
 grant select (id, lanzamiento_hasta, exigir_suscripcion, medios_activos) on public.ajustes_de_cobro to anon, authenticated;
 grant select on table public.planes to anon, authenticated;
-grant select on table public.suscripciones, public.codigos_de_pago, public.cobros, public.pagos_suscripcion to authenticated;
+-- Lo propio, por columna: la línea del extracto trae el SALDO de la cuenta del negocio y el
+-- nombre y el CUIT de quien transfirió, `datos` la guarda para revisar, y `confirmado_por` es la
+-- cuenta del admin (abuso-marketplace y dinero-y-comisiones, 8/10/2026). Ojo: con grant por
+-- columna, `select=*` da 403; la web y la app piden las columnas por nombre.
+grant select (id, pintor_id, plan_id, proveedor, modalidad, estado, acceso_hasta, vigente_hasta,
+  proximo_cobro, monto_ars_actual, modo, cancelada_en, cancelada_por, nota, created_at, updated_at)
+  on public.suscripciones to authenticated;
+grant select (pintor_id, numero) on public.codigos_de_pago to authenticated;
+grant select (id, pintor_id, plan_id, medio, monto_usd, monto_ars, monto_recibido, cotizacion_id,
+  codigo, estado, vence_en, pagado_en, modo, created_at)
+  on public.cobros to authenticated;
+grant select (id, pintor_id, proveedor, tipo, monto_ars, cotizacion_id, fecha, fecha_banco, modo)
+  on public.pagos_suscripcion to authenticated;
 
 grant select, insert, update, delete on table public.ajustes_de_cobro, public.planes,
   public.cotizaciones_dolar, public.suscripciones, public.codigos_de_pago, public.cobros,

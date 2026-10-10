@@ -15,7 +15,7 @@ import { puedeCotizar } from "./src/roles.ts";
 import { superficieDesdeTexto, aniosDesdeTexto } from "./src/medidas.ts";
 import {
   precioEnPesos, evaluarCotizacion, vigenteHasta, accesoHasta, estadoDeAcceso, textoDeAcceso,
-  fechaAR, sumarMes, codigoDeTransferencia, codigoEnTexto, transferenciaAlcanza, type Movimiento,
+  fechaAR, sumarMes, codigoDeTransferencia, codigoEnTexto, codigosEnTexto, transferenciaAlcanza, type Movimiento,
 } from "./src/suscripcion.ts";
 
 // `src/extracto.ts` importa a `./suscripcion` sin extensión (como lo resuelve el empaquetador de
@@ -203,6 +203,7 @@ igual(evaluarCotizacion(1540, null, 1535)?.estado, "vigente", "sin fuente de con
 igual(evaluarCotizacion(1540, 1300, 1535)?.estado, "descartada", "las fuentes difieren más del 5 %: no se usa");
 igual(evaluarCotizacion(1725, 1720, 1540)?.estado, "a_confirmar", "salta 12 %: lo confirma el dueño");
 igual(evaluarCotizacion(1540, 1520, null)?.estado, "vigente", "la primera lectura, sin anterior");
+igual(evaluarCotizacion(15400, null, null)?.estado, "a_confirmar", "la primera de todas sin fuente de control: la confirma el dueño");
 igual(evaluarCotizacion(null, 1520, 1540), null, "fuente principal caída: no hay nada que guardar");
 igual(evaluarCotizacion(0, 1520, 1540), null, "un cero no es una cotización");
 igual(evaluarCotizacion(Number.NaN, 1520, 1540), null, "NaN tampoco");
@@ -271,9 +272,15 @@ igual(textoDeAcceso("sin_suscripcion").includes("suscripción activa"), true, "s
 
 // Transferencias: el código del concepto y la tolerancia del dólar.
 igual(codigoDeTransferencia(37), "PP-0037", "el código tiene 4 cifras como mínimo");
-for (const concepto of ["PP-0037", "pago pp0037 octubre", "Transf. PP 37", "VARIOS PP_0037", "pp-37"]) {
+for (const concepto of ["PP-0037", "pago pp0037 octubre", "Transf. PP 0037", "VARIOS PP_0037", "PP\u20130037", "PP - 0037"]) {
   igual(codigoEnTexto(concepto), "PP-0037", `el código se encuentra en ${JSON.stringify(concepto)}`);
 }
+// Sólo la forma exacta: con un dígito de menos o de más era el código de OTRO pintor (8/10/2026).
+for (const concepto of ["PP-003", "PP-00371", "PAGO PP 3 CUOTAS", "Transf. PP 37", "PP-0000"]) {
+  igual(codigoEnTexto(concepto), null, `${JSON.stringify(concepto)} no es el código de nadie`);
+}
+igual(codigosEnTexto("PP-0001 y PP-0037"), ["PP-0001", "PP-0037"], "dos códigos en el mismo concepto: se ven los dos");
+igual(codigoEnTexto("PP-12345"), "PP-12345", "los códigos de más de 4 cifras");
 igual(codigoEnTexto("APP-0037"), null, "no lo confunde dentro de otra palabra");
 igual(codigoEnTexto("sin código"), null, "sin código");
 igual(codigoEnTexto(undefined), null, "sin concepto");
@@ -289,6 +296,23 @@ igual(mensajeDeError({ code: "P0001", message: "Una cotización enviada no se ed
 igual(mensajeDeError({ code: "P0001", message: "No se puede cambiar quién es parte del trabajo" }).includes("quién participa"), true, "partes del trabajo");
 igual(mensajeDeError({ code: "P0001", message: "Ese pedido ya no está disponible" }), "Ese pedido ya no está disponible.", "pedido borrado");
 
+// ── Los meses seguidos no se corren con los fines de mes ──
+{
+  // Pagó el 31/1 y después cada mes justo el día que vencía: 12 pagos llegan al 31/1 siguiente.
+  const fechas = ["2027-01-31", "2027-02-28", "2027-03-31", "2027-04-30", "2027-05-31", "2027-06-30",
+    "2027-07-31", "2027-08-31", "2027-09-30", "2027-10-31", "2027-11-30", "2027-12-31"];
+  igual(
+    fechaAR(vigenteHasta(fechas.map((f, i) => cobro(`${f}T12:00:00-03:00`, `m${i}`)))!),
+    "31/1/2028",
+    "12 pagos puntuales desde el 31/1 terminan el 31/1 (encadenados, el 28/1)",
+  );
+  igual(
+    fechaAR(vigenteHasta([cobro("2027-01-31T12:00:00-03:00", "a"), cobro("2027-02-10T12:00:00-03:00", "b")])!),
+    "31/3/2027",
+    "pagar antes del vencimiento suma el mes desde el día de la racha (31/3, no 28/3)",
+  );
+}
+
 // ── El mes pago no arranca antes del fin del lanzamiento ──
 igual(
   fechaAR(vigenteHasta([cobro("2026-11-10T12:00:00-03:00", "a")], { desde: "2026-12-01T00:00:00-03:00" })!),
@@ -302,7 +326,15 @@ igual(
 );
 
 // ── El extracto del banco ──
-const { leerExtracto, montoDeExtracto } = await import("./src/extracto.ts");
+const { leerExtracto, analizarExtracto, montoDeExtracto, fechaDeExtracto } = await import("./src/extracto.ts");
+igual(montoDeExtracto("(7.547,00"), null, "un paréntesis sin cerrar no es un monto (se leía +7.547)");
+igual(montoDeExtracto("(7.547,00)"), -7547, "entre paréntesis es negativo");
+igual(montoDeExtracto("0.500"), 0.5, "0.500 es medio peso, no quinientos");
+igual(fechaDeExtracto("08/10/2026")?.toISOString(), "2026-10-08T03:00:00.000Z", "fecha argentina: el comienzo del día en Argentina");
+igual(fechaDeExtracto("2026-10-08 14:33")?.toISOString(), "2026-10-08T03:00:00.000Z", "fecha ISO con hora");
+igual(fechaDeExtracto("8-10-26")?.toISOString(), "2026-10-08T03:00:00.000Z", "año de dos cifras");
+igual(fechaDeExtracto("31/02/2026"), null, "el 31 de febrero no existe");
+igual(fechaDeExtracto("hola"), null, "no es una fecha");
 igual(montoDeExtracto("7.700,00"), 7700, "monto argentino con decimales");
 igual(montoDeExtracto("7700,50"), 7700.5, "coma decimal sin miles");
 igual(montoDeExtracto("$ 1.234"), 1234, "signo pesos y punto de miles");
@@ -316,7 +348,7 @@ const csvPuntoYComa = [
   "Fecha;Concepto;Débito;Crédito;Saldo",
   "06/10/2026;TRANSF RECIBIDA PP-0037 JUAN PEREZ;;7.700,00;107.700,00",
   "06/10/2026;COMISION MANTENIMIENTO;1.500,00;;106.200,00",
-  "07/10/2026;\"TRANSF RECIBIDA pp37; octubre\";;7.547,00;113.747,00",
+  "07/10/2026;\"TRANSF RECIBIDA pp0037; octubre\";;7.547,00;113.747,00",
   "07/10/2026;TRANSF RECIBIDA SIN CODIGO;;5.000,00;118.747,00",
 ].join("\n");
 const lineas = leerExtracto(csvPuntoYComa);
@@ -327,6 +359,65 @@ igual(lineas[0].fecha, "06/10/2026", "la fecha de la línea");
 const csvComa = ["Fecha,Descripcion,Importe", "2026-10-06,Transferencia de PP-0102,\"7,700.00\"", "2026-10-06,Pago tarjeta,-3000"].join("\r\n");
 igual(leerExtracto(csvComa).map((l) => [l.codigo, l.monto]), [["PP-0102", 7700]], "extracto con coma e importe con signo: los débitos negativos no cuentan");
 igual(leerExtracto("sin,encabezados\n1,2"), [], "sin columna de monto no se inventa nada");
+igual(lineas.map((l) => l.saldoCierra), [true, true, true], "con saldo, cada crédito cierra con el de al lado");
+igual(leerExtracto(csvComa)[0].saldoCierra, null, "sin columna de saldo no hay cómo comprobar");
+
+// Los ataques de abuso-marketplace y dinero-y-comisiones (8/10/2026). El concepto lo escribe el
+// que transfiere y termina adentro del CSV.
+const encA = "Fecha;Referencia;Importe;Saldo";
+{
+  // $1 reales con la referencia "PP-0037;7700,00": el banco no escapa el ; y las columnas se corren.
+  const r = analizarExtracto([encA, "08/10/2026;PP-0037;7700,00;1,00;1.234.567,89"].join("\n"));
+  igual([r.creditos.length, r.ilegibles], [0, 1], "una línea con otra cantidad de columnas no se lee ($1 se leía $7.700)");
+}
+{
+  // 30 comas en una referencia de las primeras líneas daban vuelta el separador: 0 créditos.
+  const r = analizarExtracto([
+    "Fecha;Referencia;Débito;Crédito;Saldo",
+    "08/10/2026;PP-0001;;7.700,00;100.000,00",
+    `08/10/2026;PP-0002 ${",".repeat(30)};;1,00;100.001,00`,
+    "08/10/2026;PP-0003;;7.700,00;107.701,00",
+  ].join("\n"));
+  igual(r.creditos.map((l) => [l.codigo, l.monto, l.saldoCierra]), [["PP-0001", 7700, true], ["PP-0002", 1, true], ["PP-0003", 7700, true]], "las comas en un concepto no cambian el separador");
+}
+igual(analizarExtracto([encA, "08/10/2026;PP-0037;99999999999999;1.234.567,89"].join("\n")).ilegibles, 1, "un importe imposible no se lee (rompía la carga entera)");
+{
+  // Un salto de línea en la referencia mete una línea entera inventada, con las columnas justas.
+  // No cierra con el saldo: el saldo real de después es el de antes + $1.
+  const r = analizarExtracto([
+    encA,
+    "07/10/2026;ALQUILER;-50.000,00;150.000,00",
+    "08/10/2026;x;;5000",
+    "08/10/2026;PP-0037;7.700,00;12.700,00",
+    "z;w;1,00;150.001,00",
+  ].join("\n"));
+  const falsa = r.creditos.find((l) => l.codigo === "PP-0037");
+  igual(falsa?.saldoCierra, false, "una línea inventada no cierra con el saldo");
+}
+{
+  // Importe sin signo y una columna "Tipo": un débito se leería como pago. El saldo baja: no cierra.
+  const r = analizarExtracto([
+    "Fecha;Concepto;Tipo;Importe;Saldo",
+    "08/10/2026;TRANSF PP-0037;Crédito;7.700,00;107.700,00",
+    "08/10/2026;PAGO PROVEEDOR PP-0001;Débito;20.000,00;87.700,00",
+  ].join("\n"));
+  igual(r.creditos.map((l) => [l.codigo, l.saldoCierra]), [["PP-0037", true]], "con la columna Tipo, un débito sin signo es un débito");
+  const sinTipo = analizarExtracto([
+    "Fecha;Concepto;Importe;Saldo",
+    "08/10/2026;TRANSF PP-0037;7.700,00;107.700,00",
+    "08/10/2026;PAGO PROVEEDOR PP-0001;20.000,00;87.700,00",
+  ].join("\n"));
+  igual(sinTipo.creditos.map((l) => l.saldoCierra), [false, false], "sin Tipo, un débito sin signo leído como pago no cierra, y nada se confirma solo");
+}
+igual(analizarExtracto([encA, "08/10/2026;PP-0037;7.700,00;107.700,00"].join("\n")).creditos[0].saldoCierra, false, "un solo movimiento: no hay saldo con qué comprobarlo");
+igual(analizarExtracto([encA, "08/10/2026;PP-0037;7.700,00;107.700,00", "08/10/2026;PP-0037;7.700,00;115.400,00"].join("\n")).creditos.map((l) => l.ocurrencia), [1, 1], "con saldo distinto, dos líneas distintas");
+igual(analizarExtracto(["Fecha,Concepto,Importe", "08/10/2026,PP-0037,7700", "08/10/2026,PP-0037,7700"].join("\n")).creditos.map((l) => l.ocurrencia), [1, 2], "dos transferencias iguales el mismo día: dos pagos");
+igual(analizarExtracto([encA, "08/10/2026;PP-0001 PP-0037;7.700,00;107.700,00", "09/10/2026;X;-1,00;107.699,00"].join("\n")).creditos[0].sospecha?.includes("más de un código"), true, "dos códigos en una línea: no se confirma sola");
+igual(analizarExtracto([
+  "Banco X;Total créditos: 15.000,00;Ingresos: 2",
+  "Fecha;Concepto;Cr\uFFFDdito;Saldo",
+  "08/10/2026;PP-0037;7.700,00;107.700,00",
+].join("\n")).creditos.length, 1, "un renglón del resumen con 'créditos' no es el encabezado, y la tilde de Latin-1 se reconoce");
 igual(leerExtracto(undefined), [], "sin archivo");
 
 // El resumen va AL FINAL: estuvo en el medio y las pruebas de imágenes que se agregaron

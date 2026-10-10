@@ -1,10 +1,10 @@
 # Mapa de cobertura — Pintura Pro
 
-Generado por `node tools/auditoria/cobertura.mjs` el 2026-10-08. **No se edita a mano**: se vuelve a generar.
+Generado por `node tools/auditoria/cobertura.mjs` el 2026-10-10. **No se edita a mano**: se vuelve a generar.
 
 🟢 lo nombra una prueba de regresión · 🟡 sólo un agente o el vigilante · 🔴 no lo nombra nadie
 
-**Total:** 73 🟢 · 26 🟡 · 13 🔴 — 41 archivos de prueba, 23 agentes.
+**Total:** 74 🟢 · 26 🟡 · 13 🔴 — 41 archivos de prueba, 23 agentes.
 
 Que algo esté 🟢 no quiere decir que esté bien probado: quiere decir que alguien lo nombra. Lo 🔴
 seguro que no lo mira nadie. El agente `retroalimentacion` lee este archivo al cerrar cada ronda.
@@ -65,7 +65,7 @@ Lo que se puede llamar sin pasar por una pantalla.
 | 🟢 | `/api/mis-datos` | acciones-hostiles, mis-datos | — | sí |
 | 🟢 | `/api/segment` | simulador-carreras | abuso-marketplace, escala-y-volumen, listo-para-publicar, nube-google | — |
 
-## Acciones de servidor (20)
+## Acciones de servidor (21)
 
 Son endpoints aunque se escriban como funciones (REGLAS). Que una prueba recorra la pantalla del formulario no aparece acá: se cuenta sólo si alguien nombra la acción.
 
@@ -85,6 +85,7 @@ Son endpoints aunque se escriban como funciones (REGLAS). Que una prueba recorra
 | 🟢 | `cotizar` | accesibilidad, acciones-hostiles, borrador, ciclo-de-trabajo, desborde-celular, extracto-transferencias, reglas-compartidas, seguridad-roles, suscripcion-requerida, trabajos-por-api, ya-cotizado, dominio/pruebas.ts | abuso-marketplace, accesibilidad, app-movil, buscadores, dinero-y-comisiones, formularios-hostiles, recorrido-web, riesgo-legal, seguridad-rls | sí |
 | 🟢 | `dejarResena` | ciclo-de-trabajo | — | — |
 | 🟢 | `deleteObra` | foto-reemplazada | — | — |
+| 🟢 | `devolverPago` | extracto-transferencias | dinero-y-comisiones | — |
 | 🟢 | `eliminarMiCuenta` | acciones-hostiles | — | — |
 | 🟢 | `marcarCompletado` | ciclo-de-trabajo | — | — |
 | 🟢 | `publicarTrabajo` | acciones-hostiles | formularios-hostiles | — |

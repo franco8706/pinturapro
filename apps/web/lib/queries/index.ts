@@ -27,6 +27,7 @@ export {
   getCancelacionesTrasAceptar,
   getMisPagos,
   getTransferenciasParaAdmin,
+  getUltimosPagosParaAdmin,
 } from "./suscripciones";
 export type {
   CondicionesDeCobro,
@@ -36,6 +37,8 @@ export type {
   CancelacionTrasAceptar,
   MisPagos,
   TransferenciaParaAdmin,
+  ColaDeTransferencias,
+  PagoParaAdmin,
 } from "./suscripciones";
 export type { Faq, ResourceKind, Resource, NewsItem } from "./contenido";
 export {

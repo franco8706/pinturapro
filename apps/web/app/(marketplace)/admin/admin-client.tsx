@@ -12,7 +12,8 @@ import type {
   CotizacionAdmin,
   MetricasSuscripciones,
   CancelacionTrasAceptar,
-  TransferenciaParaAdmin,
+  ColaDeTransferencias,
+  PagoParaAdmin,
 } from "@/lib/queries";
 import {
   borrarResena,
@@ -20,6 +21,7 @@ import {
   cargarExtracto,
   confirmarTransferencia,
   rechazarTransferencia,
+  devolverPago,
 } from "./actions";
 import { fechaAR } from "@pinturapro/dominio";
 import { cn } from "@/lib/utils";
@@ -31,8 +33,10 @@ export interface DatosDeCobro {
   cotizaciones: CotizacionAdmin[];
   metricas: MetricasSuscripciones | null;
   cancelaciones: CancelacionTrasAceptar[];
-  transferencias: TransferenciaParaAdmin[];
+  transferencias: ColaDeTransferencias;
+  pagos: PagoParaAdmin[];
   precioArs: number | null;
+  precioUsd: number | null;
 }
 
 export function AdminClient({
@@ -196,7 +200,8 @@ function Cobro({ datos }: { datos: DatosDeCobro }) {
         {vigente ? (
           <p className="font-body text-body-md text-concrete max-w-2xl">
             Vigente: <strong className="text-ink">{ars(vigente.venta)}</strong> (oficial Banco Nación, venta), leído el{" "}
-            {fechaAR(vigente.leidaEn)}. US$5 hoy son <strong className="text-ink">{ars(datos.precioArs)}</strong>.
+            {fechaAR(vigente.leidaEn)}. US${(datos.precioUsd ?? 5).toLocaleString("es-AR")} hoy son{" "}
+            <strong className="text-ink">{ars(datos.precioArs)}</strong>.
           </p>
         ) : (
           <p className="font-body text-body-md text-concrete max-w-2xl">
@@ -221,13 +226,21 @@ function Cobro({ datos }: { datos: DatosDeCobro }) {
               <Td className="tabular-nums text-concrete">{ars(c.control)}</Td>
               <Td>{c.estado === "a_confirmar" ? "A confirmar" : c.estado === "vigente" ? "Vigente" : "Descartada"}</Td>
               <Td className="text-concrete max-w-sm [overflow-wrap:anywhere]">{c.motivo ?? "—"}</Td>
-              <Td>{c.estado === "a_confirmar" ? <ConfirmarCotizacion id={c.id} venta={c.venta} /> : null}</Td>
+              <Td>
+                {c.estado === "a_confirmar" ? (
+                  <ConfirmarCotizacion id={c.id} venta={c.venta} etiqueta="Confirmar" />
+                ) : c.estado === "descartada" ? (
+                  <ConfirmarCotizacion id={c.id} venta={c.venta} etiqueta="Usarla igual" />
+                ) : null}
+              </Td>
             </tr>
           ))}
         </Table>
       )}
 
-      <Transferencias lista={datos.transferencias} />
+      <Transferencias cola={datos.transferencias} />
+
+      <UltimosPagos pagos={datos.pagos} />
 
       <div>
         <h2 className="font-display text-display-md mb-3">Suscripciones</h2>
@@ -270,9 +283,9 @@ function Cobro({ datos }: { datos: DatosDeCobro }) {
 
 /**
  * Las transferencias: los avisos de los pintores ("Ya transferí"), el extracto del banco que los
- * confirma solo, y confirmar o rechazar a mano lo que no encaja.
+ * confirma solo cuando todo cierra, y lo que queda para mirar a mano, con lo que llegó y por qué.
  */
-function Transferencias({ lista }: { lista: TransferenciaParaAdmin[] }) {
+function Transferencias({ cola }: { cola: ColaDeTransferencias }) {
   const router = useRouter();
   const [resultado, setResultado] = useState("");
   const [error, setError] = useState("");
@@ -281,9 +294,10 @@ function Transferencias({ lista }: { lista: TransferenciaParaAdmin[] }) {
     <div>
       <h2 className="font-display text-display-md mb-3">Transferencias</h2>
       <p className="font-body text-body-sm text-concrete max-w-2xl mb-4">
-        Cargá el extracto del banco en CSV (desde el home banking). Cada línea que trae el código de un pintor
-        (PP-0037) y al menos el 97 % del monto pedido se confirma sola y le suma un mes. Cargar el mismo extracto
-        dos veces no registra nada dos veces.
+        Cargá el extracto del banco en CSV (desde el home banking), con la columna de saldo. Una línea se confirma
+        sola si trae el código de un pintor (PP-0037), al menos el 97 % de lo pedido, y cierra con el saldo de las
+        líneas de al lado. Lo demás queda acá abajo para que lo mires contra el banco. Cargar el mismo extracto dos
+        veces no registra nada dos veces.
       </p>
       <form
         className="flex flex-wrap items-center gap-3 mb-6"
@@ -297,8 +311,17 @@ function Transferencias({ lista }: { lista: TransferenciaParaAdmin[] }) {
             if (r.error) setError(r.error);
             else if (r.resumen) {
               const s = r.resumen;
+              if (!s.entendido) {
+                setError("No encontramos el encabezado del extracto (una columna de fecha y una de importe o crédito).");
+                return;
+              }
+              const avisos = [
+                s.ilegibles ? `${s.ilegibles} líneas no se pudieron leer (otra cantidad de columnas): miralas en el banco` : "",
+                s.conError ? `${s.conError} líneas fallaron: volvé a cargar el archivo` : "",
+                !s.conSaldo ? "el extracto no trae saldo, así que nada se confirmó solo" : "",
+              ].filter(Boolean);
               setResultado(
-                `${s.lineas} créditos leídos: ${s.confirmadas} confirmadas, ${s.aRevisar} para revisar, ${s.yaCargadas} ya cargadas antes, ${s.sinCodigo} sin código, ${s.codigoDesconocido} con un código que no es de nadie.`,
+                `${s.lineas} créditos leídos: ${s.confirmadas} confirmadas, ${s.aRevisar} para revisar, ${s.yaCargadas} ya cargadas antes, ${s.sinCodigo} sin código, ${s.codigoDesconocido} con un código que no es de nadie.${avisos.length ? ` Ojo: ${avisos.join("; ")}.` : ""}`,
               );
               router.refresh();
             }
@@ -325,31 +348,54 @@ function Transferencias({ lista }: { lista: TransferenciaParaAdmin[] }) {
           {error}
         </p>
       )}
-      {lista.length === 0 ? (
+      {cola.filas.length === 0 ? (
         <p className="font-body text-body-md text-concrete">No hay transferencias esperando.</p>
       ) : (
-        <Table headers={["Avisó", "Pintor", "Código", "Monto pedido", "Estado", ""]}>
-          {lista.map((x) => (
-            <tr key={x.id} className="border-b border-concrete/10 align-top">
-              <Td className="text-concrete whitespace-nowrap">{fechaAR(x.creado)}</Td>
-              <Td>{x.pintor}</Td>
-              <Td className="font-mono">{x.codigo ?? "—"}</Td>
-              <Td className="tabular-nums">{ars(x.montoArs)}</Td>
-              <Td>{x.estado === "a_revisar" ? "Para revisar (no alcanza)" : "Esperando"}</Td>
-              <Td>
-                <AccionTransferencia id={x.id} />
-              </Td>
-            </tr>
-          ))}
-        </Table>
+        <>
+          <Table headers={["Fecha", "Pintor", "Código", "Pedido", "Llegó", "Estado", ""]}>
+            {cola.filas.map((x) => (
+              <tr key={x.id} data-cobro={x.id} className="border-b border-concrete/10 align-top">
+                <Td className="text-concrete whitespace-nowrap">{fechaAR(x.creado)}</Td>
+                <Td>{x.pintor}</Td>
+                <Td className="font-mono">{x.codigo ?? "—"}</Td>
+                <Td className="tabular-nums">{ars(x.montoArs)}</Td>
+                <Td className="tabular-nums">{x.recibido == null ? "—" : ars(x.recibido)}</Td>
+                <Td className="max-w-sm">
+                  {x.estado === "a_revisar" ? (
+                    <>
+                      <span className="text-ink">Para revisar: {x.motivo ?? "no se pudo confirmar sola"}</span>
+                      {x.linea && (
+                        <span className="block font-mono text-mono-sm text-concrete [overflow-wrap:anywhere] mt-1" title={x.linea}>
+                          {x.linea.length > 120 ? `${x.linea.slice(0, 120)}…` : x.linea}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-concrete">Esperando (vale hasta el {fechaAR(x.venceEn)})</span>
+                  )}
+                </Td>
+                <Td>
+                  <AccionTransferencia id={x.id} monto={x.recibido ?? x.montoArs} />
+                </Td>
+              </tr>
+            ))}
+          </Table>
+          {cola.ocultas > 0 && (
+            <p className="font-body text-body-sm text-[#C41E3A] mt-3">
+              Hay {cola.ocultas} más que no entran en la lista: resolvé las de arriba y aparecen.
+            </p>
+          )}
+        </>
       )}
     </div>
   );
 }
 
-function AccionTransferencia({ id }: { id: string }) {
+/** "Llegó" en dos clics, diciendo cuánto se va a registrar; "No llegó" anula sin tocar el libro. */
+function AccionTransferencia({ id, monto }: { id: string; monto: number }) {
   const router = useRouter();
   const [error, setError] = useState("");
+  const [confirmar, setConfirmar] = useState(false);
   const [pendiente, empezar] = useTransition();
   const hacer = (accion: (id: string) => Promise<{ error?: string; ok?: boolean }>) =>
     empezar(async () => {
@@ -359,22 +405,132 @@ function AccionTransferencia({ id }: { id: string }) {
     });
   return (
     <span className="flex flex-col gap-1">
+      {confirmar ? (
+        <span className="flex gap-3 whitespace-nowrap">
+          <button
+            type="button"
+            disabled={pendiente}
+            onClick={() => hacer(confirmarTransferencia)}
+            className="py-1 font-body text-body-sm text-ink underline underline-offset-4"
+          >
+            {pendiente ? "Registrando…" : `Sí, registrar ${ars(monto)}`}
+          </button>
+          <button
+            type="button"
+            disabled={pendiente}
+            onClick={() => setConfirmar(false)}
+            className="py-1 font-body text-body-sm text-concrete underline underline-offset-4"
+          >
+            Cancelar
+          </button>
+        </span>
+      ) : (
+        <span className="flex gap-3 whitespace-nowrap">
+          <button
+            type="button"
+            disabled={pendiente}
+            onClick={() => setConfirmar(true)}
+            className="py-1 font-body text-body-sm text-ink underline underline-offset-4"
+          >
+            Llegó
+          </button>
+          <button
+            type="button"
+            disabled={pendiente}
+            onClick={() => hacer(rechazarTransferencia)}
+            className="py-1 font-body text-body-sm text-concrete underline underline-offset-4"
+          >
+            No llegó
+          </button>
+        </span>
+      )}
+      {error && (
+        <span role="alert" className="font-body text-body-sm text-[#C41E3A]">
+          {error}
+        </span>
+      )}
+    </span>
+  );
+}
+
+/**
+ * Lo que entró al libro, sea solo o a mano: antes nada de eso se veía y un pago mal confirmado
+ * no dejaba huella en pantalla. "Devolver" registra la devolución y le saca ese mes al pintor.
+ */
+function UltimosPagos({ pagos }: { pagos: PagoParaAdmin[] }) {
+  return (
+    <div>
+      <h2 className="font-display text-display-md mb-3">Últimos pagos</h2>
+      {pagos.length === 0 ? (
+        <p className="font-body text-body-md text-concrete">Todavía no entró ningún pago.</p>
+      ) : (
+        <Table headers={["Registrado", "En el banco", "Pintor", "Monto", "Origen", ""]}>
+          {pagos.map((p) => (
+            <tr key={p.id} data-pago={p.id} className="border-b border-concrete/10 align-top">
+              <Td className="text-concrete whitespace-nowrap">{fechaAR(p.fecha)}</Td>
+              <Td className="text-concrete whitespace-nowrap">{p.fechaBanco ? fechaAR(`${p.fechaBanco}T12:00:00-03:00`) : "—"}</Td>
+              <Td>{p.pintor}</Td>
+              <Td className="tabular-nums">
+                {p.tipo === "cobro" ? "" : "−"}
+                {ars(p.montoArs)}
+              </Td>
+              <Td className="max-w-sm">
+                <span>{p.origen}</span>
+                {p.linea && (
+                  <span className="block font-mono text-mono-sm text-concrete [overflow-wrap:anywhere] mt-1" title={p.linea}>
+                    {p.linea.length > 120 ? `${p.linea.slice(0, 120)}…` : p.linea}
+                  </span>
+                )}
+              </Td>
+              <Td>{p.tipo === "cobro" ? p.devuelto ? <span className="text-concrete">Devuelto</span> : <Devolver id={p.id} monto={p.montoArs} /> : null}</Td>
+            </tr>
+          ))}
+        </Table>
+      )}
+    </div>
+  );
+}
+
+function Devolver({ id, monto }: { id: string; monto: number }) {
+  const router = useRouter();
+  const [confirmar, setConfirmar] = useState(false);
+  const [error, setError] = useState("");
+  const [pendiente, empezar] = useTransition();
+  if (!confirmar) {
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirmar(true)}
+        className="py-1 font-body text-body-sm text-concrete underline underline-offset-4 hover:text-ink whitespace-nowrap"
+      >
+        Devolver
+      </button>
+    );
+  }
+  return (
+    <span className="flex flex-col gap-1">
       <span className="flex gap-3 whitespace-nowrap">
         <button
           type="button"
           disabled={pendiente}
-          onClick={() => hacer(confirmarTransferencia)}
+          onClick={() =>
+            empezar(async () => {
+              const r = await devolverPago(id);
+              if (r.error) setError(r.error);
+              else router.refresh();
+            })
+          }
           className="py-1 font-body text-body-sm text-ink underline underline-offset-4"
         >
-          Llegó
+          {pendiente ? "Registrando…" : `Sí, devolví ${ars(monto)}`}
         </button>
         <button
           type="button"
           disabled={pendiente}
-          onClick={() => hacer(rechazarTransferencia)}
+          onClick={() => setConfirmar(false)}
           className="py-1 font-body text-body-sm text-concrete underline underline-offset-4"
         >
-          No llegó
+          No
         </button>
       </span>
       {error && (
@@ -387,7 +543,7 @@ function AccionTransferencia({ id }: { id: string }) {
 }
 
 /** Dos clics, como dar de baja una reseña: cambia el precio que pagan todos. */
-function ConfirmarCotizacion({ id, venta }: { id: number; venta: number }) {
+function ConfirmarCotizacion({ id, venta, etiqueta }: { id: number; venta: number; etiqueta: string }) {
   const router = useRouter();
   const [confirmar, setConfirmar] = useState(false);
   const [error, setError] = useState("");
@@ -399,7 +555,7 @@ function ConfirmarCotizacion({ id, venta }: { id: number; venta: number }) {
         onClick={() => setConfirmar(true)}
         className="py-1 font-body text-body-sm text-concrete underline underline-offset-4 hover:text-ink whitespace-nowrap"
       >
-        Confirmar
+        {etiqueta}
       </button>
     );
   }

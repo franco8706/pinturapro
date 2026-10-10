@@ -510,5 +510,56 @@ select case when public.puede_cotizar() then 'OK 12h: en una base de pruebas que
 \echo :resultado
 reset role;
 
+-- ── 13. Lo que encontraron abuso-marketplace y dinero-y-comisiones (8/10/2026) ──
+-- Un pago y un aviso de Martín para mirar con su sesión.
+insert into public.cobros (id, pintor_id, plan_id, medio, monto_usd, monto_ars, codigo, estado, vence_en, datos)
+values ('00000000-0000-0000-0000-0000000c0b01', :'martin', 'pintor', 'transferencia', 5, 7700, 'PP-0001', 'pendiente',
+        now() + interval '3 days', '{"linea": "08/10/2026;PP-0001;7.700,00;1.234.567,89"}');
+insert into public.pagos_suscripcion (pintor_id, proveedor, tipo, proveedor_evento_id, monto_ars, fecha, fecha_banco, linea_extracto)
+values (:'martin', 'transferencia', 'cobro', 'extracto:probar-0027', 7700, now(), current_date, '08/10/2026;PP-0001;;7.700,00;1.234.567,89');
+set local role authenticated;
+select pg_temp.como(:'martin');
+do $$
+begin
+  perform linea_extracto from public.pagos_suscripcion;
+  raise notice '¡FALLÓ! 13a: el pintor lee la línea del extracto (con el saldo de la cuenta del negocio)';
+exception when insufficient_privilege then raise notice 'OK 13a: el pintor no lee la línea del extracto';
+end $$;
+do $$
+begin
+  perform confirmado_por from public.pagos_suscripcion;
+  raise notice '¡FALLÓ! 13b: el pintor ve quién confirmó su pago';
+exception when insufficient_privilege then raise notice 'OK 13b: el pintor no ve la cuenta del admin';
+end $$;
+do $$
+begin
+  perform datos from public.cobros;
+  raise notice '¡FALLÓ! 13c: el pintor lee lo guardado para revisar';
+exception when insufficient_privilege then raise notice 'OK 13c: el pintor no lee lo guardado para revisar';
+end $$;
+do $$
+declare n int;
+begin
+  select count(*) into n from public.pagos_suscripcion where fecha_banco is not null and monto_ars = 7700;
+  if n = 1 then raise notice 'OK 13d: el pintor sí lee su pago (fecha, monto, día del banco)';
+  else raise notice '¡FALLÓ! 13d: el pintor no ve su propio pago (%)', n; end if;
+end $$;
+reset role;
+select pg_temp.sin_identidad();
+do $$
+begin
+  insert into public.cobros (pintor_id, plan_id, medio, monto_usd, monto_ars, codigo, estado, vence_en)
+  select pintor_id, 'pintor', 'transferencia', 5, 7700, 'PP-0001', 'pendiente', now() + interval '3 days'
+  from public.cobros where id = '00000000-0000-0000-0000-0000000c0b01';
+  raise notice '¡FALLÓ! 13e: un pintor quedó con dos avisos vivos';
+exception when unique_violation then raise notice 'OK 13e: un solo aviso de transferencia vivo por pintor';
+end $$;
+do $$
+begin
+  update public.pagos_suscripcion set fecha_banco = fecha_banco - 30 where proveedor_evento_id = 'extracto:probar-0027';
+  raise notice '¡FALLÓ! 13f: se movió el día del banco de un pago';
+exception when others then raise notice 'OK 13f: el día del banco tampoco se edita -> %', sqlerrm;
+end $$;
+
 rollback;
 \echo '— fin: todo deshecho —'

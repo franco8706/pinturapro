@@ -66,8 +66,16 @@ export async function GET() {
     // la 0027, no hay nada que mostrar (y no es un error).
     const [suscripciones, cobros, pagos] = await Promise.all([
       admin.from("suscripciones").select("*").eq("pintor_id", yo),
-      admin.from("cobros").select("*").eq("pintor_id", yo),
-      admin.from("pagos_suscripcion").select("*").eq("pintor_id", yo),
+      // Sin la línea del extracto ni lo guardado para revisar: traen el SALDO de la cuenta del
+      // negocio y quién lo confirmó, que no son datos de esta persona (8/10/2026).
+      admin
+        .from("cobros")
+        .select("id, medio, monto_usd, monto_ars, monto_recibido, cotizacion_id, codigo, estado, vence_en, pagado_en, created_at")
+        .eq("pintor_id", yo),
+      admin
+        .from("pagos_suscripcion")
+        .select("id, proveedor, tipo, proveedor_evento_id, anula, monto_ars, cotizacion_id, fecha, fecha_banco, modo")
+        .eq("pintor_id", yo),
     ]);
 
     // ── Las fotos ──

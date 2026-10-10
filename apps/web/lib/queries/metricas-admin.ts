@@ -81,7 +81,6 @@ export interface MetricasPlataforma {
   cotizaciones: number;
   trabajosCompletados: number;
   volumen: number;
-  comision: number;
 }
 
 export interface MesVolumen {
@@ -121,7 +120,6 @@ export async function getMetricasPlataforma(): Promise<MetricasPlataforma | null
       cotizaciones: number;
       trabajos_completados: number;
       volumen: number;
-      comision: number;
     }[];
     if (filas.length === 0) return null;
     const m = filas[0];
@@ -130,7 +128,6 @@ export async function getMetricasPlataforma(): Promise<MetricasPlataforma | null
       cotizaciones: Number(m.cotizaciones),
       trabajosCompletados: Number(m.trabajos_completados),
       volumen: Number(m.volumen),
-      comision: Number(m.comision),
     };
   } catch (e) {
     dbError("getMetricasPlataforma", e);

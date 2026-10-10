@@ -83,6 +83,7 @@ export type EstadoCotizacion = "vigente" | "a_confirmar" | "descartada";
  *  · Sin lectura válida de la fuente principal → `null`: no hay nada que guardar.
  *  · La de control difiere más del 5 % → `descartada` (una de las dos está rota).
  *  · Salta más del 10 % respecto de la vigente → `a_confirmar`: la confirma el dueño en /admin.
+ *  · Sin control ni lectura anterior (la primera de todas) → `a_confirmar`.
  *  · Si no → `vigente`. Sin fuente de control, igual vale: alcanza con que no salte.
  */
 export function evaluarCotizacion(
@@ -98,6 +99,11 @@ export function evaluarCotizacion(
   }
   if (valida(anterior) && Math.abs(principal - anterior) / anterior > saltoMaximo) {
     return { estado: "a_confirmar", motivo: `salta ${Math.round((principal / anterior - 1) * 100)} % respecto de ${anterior}` };
+  }
+  // Sin control y sin una anterior no hay con qué comparar: la primera lectura de todas, con el
+  // BCRA caído, entraba igual (se probó con 15.400). La confirma el dueño (8/10/2026).
+  if (!valida(control) && !valida(anterior)) {
+    return { estado: "a_confirmar", motivo: "es la primera lectura y no hay fuente de control con qué compararla" };
   }
   return { estado: "vigente", motivo: valida(control) ? "coincide con la fuente de control" : "sin fuente de control" };
 }
@@ -131,10 +137,19 @@ export function vigenteHasta(movimientos: Movimiento[], { desde }: { desde?: Dat
     .filter((m) => m.tipo === "cobro" && !anulados.has(m.eventoId))
     .map((m) => new Date(piso !== null ? Math.max(new Date(m.fecha).getTime(), piso) : new Date(m.fecha).getTime()))
     .sort((a, b) => a.getTime() - b.getTime());
+  // Los meses seguidos se cuentan desde el día en que empezó la racha, no encadenando
+  // vencimientos: encadenados, el 31/1 → 28/2 → 28/3… y 12 pagos puntuales terminaban el 28/1 del
+  // año siguiente, 3 días antes (dinero-y-comisiones, 8/10/2026).
+  let ancla: Date | null = null;
+  let meses = 0;
   let hasta: Date | null = null;
   for (const fecha of cobros) {
-    const desde: Date = hasta && hasta.getTime() > fecha.getTime() ? hasta : fecha;
-    hasta = sumarMes(desde);
+    if (ancla && hasta && hasta.getTime() >= fecha.getTime()) meses++;
+    else {
+      ancla = fecha;
+      meses = 1;
+    }
+    hasta = sumarMes(ancla, meses);
   }
   return hasta;
 }
@@ -201,11 +216,25 @@ export function codigoDeTransferencia(numero: number): string {
   return `PP-${String(Math.trunc(numero)).padStart(4, "0")}`;
 }
 
-/** Busca el código en el concepto de una línea del extracto. Los bancos lo recortan o le sacan el guion. */
+/**
+ * Los códigos que trae el concepto de una línea del extracto, sin repetir. Los bancos le sacan el
+ * guion, y el autocorrector del teléfono lo cambia por una raya ("PP–0037"). Sólo cuenta la forma
+ * EXACTA del número: "PP-003" (un dígito de menos), "PP-00371" (uno de más) o "PP 3 CUOTAS" eran el
+ * código de OTRO pintor, que recibía el mes que pagó éste (dinero-y-comisiones, 8/10/2026).
+ */
+export function codigosEnTexto(texto: unknown): string[] {
+  if (typeof texto !== "string") return [];
+  const codigos = new Set<string>();
+  for (const m of texto.matchAll(/\bPP[\s\-_.\u2010-\u2015]{0,3}(\d{4,7})\b/gi)) {
+    const n = Number(m[1]);
+    if (n > 0 && m[1] === String(n).padStart(4, "0")) codigos.add(codigoDeTransferencia(n));
+  }
+  return [...codigos];
+}
+
+/** El primer código del concepto, o null. */
 export function codigoEnTexto(texto: unknown): string | null {
-  if (typeof texto !== "string") return null;
-  const m = /\bPP[\s\-_.]?0*(\d{1,7})\b/i.exec(texto);
-  return m ? codigoDeTransferencia(Number(m[1])) : null;
+  return codigosEnTexto(texto)[0] ?? null;
 }
 
 /** Si lo transferido alcanza para el monto pedido (con la tolerancia del dólar que se movió). */

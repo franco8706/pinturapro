@@ -32,7 +32,7 @@ export const metadata: Metadata = {
 
 // Si cambiás el TEXTO de esta página, cambiá esta fecha: estuvo en "10 de septiembre" mientras
 // el contenido se reescribía tres veces (marketplace puro, cancelaciones, qué es público).
-const ULTIMA_ACTUALIZACION = "8 de octubre de 2026";
+const ULTIMA_ACTUALIZACION = "10 de octubre de 2026";
 const CONTACTO = "hola@pinturapro.ar";
 
 function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
@@ -149,8 +149,9 @@ export default function TerminosPage() {
             <p>
               Para enviar cotizaciones, un pintor o una empresa necesita una{" "}
               <strong>suscripción mensual de US$5</strong>. Se cobra <strong>en pesos</strong>, al
-              dólar oficial vendedor del Banco Nación del día en que se genera el cobro, y el
-              precio en pesos se muestra siempre antes de pagar. Es el precio final.
+              dólar oficial vendedor del Banco Nación del día en que se genera el cobro,
+              redondeado hacia arriba a la centena de pesos, y el precio en pesos se muestra
+              siempre antes de pagar. Es el precio final.
             </p>
             <p>
               <strong>Durante el lanzamiento, cotizar es gratis.</strong> Antes de que empiece el
@@ -162,7 +163,9 @@ export default function TerminosPage() {
               solo cada mes), con el <strong>QR del mes</strong> o por{" "}
               <strong>transferencia</strong> con el código de cada pintor. Pintura Pro no guarda
               datos de tarjetas: los maneja Mercado Pago. Cada pago aprobado suma un mes de acceso,
-              contado desde el vencimiento anterior, así que pagar antes no hace perder días.
+              contado desde el vencimiento anterior, así que pagar antes no hace perder días. Una
+              transferencia vale por el monto que te mostramos al avisarla, si llega mientras ese
+              aviso está vigente (3 días); si no, por el precio del día en que llega.
             </p>
             <p>
               Si un débito automático no entra, Mercado Pago lo reintenta y seguís cotizando{" "}

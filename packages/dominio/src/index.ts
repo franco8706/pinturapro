@@ -36,6 +36,7 @@ export {
   sumarDias,
   codigoDeTransferencia,
   codigoEnTexto,
+  codigosEnTexto,
   transferenciaAlcanza,
   MOTIVO_SIN_SUSCRIPCION,
   DIAS_DE_GRACIA,
@@ -48,4 +49,4 @@ export {
   type Movimiento,
   type TipoMovimiento,
 } from "./suscripcion";
-export { leerExtracto, montoDeExtracto, type LineaDeExtracto } from "./extracto";
+export { leerExtracto, analizarExtracto, montoDeExtracto, fechaDeExtracto, type LineaDeExtracto, type ExtractoLeido } from "./extracto";

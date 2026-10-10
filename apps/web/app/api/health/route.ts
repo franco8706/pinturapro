@@ -32,6 +32,12 @@ const SONDAS = [
 
 const TIMEOUT_MS = 8_000;
 
+// Es público y sin sesión: cada visita eran 7 consultas a la base, y un robot multiplicaba por 7
+// lo que pedía (abuso-marketplace, 8/10/2026). Las sondas se reusan 10 s; el monitor mira cada
+// minuto, así que no se pierde nada. Un resultado con fallas no se guarda: se vuelve a medir.
+const SONDAS_VALEN_MS = 10_000;
+let ultimasSondas: { hasta: number; resultados: { nombre: string; ok: boolean; motivo?: string }[] } | null = null;
+
 export async function GET() {
   const started = Date.now();
 
@@ -52,7 +58,8 @@ export async function GET() {
         new Promise<"timeout">((r) => setTimeout(() => r("timeout"), TIMEOUT_MS)),
       ]);
 
-    const resultados = await Promise.all(
+    const guardadas = ultimasSondas && ultimasSondas.hasta > Date.now() ? ultimasSondas.resultados : null;
+    const resultados = guardadas ?? await Promise.all(
       SONDAS.map(async (s) => {
         const r = await conTimeout(
           s.tipo === "tabla"
@@ -67,6 +74,7 @@ export async function GET() {
 
     const ms = Date.now() - started;
     const fallaron = resultados.filter((r) => !r.ok);
+    ultimasSondas = fallaron.length ? null : { hasta: guardadas ? ultimasSondas!.hasta : Date.now() + SONDAS_VALEN_MS, resultados };
 
     if (fallaron.length > 0) {
       // El motivo va al log del servidor, no a la respuesta: puede traer nombres de tablas.

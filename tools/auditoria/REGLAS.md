@@ -226,6 +226,23 @@ Todas pasaron en este proyecto. Si escribís una prueba, revisá que no caiga en
   como un usuario común. Para probar una policy o un trigger, `base.comoUsuario(email, pass)`
   (`regresiones/base.cjs`), que pasa por las mismas reglas que la web y que un `curl`.
 
+### Trampas de la plata (lo que encontraron abuso-marketplace y dinero-y-comisiones, 8/10/2026)
+
+- **Un archivo de afuera trae texto que escribió el que paga.** El concepto de una transferencia
+  termina adentro del CSV del banco: con el separador, comillas o un salto de línea adentro, corre
+  las columnas o mete una línea entera. Un lector de archivos ajenos decide el separador por el
+  encabezado, no lee una fila con otra cantidad de columnas, y comprueba cada monto contra algo
+  que el que paga no controla (el saldo). Sin eso, nada se confirma solo.
+- **Dos caminos al mismo pago, dos llaves que no se conocen.** "Llegó" a mano (`manual:<id>`) y la
+  línea del extracto (`extracto:<hash>`) eran el mismo dinero con llaves distintas: dos meses por un
+  pago. Toda vía nueva de registrar un pago (Mercado Pago incluido) mira si ya hay uno parecido del
+  mismo pintor, por monto y fecha, antes de confirmar sola.
+- **Un vencimiento que nadie mira no vence.** El aviso decía "vale 3 días" y ningún lector miraba
+  `vence_en`: fijaba el dólar de hacía meses. Si una fila tiene fecha de vencimiento, CADA consulta
+  que la usa la filtra, y la prueba la envejece a mano (`base.actualizar` sobre `created_at`).
+- **Lo que llegó no es lo que se pidió.** El libro guarda lo que entró de verdad; lo pedido es
+  otro dato. Confundirlos infla el ingreso del mes y la factura.
+
 ### Trampas de la base
 
 - **Una función nueva no existe para la API hasta recargar su caché**:

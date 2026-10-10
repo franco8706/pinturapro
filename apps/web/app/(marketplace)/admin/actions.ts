@@ -76,7 +76,9 @@ export async function confirmarCotizacion(id: number): Promise<{ error?: string;
     .from("cotizaciones_dolar")
     .update({ estado: "vigente", confirmada_por: user.id, confirmada_en: new Date().toISOString() } as never)
     .eq("id", id)
-    .eq("estado", "a_confirmar")
+    // También una descartada: en una devaluación el control (BCRA) se atrasa un día y la lectura
+    // real quedaba descartada sin forma de usarla (dinero-y-comisiones, 8/10/2026).
+    .in("estado", ["a_confirmar", "descartada"])
     .select("id, venta");
   if (error) return { error: "No pudimos confirmar la cotización. Probá de nuevo." };
   const fila = (data as unknown as { id: number; venta: number }[] | null)?.[0];
@@ -115,12 +117,25 @@ export async function cargarExtracto(
   const archivo = formData.get("extracto");
   if (!(archivo instanceof File) || archivo.size === 0) return { error: "Elegí el archivo del extracto (CSV)." };
   if (archivo.size > 2_000_000) return { error: "El archivo es demasiado grande (máximo 2 MB)." };
-  const texto = await archivo.text();
+  // Muchos bancos exportan en Windows-1252 (Latin-1): leído como UTF-8, "Crédito" no se reconocía
+  // y el extracto daba 0 créditos sin decir por qué (abuso-marketplace, 8/10/2026).
+  const bytes = new Uint8Array(await archivo.arrayBuffer());
+  let texto: string;
+  try {
+    texto = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    texto = new TextDecoder("windows-1252").decode(bytes);
+  }
   const { procesarExtracto } = await import("@/lib/pagos/transferencia");
-  const resumen = await procesarExtracto(texto, quien.id);
-  console.info("[transferencias] extracto cargado", JSON.stringify({ ...resumen, por: quien.id }));
-  revalidatePath("/admin");
-  return { resumen };
+  try {
+    const resumen = await procesarExtracto(texto, quien.id);
+    console.info("[transferencias] extracto cargado", JSON.stringify({ ...resumen, por: quien.id }));
+    revalidatePath("/admin");
+    return { resumen };
+  } catch (e) {
+    console.error("[transferencias] el extracto no se pudo procesar:", e instanceof Error ? e.message : e);
+    return { error: "No pudimos procesar el extracto. Probá de nuevo; si sigue, revisá el archivo." };
+  }
 }
 
 /** Confirmar a mano un aviso de transferencia (el dueño vio la plata en el banco). */
@@ -131,6 +146,7 @@ export async function confirmarTransferencia(cobroId: string): Promise<{ error?:
   const { confirmarTransferenciaAMano } = await import("@/lib/pagos/transferencia");
   const r = await confirmarTransferenciaAMano(cobroId, quien.id);
   if (r === "no_existe") return { error: "Esa transferencia ya no existe." };
+  if (r === "anulado") return { error: "Esa transferencia ya se marcó como que no llegó." };
   console.info("[transferencias] confirmada a mano", JSON.stringify({ cobro: cobroId, por: quien.id, resultado: r }));
   revalidatePath("/admin");
   return { ok: true };
@@ -148,6 +164,28 @@ export async function rechazarTransferencia(cobroId: string): Promise<{ error?: 
     .in("estado", ["pendiente", "a_revisar"]);
   if (error) return { error: "No pudimos rechazarla. Probá de nuevo." };
   console.info("[transferencias] rechazada", JSON.stringify({ cobro: cobroId, por: quien.id }));
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+/**
+ * Registrar una devolución: el arrepentimiento que prometen los términos, o un pago que no
+ * correspondía. El pago queda anulado en el libro (que no se borra) y el acceso se recalcula sin
+ * ese mes. La plata la devuelve el dueño desde el banco.
+ */
+export async function devolverPago(pagoId: string): Promise<{ error?: string; ok?: boolean }> {
+  if (!esTexto(pagoId) || !ES_UUID.test(pagoId)) return { error: "Falta el pago." };
+  const quien = await adminQueLlama();
+  if ("error" in quien) return { error: quien.error };
+  const { registrarDevolucion } = await import("@/lib/pagos/transferencia");
+  try {
+    const r = await registrarDevolucion(pagoId, quien.id);
+    if (r === "no_existe") return { error: "Ese pago no existe." };
+    console.info("[transferencias] devolución", JSON.stringify({ pago: pagoId, por: quien.id, resultado: r }));
+  } catch (e) {
+    console.error("[transferencias] la devolución falló:", e instanceof Error ? e.message : e);
+    return { error: "No pudimos registrar la devolución. Probá de nuevo." };
+  }
   revalidatePath("/admin");
   return { ok: true };
 }

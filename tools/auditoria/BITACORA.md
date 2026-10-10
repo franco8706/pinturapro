@@ -101,6 +101,12 @@ Estos ya no se reportan. `pnpm verificar` los revisa en cada corrida.
 | La transferencia (etapa 3, 8/10, nuevo) | El pintor avisa "Ya transferí" con su código; el extracto del banco cargado en /admin → Cobro confirma solo lo que trae el código y al menos el 97 %; el mismo extracto dos veces no cobra dos veces; lo que no alcanza queda para revisar y se confirma a mano. Un pintor nuevo no veía su código (Next memorizaba la lectura) | `extracto-transferencias` (vista fallar con un id de evento que cambia en cada carga), reglas en `packages/dominio/pruebas.ts` |
 | La prueba de contraste daba 1:1 con la insignia "Silver" (8/10) | Tomaba el primer fondo con color sin su transparencia: `bg-concrete/10` con `text-concrete` (4,9:1 de verdad) daba 1,00:1, y fallaba en cuanto aparecía un pintor sin reseñas. Ahora mezcla las capas translúcidas, también la del texto | `accesibilidad` (verde con un pintor Silver; rojo, 1,45:1, con el texto de la insignia al 30 %) |
 | Lo de la suscripción que no miraba ninguna prueba (8/10) | El libro de pagos se podía dar por intocable sin probarlo; "No llegó" no tenía prueba; un pintor podía pasar su pedido a obra si se apagaba `tipo_de_proyecto_fijo` (la prueba con el cliente daba verde igual: lo frena la policy). Ahora: el libro no se borra ni se edita ni con la clave de servicio, "No llegó" anula sin sumar, el pintor nuevo entra al lanzamiento y las métricas y las cancelaciones las ve sólo el admin. Cobertura: de 26 piezas sin nadie a 13 | `extracto-transferencias`, `suscripcion-requerida`, `trabajos-por-api` (cada regla apagada en la base local dio rojo) |
+| El extracto creía el texto del concepto (abuso-marketplace, 8/10) | El concepto lo escribe el que transfiere y va adentro del CSV: con un `;` sin escapar $1 se leía $7.700 y daba un mes; 25 comas daban vuelta el separador y no se leía nada; un importe imposible rompía la carga entera; un salto de línea metía una línea inventada. Ahora el separador sale del encabezado, una línea con otras columnas no se lee, y con saldo cada movimiento tiene que cerrar con los de al lado (sin saldo, nada se confirma solo); cada línea por separado | `packages/dominio/pruebas.ts` (los ataques del agente, uno por uno) |
+| Una transferencia daba dos o tres meses (los dos agentes, 8/10) | "Llegó" a mano + el extracto, o dos exportaciones del mismo movimiento, tenían llaves distintas: $7.700 → $23.100 en el libro. Ahora un pago parecido (±3 %) del mismo pintor a menos de 7 días va a revisar, y "Llegó" sobre una línea revisada usa la llave de esa línea | `extracto-transferencias` (paso 6, visto fallar con la regla apagada) |
+| El aviso vencido fijaba el dólar viejo (los dos agentes, 8/10) | Nada marcaba `vencido`: un aviso de hacía 40 días validaba $4.850 contra $7.700 de hoy, y "Mi plan" escondía el botón mostrando dos precios. Ahora vale el aviso vigente el día que llegó la plata o el precio de ese día; los vencidos pasan a `vencido`, y un solo aviso vivo por pintor (índice en 0027) | `extracto-transferencias` (paso 7), `probar-0027.sql` 13e |
+| "Llegó" anotaba lo pedido (dinero-y-comisiones, 8/10) | $6.930 transferidos quedaban como $7.700 en el libro y en el ingreso del mes, y el admin no veía cuánto había llegado. Ahora `cobros.monto_recibido`, la línea y el motivo a la vista, "Llegó" en dos clics diciendo cuánto registra, "Últimos pagos" y "Devolver" en /admin → Cobro | `extracto-transferencias` (pasos 4 y 8; la devolución vista fallar sin recalcular el acceso) |
+| El pintor leía el saldo de la cuenta del negocio (los dos agentes, 8/10) | `pagos_suscripcion.linea_extracto` (con el saldo y el CUIT de quien transfirió) y `confirmado_por` se leían por la API con la sesión del pintor, y salían en "mis datos". Ahora grant por columna en las tablas del cobro y el archivo de mis datos sin esas columnas | `probar-0027.sql` 13a-13d, `extracto-transferencias` |
+| Lo chico del cobro (dinero-y-comisiones, 8/10) | Un pago de prueba sumaba acceso real en el recálculo; 12 pagos puntuales desde el 31/1 terminaban el 28/1; "PP-003" o "PP-00371" eran el código de OTRO pintor; dos transferencias iguales el mismo día daban un mes; precio y dólar leídos por separado; el primer dólar sin control entraba sin freno; un dólar descartado por un control atrasado no se podía usar; "comisión" en /panel; el redondeo a la centena sin explicar | `packages/dominio/pruebas.ts`; el resto, a mano |
 ## Corregido, sin prueba todavía
 
 Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arriba.
@@ -197,6 +203,19 @@ Candidatos a la próxima prueba. El que agregue una, la mueve a la tabla de arri
 - **La sesión se validaba dos veces por visita** (1/10): `/api/sesion` salió del middleware.
 
 ## Abierto
+
+- **La cotización enviada sobrevive a la suscripción** (abuso-marketplace, 8/10): un pintor paga un
+  mes, cotiza todo el tablero, deja de pagar, y si un cliente acepta meses después recibe el
+  teléfono igual. El plan aprobado dice "lo enviado sigue". Opciones: que aceptar exija
+  `puede_cotizar(painter_id)`, o que la cotización venza (30 días). **Severidad: decisión del dueño.**
+- **Fijar la fecha de fin del lanzamiento no recalcula a quien ya pagó** (dinero-y-comisiones,
+  8/10): lo pagado durante el lanzamiento cuenta desde su fin, pero si la fecha se pone DESPUÉS del
+  pago, `vigente_hasta` queda viejo (hasta 44 días pagos sin acceso). La pantalla que fije la fecha
+  (etapa 4) tiene que llamar a `recalcularAcceso` para cada pintor que pagó. Hoy no hay pantalla.
+- **Un pago de varios meses da uno:** queda para revisar ("llegó más de lo pedido") y "Llegó" suma
+  un mes. Registrar varios meses de una vez es para cuando haga falta.
+- **El ingreso del mes cuenta por la fecha en que se confirmó**, no la del banco (`fecha_banco`
+  queda guardada): una transferencia del 31/10 confirmada el 2/11 cae en noviembre. Para el contador.
 
 - **Faltan datos legales del responsable** (razón social, CUIT, domicilio). La pantalla ahora lo
   avisa en vez de aparentar estar completa, pero el dato lo tiene que poner el dueño. Además de

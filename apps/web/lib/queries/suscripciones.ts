@@ -14,7 +14,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createPublicClient } from "@/lib/supabase/publico";
 import { publico, ETIQUETAS } from "@/lib/cache-publico";
-import { estadoDeAcceso, textoDeAcceso, type EstadoAcceso } from "@pinturapro/dominio";
+import { estadoDeAcceso, textoDeAcceso, precioEnPesos, type EstadoAcceso } from "@pinturapro/dominio";
 import { dbError, SUPA } from "./base";
 
 /** La tabla o la función no existen todavía: la base está antes de la 0027. No es un error. */
@@ -59,15 +59,16 @@ async function leer_getCondicionesDeCobro(): Promise<CondicionesDeCobro> {
   if (!SUPA) return SIN_COBRO;
   try {
     const supabase = createPublicClient();
-    const [ajustes, planes, cotizacion, precio] = await Promise.all([
+    // El precio en pesos sale de la MISMA lectura del dólar que se muestra: leídos por separado
+    // (`cotizacion_vigente()` y `precio_ars()`), un dólar nuevo entre las dos daba un precio de
+    // otra cotización (dinero-y-comisiones, 8/10/2026). Es la misma cuenta que `precio_ars()`.
+    const [ajustes, planes, cotizacion] = await Promise.all([
       supabase.from("ajustes_de_cobro").select("lanzamiento_hasta, exigir_suscripcion, medios_activos").maybeSingle(),
       supabase.from("planes").select("id, nombre, precio_usd, beneficios").eq("id", "pintor").maybeSingle(),
       supabase.rpc("cotizacion_vigente"),
-      // Las funciones de la base no están en los tipos generados: se leen como `unknown`.
-      supabase.rpc("precio_ars", { plan: "pintor" } as never),
     ]);
     if (faltaLaMigracion(ajustes.error)) return SIN_COBRO;
-    for (const [nombre, r] of [["ajustes", ajustes], ["planes", planes], ["cotizacion", cotizacion], ["precio", precio]] as const) {
+    for (const [nombre, r] of [["ajustes", ajustes], ["planes", planes], ["cotizacion", cotizacion]] as const) {
       if (r.error) dbError(`getCondicionesDeCobro:${nombre}`, r.error);
     }
     const a = ajustes.data as { lanzamiento_hasta: string | null; exigir_suscripcion: boolean; medios_activos: string[] | null } | null;
@@ -83,7 +84,7 @@ async function leer_getCondicionesDeCobro(): Promise<CondicionesDeCobro> {
       exigir: a?.exigir_suscripcion ?? true,
       medios: a?.medios_activos ?? [],
       plan: p ? { id: p.id, nombre: p.nombre, precioUsd: Number(p.precio_usd), beneficios: p.beneficios ?? [] } : null,
-      precioArs: typeof (precio.data as unknown) === "number" ? (precio.data as unknown as number) : null,
+      precioArs: p && c ? precioEnPesos(Number(p.precio_usd), Number(c.venta)) : null,
       cotizacion: c ? { venta: Number(c.venta), leidaEn: c.leida_en } : null,
     };
   } catch (e) {
@@ -286,25 +287,37 @@ export async function getCancelacionesTrasAceptar(limite = 30): Promise<Cancelac
 }
 
 export interface MisPagos {
-  /** El aviso de transferencia que espera confirmación, si hay uno vigente. */
-  transferenciaPendiente: { montoArs: number; codigo: string | null; venceEn: string; estado: string } | null;
+  /** El aviso de transferencia que espera la plata, si hay uno VIGENTE (los vencidos no fijan el precio). */
+  transferenciaPendiente: { montoArs: number; codigo: string | null; venceEn: string } | null;
+  /** Una transferencia que llegó con su código y está en revisión (no alcanzó, o hay que mirarla). */
+  enRevision: { montoArs: number; recibido: number | null } | null;
   /** Los últimos pagos registrados (de cualquier medio), del más nuevo al más viejo. */
   historial: { fecha: string; montoArs: number; medio: string; tipo: string }[];
 }
 
-/** Lo que el pintor pagó y lo que tiene pendiente. Con su sesión: la base sólo le devuelve lo suyo. */
+/** Lo que el pintor pagó y lo que tiene pendiente. Con su sesión: la base sólo le devuelve lo suyo, por columna. */
 export async function getMisPagos(userId: string): Promise<MisPagos> {
-  const vacio: MisPagos = { transferenciaPendiente: null, historial: [] };
+  const vacio: MisPagos = { transferenciaPendiente: null, enRevision: null, historial: [] };
   if (!SUPA) return vacio;
   try {
     const supabase = await createClient();
-    const [cobros, pagos] = await Promise.all([
+    const ahora = new Date().toISOString();
+    const [pendiente, revision, pagos] = await Promise.all([
       supabase
         .from("cobros")
-        .select("monto_ars, codigo, vence_en, estado")
+        .select("monto_ars, codigo, vence_en")
         .eq("pintor_id", userId)
         .eq("medio", "transferencia")
-        .in("estado", ["pendiente", "a_revisar"])
+        .eq("estado", "pendiente")
+        .gt("vence_en", ahora)
+        .order("created_at", { ascending: false })
+        .limit(1),
+      supabase
+        .from("cobros")
+        .select("monto_ars, monto_recibido")
+        .eq("pintor_id", userId)
+        .eq("medio", "transferencia")
+        .eq("estado", "a_revisar")
         .order("created_at", { ascending: false })
         .limit(1),
       supabase
@@ -314,10 +327,15 @@ export async function getMisPagos(userId: string): Promise<MisPagos> {
         .order("fecha", { ascending: false })
         .limit(12),
     ]);
-    if (faltaLaMigracion(cobros.error)) return vacio;
-    const c = ((cobros.data ?? []) as unknown as { monto_ars: number; codigo: string | null; vence_en: string; estado: string }[])[0];
+    if (faltaLaMigracion(pendiente.error)) return vacio;
+    for (const [nombre, r] of [["pendiente", pendiente], ["revision", revision], ["pagos", pagos]] as const) {
+      if (r.error) dbError(`getMisPagos:${nombre}`, r.error);
+    }
+    const c = ((pendiente.data ?? []) as unknown as { monto_ars: number; codigo: string | null; vence_en: string }[])[0];
+    const r = ((revision.data ?? []) as unknown as { monto_ars: number; monto_recibido: number | string | null }[])[0];
     return {
-      transferenciaPendiente: c ? { montoArs: c.monto_ars, codigo: c.codigo, venceEn: c.vence_en, estado: c.estado } : null,
+      transferenciaPendiente: c ? { montoArs: c.monto_ars, codigo: c.codigo, venceEn: c.vence_en } : null,
+      enRevision: r ? { montoArs: r.monto_ars, recibido: r.monto_recibido == null ? null : Number(r.monto_recibido) } : null,
       historial: ((pagos.data ?? []) as unknown as { fecha: string; monto_ars: number | string; proveedor: string; tipo: string }[]).map((p) => ({
         fecha: p.fecha,
         montoArs: Number(p.monto_ars),
@@ -335,49 +353,163 @@ export interface TransferenciaParaAdmin {
   id: string;
   pintor: string;
   codigo: string | null;
+  /** Lo que se le pidió (el aviso, o el precio del día de la transferencia). */
   montoArs: number;
+  /** Lo que llegó según el extracto; null en un aviso que todavía espera. */
+  recibido: number | null;
   estado: string;
+  /** Por qué no se confirmó sola ("no alcanza", "posible duplicado del pago del 8/10"…). */
+  motivo: string | null;
+  /** La línea del extracto, para mirarla contra el banco. */
+  linea: string | null;
   creado: string;
   venceEn: string;
 }
 
-/** Los avisos de transferencia que esperan al dueño. Lee con la clave de servicio: sólo desde una página que ya verificó al admin. */
-export async function getTransferenciasParaAdmin(): Promise<TransferenciaParaAdmin[]> {
-  if (!SUPA || !process.env.SUPABASE_SERVICE_ROLE_KEY) return [];
+export interface ColaDeTransferencias {
+  filas: TransferenciaParaAdmin[];
+  /** Cuántas quedaron afuera de la lista (para que nada desaparezca en silencio). */
+  ocultas: number;
+}
+
+const TOPE_COLA = 100;
+
+/**
+ * Lo que espera al dueño: primero lo que hay que revisar (llegó plata y no se pudo confirmar
+ * sola), después los avisos vigentes. Los vencidos no: antes la cola sólo crecía, cortaba a 50 y
+ * un "para revisar" viejo desaparecía debajo de los avisos nuevos (abuso-marketplace, 8/10/2026).
+ * Lee con la clave de servicio: sólo desde una página que ya verificó al admin.
+ */
+export async function getTransferenciasParaAdmin(): Promise<ColaDeTransferencias> {
+  const vacia: ColaDeTransferencias = { filas: [], ocultas: 0 };
+  if (!SUPA || !process.env.SUPABASE_SERVICE_ROLE_KEY) return vacia;
   try {
     const { createAdminClient } = await import("@/lib/supabase/admin");
     const admin = createAdminClient();
-    const { data, error } = await admin
-      .from("cobros")
-      .select("id, pintor_id, codigo, monto_ars, estado, created_at, vence_en")
-      .eq("medio", "transferencia")
-      .in("estado", ["pendiente", "a_revisar"])
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (error) {
-      if (!faltaLaMigracion(error)) dbError("getTransferenciasParaAdmin", error);
-      return [];
+    const columnas = "id, pintor_id, codigo, monto_ars, monto_recibido, estado, datos, created_at, vence_en";
+    const [revisar, avisos] = await Promise.all([
+      admin
+        .from("cobros")
+        .select(columnas, { count: "exact" })
+        .eq("medio", "transferencia")
+        .eq("estado", "a_revisar")
+        .order("created_at", { ascending: true })
+        .limit(TOPE_COLA),
+      admin
+        .from("cobros")
+        .select(columnas, { count: "exact" })
+        .eq("medio", "transferencia")
+        .eq("estado", "pendiente")
+        .gt("vence_en", new Date().toISOString())
+        .order("created_at", { ascending: false })
+        .limit(TOPE_COLA),
+    ]);
+    if (revisar.error || avisos.error) {
+      const e = revisar.error ?? avisos.error;
+      if (!faltaLaMigracion(e)) dbError("getTransferenciasParaAdmin", e);
+      return vacia;
     }
-    const filas = (data ?? []) as unknown as {
-      id: string; pintor_id: string | null; codigo: string | null; monto_ars: number; estado: string; created_at: string; vence_en: string;
-    }[];
+    type Fila = {
+      id: string; pintor_id: string | null; codigo: string | null; monto_ars: number; monto_recibido: number | string | null;
+      estado: string; datos: { motivo?: string; linea?: string } | null; created_at: string; vence_en: string;
+    };
+    const filas = [...((revisar.data ?? []) as unknown as Fila[]), ...((avisos.data ?? []) as unknown as Fila[])];
     const ids = [...new Set(filas.map((f) => f.pintor_id).filter(Boolean))] as string[];
     const nombres = new Map<string, string>();
     if (ids.length) {
       const { data: perfiles } = await admin.from("profiles").select("id, full_name").in("id", ids);
       for (const p of (perfiles ?? []) as unknown as { id: string; full_name: string | null }[]) nombres.set(p.id, p.full_name ?? "Pintor");
     }
+    const total = (revisar.count ?? 0) + (avisos.count ?? 0);
+    return {
+      ocultas: Math.max(0, total - filas.length),
+      filas: filas.map((f) => ({
+        id: f.id,
+        pintor: f.pintor_id ? nombres.get(f.pintor_id) ?? "Pintor" : "Cuenta dada de baja",
+        codigo: f.codigo,
+        montoArs: f.monto_ars,
+        recibido: f.monto_recibido == null ? null : Number(f.monto_recibido),
+        estado: f.estado,
+        motivo: f.datos?.motivo ?? null,
+        linea: f.datos?.linea ?? null,
+        creado: f.created_at,
+        venceEn: f.vence_en,
+      })),
+    };
+  } catch (e) {
+    dbError("getTransferenciasParaAdmin", e);
+    return vacia;
+  }
+}
+
+export interface PagoParaAdmin {
+  id: string;
+  pintor: string;
+  fecha: string;
+  fechaBanco: string | null;
+  montoArs: number;
+  tipo: string;
+  /** "extracto", "a mano", "devolución"… de dónde salió. */
+  origen: string;
+  linea: string | null;
+  /** Si ya tiene una devolución registrada. */
+  devuelto: boolean;
+}
+
+/**
+ * Los últimos movimientos del libro de pagos, para que cada confirmación (sola o a mano) deje
+ * huella a la vista: antes sólo había un contador de "ingreso del mes" (abuso-marketplace, 8/10/2026).
+ * Clave de servicio: sólo desde una página que ya verificó al admin.
+ */
+export async function getUltimosPagosParaAdmin(limite = 30): Promise<PagoParaAdmin[]> {
+  if (!SUPA || !process.env.SUPABASE_SERVICE_ROLE_KEY) return [];
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("pagos_suscripcion")
+      .select("id, pintor_id, fecha, fecha_banco, monto_ars, tipo, proveedor_evento_id, anula, linea_extracto")
+      .order("registrado_en", { ascending: false })
+      .limit(limite);
+    if (error) {
+      if (!faltaLaMigracion(error)) dbError("getUltimosPagosParaAdmin", error);
+      return [];
+    }
+    type Fila = {
+      id: string; pintor_id: string | null; fecha: string; fecha_banco: string | null; monto_ars: number | string;
+      tipo: string; proveedor_evento_id: string; anula: string | null; linea_extracto: string | null;
+    };
+    const filas = (data ?? []) as unknown as Fila[];
+    const anulados = new Set(filas.filter((f) => f.anula).map((f) => f.anula as string));
+    // Las devoluciones de pagos más viejos que esta página también cuentan.
+    const eventos = filas.filter((f) => f.tipo === "cobro").map((f) => f.proveedor_evento_id);
+    if (eventos.length) {
+      const { data: devs } = await admin.from("pagos_suscripcion").select("anula").in("anula", eventos);
+      for (const d of (devs ?? []) as unknown as { anula: string }[]) anulados.add(d.anula);
+    }
+    const ids = [...new Set(filas.map((f) => f.pintor_id).filter(Boolean))] as string[];
+    const nombres = new Map<string, string>();
+    if (ids.length) {
+      const { data: perfiles } = await admin.from("profiles").select("id, full_name").in("id", ids);
+      for (const p of (perfiles ?? []) as unknown as { id: string; full_name: string | null }[]) nombres.set(p.id, p.full_name ?? "Pintor");
+    }
+    const origen = (f: Fila) =>
+      f.tipo !== "cobro" ? (f.tipo === "devolucion" ? "devolución" : f.tipo)
+        : f.proveedor_evento_id.startsWith("manual:") ? "a mano"
+        : f.proveedor_evento_id.startsWith("extracto:") ? (f.linea_extracto ? "extracto" : "a mano") : f.proveedor_evento_id.split(":")[0];
     return filas.map((f) => ({
       id: f.id,
       pintor: f.pintor_id ? nombres.get(f.pintor_id) ?? "Pintor" : "Cuenta dada de baja",
-      codigo: f.codigo,
-      montoArs: f.monto_ars,
-      estado: f.estado,
-      creado: f.created_at,
-      venceEn: f.vence_en,
+      fecha: f.fecha,
+      fechaBanco: f.fecha_banco,
+      montoArs: Number(f.monto_ars),
+      tipo: f.tipo,
+      origen: origen(f),
+      linea: f.linea_extracto,
+      devuelto: f.tipo === "cobro" && anulados.has(f.proveedor_evento_id),
     }));
   } catch (e) {
-    dbError("getTransferenciasParaAdmin", e);
+    dbError("getUltimosPagosParaAdmin", e);
     return [];
   }
 }

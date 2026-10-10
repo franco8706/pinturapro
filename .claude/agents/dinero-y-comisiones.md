@@ -108,3 +108,11 @@ mirar distinto por eso. El orquestador lo actualiza al cerrar cada ronda.
   tolerancia de la transferencia (97 %). `jobs.commission_*` quedan sólo como historia: una
   comisión que vuelva a aparecer en código o pantalla es un hallazgo (`reglas-compartidas` lo
   vigila).
+- 8/10 (etapa 3): el precio cierra (JS = SQL en 3 millones de casos, 97 % exacto, fechas = Postgres).
+  Lo que no cerraba era el LIBRO: "Llegó" anotaba lo pedido y no lo recibido, la misma plata entraba
+  dos veces por dos caminos, el aviso vencido fijaba el dólar viejo, los pagos de prueba sumaban
+  acceso real y los meses encadenados perdían días en los fines de mes. Todo corregido con prueba.
+  Para la próxima ronda: comparar "Ingreso del mes" contra la suma de `monto_ars` del libro (sólo
+  producción, sin devoluciones) y contra lo acreditado en un extracto de prueba; y mirar que una
+  devolución (`devolverPago`) baje el acceso y el ingreso. Abiertos: fecha de fin del lanzamiento
+  que no recalcula, ingreso por fecha de confirmación (no del banco).
